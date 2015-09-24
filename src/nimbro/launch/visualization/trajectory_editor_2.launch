@@ -1,0 +1,6 @@
+<launch>
+	<include file="$(find nimbro_op_model)/launch/model.launch" />
+
+	<node name="editor" pkg="trajectory_editor_2" type="trajectory_editor_2" required="true" output="screen" />
+</launch>
+

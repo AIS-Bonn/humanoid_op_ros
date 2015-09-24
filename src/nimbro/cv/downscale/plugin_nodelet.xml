@@ -1,0 +1,7 @@
+<library path="lib/libdownscale">
+	<class type="downscale::Downscale" base_class_type="nodelet::Nodelet">
+		<description>
+			Downscale images
+		</description>
+	</class>
+</library>

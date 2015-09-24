@@ -1,0 +1,17 @@
+<launch>
+	<node name="tw" pkg="timewarp" type="timewarp" output="screen">
+<rosparam>
+extra_topics:
+  - /timewarp_test
+</rosparam>
+	</node>
+
+	<param name="/vis/use_sim_time" value="true" />
+
+	<env name="ROS_NAMESPACE" value="vis" />
+	<env name="ROS_ARGUMENTS" value="/tf:=/vis/tf /use_sim_time:=/vis/use_sim_time /clock:=/vis/clock /joint_states:=/vis/joint_states" />
+
+	<node name="rqt" pkg="rqt_gui" type="rqt_gui" required="true" respawn="false" output="screen">
+	</node>
+</launch>
+

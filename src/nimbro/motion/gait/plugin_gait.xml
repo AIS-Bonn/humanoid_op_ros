@@ -1,0 +1,7 @@
+<library path="lib/libgait">
+	<class type="gait::GaitEngine" base_class_type="gait::GaitEngine">
+		<description>
+			Base gait engine implementation
+		</description>
+	</class>
+</library>

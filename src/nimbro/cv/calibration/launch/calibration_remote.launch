@@ -1,0 +1,21 @@
+<launch>
+  <machine name="localhost" address="xq-laptop" default="true">
+  </machine>
+  <machine name="zbox" ros-package-path="/opt/ros/electric/stacks:/home/zbox/devel" address="zbox" user="zbox" password="zbox" timeout="20" default="never">
+	<env name="DISPLAY" value=":0" />
+	<env name="ROS_MASTER_URI" value="http://xq-laptop:11311" />
+  </machine>
+
+  <node machine="zbox" pkg="nodelet_gui_manager" type="nodelet_gui_manager" name="standalone_nodelet" />
+
+  <node machine="zbox" pkg="nodelet" type="nodelet" name="cam" args="load openplatform/camera_v4l2 standalone_nodelet" output="screen">
+	<param name="device" value="/dev/video0" />
+	<param name="configFile" value="$(find camera_v4l2)/launch/cam_settings.yaml" />
+  </node>
+  <node machine="zbox" pkg="nodelet" type="nodelet" name="classificator" args="load openplatform/classificator standalone_nodelet" output="screen">
+  </node>
+
+  <node pkg="nodelet_gui_manager" type="nodelet_gui_manager" required="true" name="calib_nodelet" />
+  <node pkg="nodelet" type="nodelet" name="Calibration" required="true" args="load openplatform/calibration calib_nodelet" output="screen">
+  </node>
+</launch>

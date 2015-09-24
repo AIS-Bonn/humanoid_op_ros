@@ -1,0 +1,3 @@
+<launch>
+	<test test-name="marker_manager_test" pkg="vis_utils" type="marker_manager_test" />
+</launch>

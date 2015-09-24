@@ -1,0 +1,7 @@
+<library path="lib/libhead_control">
+	<class type="headcontrol::HeadControl" base_class_type="robotcontrol::MotionModule">
+		<description>
+			Motion of the robot head.
+		</description>
+	</class>
+</library>

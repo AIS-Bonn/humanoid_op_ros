@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package>
+	<name>plotter</name>
+	<version>0.0.0</version>
+	<description>Displays some curves</description>
+
+	<maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+	<license>TODO</license>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<build_depend>roscpp</build_depend>
+	<build_depend>rqt_gui</build_depend>
+	<build_depend>plot_msgs</build_depend>
+	<build_depend>timewarp</build_depend>
+	<build_depend>config_server</build_depend>
+	<run_depend>roscpp</run_depend>
+	<run_depend>rqt_gui</run_depend>
+	<run_depend>plot_msgs</run_depend>
+	<run_depend>timewarp</run_depend>
+	<run_depend>config_server</run_depend>
+
+	<export>
+		<rqt_gui plugin="${prefix}/plugin_rqt_gui.xml" />
+	</export>
+</package>

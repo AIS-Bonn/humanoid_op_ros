@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+
+import os
+import sys
+
+import rospkg
+r = rospkg.RosPack()
+p = r.get_path('rqt_gui')
+sys.path.append(os.path.join(p, 'src'))
+
+from rqt_gui.main import Main
+main = Main(filename=os.path.abspath(__file__), ros_pack=r)
+sys.exit(main.main())

@@ -1,0 +1,9 @@
+<launch>
+	<node pkg="nodelet_gui_manager" type="nodelet_gui_manager" name="calibration_nodelet" output="screen"/>
+
+
+	<node pkg="nodelet" type="nodelet" name="classificator" args="load openplatform/classificator calibration_nodelet" output="screen">
+	</node>
+	<node pkg="nodelet" type="nodelet" name="Calibration" args="load openplatform/calibration calibration_nodelet" output="screen" required="true">
+	</node>
+</launch>

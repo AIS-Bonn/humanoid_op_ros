@@ -1,0 +1,5 @@
+<launch>
+	<include file="$(find launch)/hardware/robot_common.launch" />
+	
+	<include file="$(find launch)/visualization/visualization.launch" />
+</launch>

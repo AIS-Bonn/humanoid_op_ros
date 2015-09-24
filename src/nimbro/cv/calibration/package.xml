@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package>
+	<name>calibration</name>
+	<version>0.0.0</version>
+	<description>Camera calibration GUI</description>
+
+	<maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+	<license>TODO</license>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<build_depend>roscpp</build_depend>
+	<build_depend>nodelet</build_depend>
+	<build_depend>display_image</build_depend>
+	<build_depend>rosbag</build_depend>
+	<build_depend>sensor_msgs</build_depend>
+	<build_depend>nodelet_gui_manager</build_depend>
+	<build_depend>camera_v4l2</build_depend>
+	<run_depend>roscpp</run_depend>
+	<run_depend>nodelet</run_depend>
+	<run_depend>display_image</run_depend>
+	<run_depend>rosbag</run_depend>
+	<run_depend>message_runtime</run_depend>
+
+	<export>
+		<nodelet plugin="${prefix}/plugin_nodelet.xml" />
+	</export>
+</package>

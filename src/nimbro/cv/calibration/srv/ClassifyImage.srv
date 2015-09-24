@@ -1,0 +1,7 @@
+# Classify a single image
+
+sensor_msgs/Image input
+
+---
+
+sensor_msgs/Image output

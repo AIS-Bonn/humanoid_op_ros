@@ -1,0 +1,6 @@
+<launch>
+	<node pkg="nodelet" type="nodelet" name="cam" args="standalone openplatform/camera_v4l2" output="screen">
+		<param name="configFile" value="$(find camera_v4l2)/launch/cam_settings.yaml" />
+		<rosparam command="load" file="$(find camera_v4l2)/launch/cam_params.yaml" />
+	</node>
+</launch>

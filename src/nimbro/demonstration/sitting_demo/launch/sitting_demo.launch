@@ -1,0 +1,25 @@
+<launch>
+    <include file="$(find launch)/hardware/robot_demo_sitting.launch" />
+
+	<node name="sitting_demo" pkg="sitting_demo" type="sitting_demo" output="screen">
+<rosparam>
+DemoMotions:
+ - sitting_demo_clapping
+ - sitting_demo_clapping_mirrored
+ - sitting_demo_dangle
+ - sitting_demo_dangle_mirrored
+ - sitting_demo_sad
+ - sitting_demo_sad_mirrored
+ - sitting_demo_scratching
+ - sitting_demo_scratching_mirrored
+ - sitting_demo_sitdance
+ - sitting_demo_sitdance_mirrored
+ - sitting_demo_stretch
+ - sitting_demo_stretch_mirrored
+ - sitting_demo_wavetoside
+ - sitting_demo_wavetoside_mirrored
+ - sitting_demo_waving
+ - sitting_demo_waving_mirrored
+</rosparam>
+    </node>
+</launch>

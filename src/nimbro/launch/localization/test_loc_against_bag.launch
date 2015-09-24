@@ -1,0 +1,14 @@
+<launch>
+	<param name="use_sim_time" value="true" />
+	<param name="field_type" value="kidsize" />
+
+	<node name="vision" pkg="nodelet" type="nodelet" args="standalone SoccerVision">
+		<param name="use_gui" value="true" />
+	</node>
+
+	<node name="pf" pkg="particle_filter" type="particle_filter">
+	</node>
+
+	<!--<node name="rviz" pkg="rviz" type="rviz">
+	</node>-->
+</launch>

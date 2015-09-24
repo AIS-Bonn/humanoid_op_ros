@@ -1,0 +1,8 @@
+<launch>
+	<include file="$(find nimbro_op_model)/launch/model.launch" />
+
+	<include file="$(find launch)/config/server.launch" />
+
+	<test test-name="test_leg_ik" pkg="nimbro_op_kinematics" type="test_leg_ik">
+	</test>
+</launch>

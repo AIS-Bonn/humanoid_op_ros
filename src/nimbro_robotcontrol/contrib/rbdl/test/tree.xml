@@ -1,0 +1,38 @@
+<robot name="rotated">
+	<link name="trunk_link">
+		<inertial>
+			<origin xyz="0 0 0" rpy="0 0 0" />
+			<mass value="1.0" />
+			<inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+		</inertial>
+	</link>
+	<link name="arm">
+		<inertial>
+			<origin xyz="0 0 1" rpy="0 0 0" />
+			<mass value="1.0" />
+			<inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+		</inertial>
+	</link>
+
+	<joint name="arm_joint" type="continuous">
+		<parent link="trunk_link" />
+		<child link="arm" />
+		<origin xyz="0 0 1" rpy="1.5707963267948966 0 0" />
+		<axis xyz="1 0 0" />
+	</joint>
+
+	<link name="arm2">
+		<inertial>
+			<origin xyz="0 0 1" rpy="0 0 0" />
+			<mass value="1.0" />
+			<inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+		</inertial>
+	</link>
+
+	<joint name="arm2_joint" type="continuous">
+		<parent link="arm" />
+		<child link="arm2" />
+		<origin xyz="0 0 1" rpy="-1.5707963267948966 0 0" />
+		<axis xyz="1 0 0" />
+	</joint>
+</robot>

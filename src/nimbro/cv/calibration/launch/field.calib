@@ -1,0 +1,40 @@
+---
+-
+  name: ball
+  colorID: 1
+  mean:
+    - -0.452329
+    - 1.01817
+  cov:
+    - 0.5
+    - 0.466973
+  angle: 0
+  yrange:
+    - 0
+    - 255
+-
+  name: ball
+  colorID: 1
+  mean:
+    - -0.273146
+    - 0.702282
+  cov:
+    - 0.269344
+    - 0.735952
+  angle: 0.418917
+  yrange:
+    - 0
+    - 155
+-
+  name: floor
+  colorID: 0
+  mean:
+    - -0.218592
+    - 0.0140136
+  cov:
+    - 0.271813
+    - 0.112531
+  angle: -0.0425529
+  yrange:
+    - 12
+    - 148

@@ -1,0 +1,7 @@
+<library path="lib/libface_detection">
+	<class type="face_detection::FaceDetecter" base_class_type="nodelet::Nodelet">
+		<description>
+			Haarcascade based opencv face detection.
+		</description>
+	</class>
+</library>

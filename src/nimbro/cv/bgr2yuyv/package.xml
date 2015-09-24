@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package>
+  <name>bgr2yuyv</name>
+  <version>0.0.0</version>
+  <description>The bgr2yuyv_node package</description>
+  <maintainer email="hfarazi@ais.uni-bonn.de">hfarazi</maintainer>
+  <license>TODO</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>OpenCV</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>image_transport</build_depend>
+  <build_depend>image_geometry</build_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>OpenCV</run_depend>
+  <run_depend>cv_bridge</run_depend>
+    <run_depend>image_transport</run_depend>
+  <run_depend>image_geometry</run_depend>
+  <export>
+  </export>
+</package>

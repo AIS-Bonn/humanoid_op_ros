@@ -1,0 +1,11 @@
+<package format="2">
+	<name>tf_tuner</name>
+	<description>Publishes a configurable TF transform</description>
+	<version>0.0.1</version>
+	<license>BSD</license>
+	<maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<depend>config_server</depend>
+	<depend>tf</depend>
+</package>

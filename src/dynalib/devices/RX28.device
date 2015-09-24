@@ -1,0 +1,4 @@
+include RX.device
+
+model 0x001C
+name RX28

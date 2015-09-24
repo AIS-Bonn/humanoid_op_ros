@@ -1,0 +1,11 @@
+<launch>
+	<include file="$(find nimbro_op_model)/launch/model.launch" />
+
+	<include file="$(find gazebo_ros)/launch/empty_world.launch">
+		<arg name="world_name" value="$(find nimbro_op_gazebo)/worlds/nimbro_op.world"/>
+		<arg name="paused" value="true" />
+	</include>
+
+	<node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-param robot_description -urdf -model nimbro_op -z 0.62" />
+	<include file="$(find nimbro_op_gazebo)/launch/nimbro_op_controllers.launch" />
+</launch>

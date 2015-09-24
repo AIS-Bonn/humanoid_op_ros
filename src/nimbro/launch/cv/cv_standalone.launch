@@ -1,0 +1,4 @@
+<launch>
+	<include file="$(find launch)/hardware/robot_standing_cpg.launch" />
+	<include file="$(find launch)/cv/cv.launch" />
+</launch>

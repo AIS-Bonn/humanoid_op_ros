@@ -1,0 +1,13 @@
+<launch>
+  <node pkg="nodelet_gui_manager" type="nodelet_gui_manager" name="standalone_nodelet"  args="manager" output="screen"/>
+
+  <node pkg="nodelet" type="nodelet" name="CameraV4L2" args="load openplatform/camera_v4l2 standalone_nodelet" output="screen">
+	<param name="device" value="/dev/video0" />
+  </node>
+  <node pkg="nodelet" type="nodelet" name="Classificator" args="load openplatform/classificator standalone_nodelet" output="screen">
+  </node>
+
+  <node pkg="nodelet" type="nodelet" name="Display" args="load openplatform/display_image standalone_nodelet" output="screen">
+	<remap from="image" to="blue" />
+  </node>
+</launch>

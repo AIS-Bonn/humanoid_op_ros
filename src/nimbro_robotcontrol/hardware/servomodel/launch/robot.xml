@@ -1,0 +1,136 @@
+<robot name="simple_arm">
+	<material name="link">
+		<color rgba="0.1 0.8 0.1 1.0" />
+	</material>
+
+	<link name="right_tigh_link">
+		<visual>
+			<origin xyz="0 0 -0.12" />
+			<geometry>
+				<box size="0.04 0.06 0.24" />
+			</geometry>
+			<material name="link" />
+		</visual>
+	</link>
+
+	<link name="right_lower_leg_link">
+		<inertial>
+			<origin
+				xyz="0.0024903 -0.10471 6.578E-10"
+				rpy="0 0 0" />
+			<mass
+				value="0.20549" />
+			<inertia
+				ixx="0.0011394"
+				ixy="-8.913E-05"
+				ixz="2.7552E-12"
+				iyy="0.00019498"
+				iyz="-1.4502E-11"
+				izz="0.0010393" />
+		</inertial>
+		<visual>
+			<origin
+				xyz="0 0 0"
+				rpy="0 0 0" />
+			<geometry>
+				<mesh filename="package://servomodel/mesh/shank.STL" />
+			</geometry>
+			<material
+				name="">
+				<color
+				rgba="1 0.94902 0.9098 1" />
+			</material>
+		</visual>
+		<collision>
+			<origin
+				xyz="0 0 0"
+				rpy="0 0 0" />
+			<geometry>
+				<mesh
+				filename="package://servomodel/mesh/shank.STL" />
+			</geometry>
+		</collision>
+		<visual>
+			<!--<origin xyz="0 0 -0.125" />
+			<geometry>
+				<box size="0.04 0.06 -0.25" />
+			</geometry>-->
+			<origin xyz="0 0 0" />
+			<geometry>
+				<mesh filename="package://servomodel/mesh/shank.STL" />
+			</geometry>
+			<material name="link" />
+		</visual>
+	</link>
+
+	<link name="right_ankle_link">
+		<visual>
+			<origin xyz="-0.025 0 0.02" />
+			<geometry>
+				<box size="0.09 0.045 0.065" />
+			</geometry>
+			<material name="link" />
+		</visual>
+	</link>
+
+	<link name="right_foot_link">
+		<visual>
+			<origin xyz="0.025 0.015 -0.035" />
+			<geometry>
+				<box size="0.21 0.13 0.005" />
+			</geometry>
+			<material name="link" />
+		</visual>
+	</link>
+
+	<joint name="right_knee_pitch" type="continuous">
+		<parent link="right_tigh_link" />
+		<child link="right_lower_leg_link" />
+		<origin xyz="0 0 -0.22" rpy="0 0 3.1415927" />
+		<axis xyz="0 1 0" />
+	</joint>
+
+	<joint name="right_ankle_pitch" type="continuous">
+		<parent link="right_lower_leg_link" />
+		<child link="right_ankle_link" />
+		<origin xyz="0 0 -0.22" rpy="0 0 3.1415927" />
+		<axis xyz="0 1 0" />
+	</joint>
+
+	<joint name="right_ankle_roll" type="continuous">
+		<parent link="right_ankle_link" />
+		<child link="right_foot_link" />
+		<origin xyz="-0.025 0 0" />
+		<axis xyz="1 0 0" />
+	</joint>
+
+	<!--<link name="endeffector">
+		<inertial>
+			<origin xyz="0 0 -0.107" />
+			<mass value="1.0" />
+			<inertia
+				ixx="0"
+				ixy="0"
+				ixz="0"
+
+				iyy="0.011449"
+				iyz="0"
+
+				izz="0.011449"
+			 />
+		</inertial>
+		<visual>
+			<origin xyz="0.01 0 -0.107" />
+			<geometry>
+				<box size="0.02 0.01 0.214" />
+			</geometry>
+		</visual>
+	</link>-->
+
+	<!--<joint name="MX64:1" type="continuous">
+		<parent link="map" />
+		<child link="endeffector" />
+		<origin xyz="0 0 0" rpy="0 0 0" />
+		<axis xyz="1 0 0" />
+	</joint>-->
+</robot>

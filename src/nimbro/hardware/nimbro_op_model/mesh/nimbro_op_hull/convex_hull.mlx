@@ -1,0 +1,7 @@
+<!DOCTYPE FilterScript>
+<FilterScript>
+ <filter name="Convex Hull">
+  <Param type="RichBool" value="true" name="reorient"/>
+ </filter>
+ <filter name="Normalize Face Normals"/>
+</FilterScript>

@@ -1,0 +1,172 @@
+header:
+  name: getup_left_prone
+  preState: lying_side
+  playState: getting_up
+  postState: lying_biased
+motion:
+  - duration: 2
+    support: ""
+    joints:
+      left_shoulder_pitch:
+        position: 1.3
+        effort: 0.5
+        velocity: 0
+      left_hip_pitch:
+        position: 0.06
+        effort: 0.4
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.05
+        effort: 0.5
+        velocity: 0
+      left_hip_roll:
+        position: 0.02
+        effort: 0.4
+        velocity: 0
+      left_knee_pitch:
+        position: 0.45
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.45
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.34
+        effort: 0.5
+        velocity: 0
+      head_pitch:
+        position: -0.6
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -1.54
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: 0
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0
+        effort: 0.4
+        velocity: 0
+      left_shoulder_roll:
+        position: -0.12
+        effort: 0.5
+        velocity: 0
+      neck_yaw:
+        position: 0
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: -0.41
+        effort: 0.4
+        velocity: 0
+      left_ankle_roll:
+        position: 0
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: 0
+        effort: 0.4
+        velocity: 0
+      right_hip_pitch:
+        position: -0.6
+        effort: 0.4
+        velocity: 0
+      left_ankle_pitch:
+        position: -1.54
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -2.01
+        effort: 0.5
+        velocity: 0
+      left_elbow_pitch:
+        position: -2.45
+        effort: 0.5
+        velocity: 0
+  - duration: 2
+    support: ""
+    joints:
+      left_shoulder_pitch:
+        position: 1.3
+        effort: 0.5
+        velocity: 0
+      left_hip_pitch:
+        position: 0.06
+        effort: 0.4
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.05
+        effort: 0.5
+        velocity: 0
+      left_hip_roll:
+        position: 0.02
+        effort: 0.4
+        velocity: 0
+      left_knee_pitch:
+        position: 0.45
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.45
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.34
+        effort: 0.5
+        velocity: 0
+      head_pitch:
+        position: -0.6
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -1.54
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: 0
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0
+        effort: 0.4
+        velocity: 0
+      left_shoulder_roll:
+        position: -0.12
+        effort: 0.5
+        velocity: 0
+      neck_yaw:
+        position: 0
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: -0.41
+        effort: 0.4
+        velocity: 0
+      left_ankle_roll:
+        position: 0
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: 0
+        effort: 0.4
+        velocity: 0
+      right_hip_pitch:
+        position: -0.6
+        effort: 0.4
+        velocity: 0
+      left_ankle_pitch:
+        position: -1.54
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -2.01
+        effort: 0.5
+        velocity: 0
+      left_elbow_pitch:
+        position: -2.45
+        effort: 0.5
+        velocity: 0

@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="nodelet_gui_manager" type="nodelet_gui_manager" name="standalone_nodelet" output="screen"/>
+
+  <node pkg="nodelet" type="nodelet" name="CameraDisplay" args="load openplatform/display_image standalone_nodelet" output="screen">
+  </node>
+</launch>

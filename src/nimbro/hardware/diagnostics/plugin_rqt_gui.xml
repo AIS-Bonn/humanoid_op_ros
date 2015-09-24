@@ -1,0 +1,12 @@
+<library path="lib/libdiagnostics">
+	<class name="diagnostics/Diagnostics" type="diagnostics::Diagnostics" base_class_type="rqt_gui_cpp::Plugin">
+		<description>
+			Diagnostics for Nimbro-OP
+		</description>
+		<qtgui>
+			<label>Diagnostics</label>
+			<icon type="theme">hwinfo</icon>
+			<statustip>Don't poke me!</statustip>
+		</qtgui>
+	</class>
+</library>

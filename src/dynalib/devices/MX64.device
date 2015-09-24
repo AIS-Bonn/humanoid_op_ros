@@ -1,0 +1,4 @@
+include MX.device
+
+model 0x0136
+name MX64

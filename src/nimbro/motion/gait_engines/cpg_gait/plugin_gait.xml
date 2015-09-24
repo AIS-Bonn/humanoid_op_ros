@@ -1,0 +1,7 @@
+<library path="lib/libcpg_gait">
+	<class type="cpg_gait::CPGGait" base_class_type="gait::GaitEngine">
+		<description>
+			Central pattern generated gait engine
+		</description>
+	</class>
+</library>

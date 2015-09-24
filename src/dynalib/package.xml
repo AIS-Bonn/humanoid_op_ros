@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package>
+	<name>dynalib</name>
+	<version>0.0.0</version>
+	<description>Dynalib</description>
+
+	<maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+
+	<license>TODO</license>
+
+	<buildtool_depend>catkin</buildtool_depend>
+</package>

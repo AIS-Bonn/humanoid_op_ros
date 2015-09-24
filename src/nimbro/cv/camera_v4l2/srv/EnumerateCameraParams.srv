@@ -1,0 +1,5 @@
+# Get supported camera settings
+
+---
+
+CameraParam[] params

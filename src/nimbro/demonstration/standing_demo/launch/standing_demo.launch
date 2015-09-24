@@ -1,0 +1,19 @@
+<launch>
+    <include file="$(find launch)/hardware/robot_demo_standing.launch" />
+
+	<node name="standing_demo" pkg="standing_demo" type="standing_demo" output="screen">
+<rosparam>
+DemoMotions:
+ - standing_demo_doublewaving
+ - standing_demo_doublewaving_mirrored
+ - standing_demo_lookagain
+ - standing_demo_lookagain_mirrored
+ - standing_demo_lookingaround
+ - standing_demo_lookingaround_mirrored
+ - standing_demo_scratching
+ - standing_demo_scratching_mirrored
+ - standing_demo_waving
+ - standing_demo_waving_mirrored
+</rosparam>
+    </node>
+</launch>

@@ -1,0 +1,19 @@
+<launch>
+	<node pkg="nodelet" type="nodelet" name="vision"  args="manager" output="screen" respawn="true" />
+
+	<node pkg="nodelet" type="nodelet" name="cam" args="load openplatform/camera_v4l2 vision" output="screen" respawn="true" >
+		<param name="configFile" value="$(find camera_v4l2)/launch/cam_settings.yaml" />
+		<rosparam command="load" file="$(find camera_v4l2)/launch/cam_params.yaml" />
+	</node>
+
+	<!--
+	<node pkg="nodelet" type="nodelet" name="downscale" args="load downscale::Downscale vision" output="screen" respawn="true" >
+		<remap from="/downscale/in" to="/image" />
+		<remap from="/downscale/out" to="/image_downscaled" />
+		<param name="frequency" value="4.0" />
+	</node>
+	-->
+
+	<node pkg="nodelet" type="nodelet" name="soccer_vision" args="load SoccerVision vision" output="screen" respawn="true" >
+	</node>
+</launch>

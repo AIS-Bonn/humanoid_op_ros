@@ -1,0 +1,12 @@
+<launch>
+  <node pkg="nodelet_gui_manager" type="nodelet_gui_manager" name="standalone_nodelet" output="screen"/>
+
+  <node pkg="nodelet" type="nodelet" name="cam" args="load openplatform/camera_v4l2 standalone_nodelet" output="screen">
+	<param name="device" value="/dev/video0" />
+	<param name="configFile" value="$(find calibration)/launch/logitech.yaml" />
+  </node>
+  <node pkg="nodelet" type="nodelet" name="classificator" args="load openplatform/classificator standalone_nodelet" output="screen">
+  </node>
+  <node pkg="nodelet" type="nodelet" name="Calibration" args="load openplatform/calibration standalone_nodelet" output="screen" required="true">
+  </node>
+</launch>

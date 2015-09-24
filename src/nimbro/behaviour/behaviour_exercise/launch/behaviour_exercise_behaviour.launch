@@ -1,0 +1,3 @@
+<launch>
+	<node pkg="behaviour_exercise" name="behaviour_exercise" type="behaviour_exercise" output="screen"/>
+</launch>

@@ -1,0 +1,9 @@
+name Generic
+model 0x0
+
+section EEPROM
+reg  0 2 MODEL_NUMBER       hex
+reg  2 1 FIRMWARE_VERSION   hex
+reg  3 1 ID
+reg  4 1 BAUD_RATE
+reg  5 1 RETURN_DELAY_TIME

@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 2.8.3)
+project(nimbro_op_model)
+
+find_package(catkin REQUIRED COMPONENTS urdf)
+
+catkin_package(
+	INCLUDE_DIRS include
+)
+
+install(CODE "
+file(REMOVE_RECURSE \"${CMAKE_INSTALL_PREFIX}/${CATKIN_PACKAGE_SHARE_DESTINATION}/mesh\")
+file(REMOVE_RECURSE \"${CMAKE_INSTALL_PREFIX}/${CATKIN_PACKAGE_SHARE_DESTINATION}/robots\")
+file(REMOVE_RECURSE \"${CMAKE_INSTALL_PREFIX}/${CATKIN_PACKAGE_SHARE_DESTINATION}/launch\")
+")
+install(DIRECTORY mesh robots launch
+	DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)

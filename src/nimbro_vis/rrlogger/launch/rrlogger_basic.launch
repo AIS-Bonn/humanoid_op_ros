@@ -1,0 +1,10 @@
+<launch>
+	<node name="log" pkg="rrlogger" type="rrlogger" output="screen">
+<rosparam>
+topics:
+  - /plot
+  - /joint_states
+  - /joint_commands
+</rosparam>
+	</node>
+</launch>

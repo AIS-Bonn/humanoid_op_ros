@@ -1,0 +1,9 @@
+/** @defgroup plot_msgs plot_msgs
+
+This package defines the message types used for plotting and contains helper
+classes to assist in the generation of plot messages.
+
+@sa @ref plot_msgs::PlotManager "PlotManager"
+@sa @ref plot_msgs::PlotManagerFS "PlotManagerFS"
+
+*/

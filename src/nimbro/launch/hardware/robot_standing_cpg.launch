@@ -1,0 +1,19 @@
+<launch>
+    <include file="$(find launch)/hardware/robot_common.launch" />
+
+    <node name="robotcontrol" pkg="robotcontrol" type="robotcontrol" output="screen" required="true">
+        <rosparam>
+            hw_interface: "nimbro_op_interface::RobotInterface"
+            InitPoseMotion: "init_pose_stand"
+            InitMotion: "init_stand"
+            GetupProneMotion: "getup_prone_bogus"
+            GetupSupineMotion: "getup_supine_bogus"
+            motion_modules:
+            - "fall_protection::FallProtection"
+            - "gait::Gait (cpg_gait::CPGGait)"
+            - "motionplayer::MotionPlayer"
+            - "limb_control::LimbControl"
+            - "headcontrol::HeadControl"
+        </rosparam>
+    </node>
+</launch>

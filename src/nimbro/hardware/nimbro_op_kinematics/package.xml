@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package>
+	<name>nimbro_op_kinematics</name>
+	<version>0.0.0</version>
+	<description>(Inverse) kinematics toolbox for NimbRo-OP</description>
+
+	<maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+	<license>TODO</license>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<build_depend>roscpp</build_depend>
+	<build_depend>robotcontrol</build_depend>
+	<build_depend>nimbro_op_model</build_depend>
+	<run_depend>roscpp</run_depend>
+	<run_depend>robotcontrol</run_depend>
+
+	<export>
+		<robotcontrol plugin="${prefix}/plugin_robotcontrol.xml" />
+	</export>
+</package>

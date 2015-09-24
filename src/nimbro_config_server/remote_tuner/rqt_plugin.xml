@@ -1,0 +1,12 @@
+<library path="lib/libremote_tuner">
+	<class name="remote_tuner/RemoteTuner" type="remote_tuner::RemoteTuner" base_class_type="rqt_gui_cpp::Plugin">
+		<description>
+			Tool to set parameters remotely
+		</description>
+		<qtgui>
+			<label>Remote Tuner</label>
+			<icon type="theme">hwinfo</icon>
+			<statustip>tip</statustip>
+		</qtgui>
+	</class>
+</library>

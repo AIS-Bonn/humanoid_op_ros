@@ -1,0 +1,17 @@
+<package format="2">
+	<name>remote_tuner</name>
+	<description>
+		A version of the parameter_tuner tweaked for low-bandwidth connections
+	</description>
+	<version>0.0.1</version>
+	<license>BSD</license>
+	<maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<depend>config_server</depend>
+	<depend>rqt_gui</depend>
+
+	<export>
+		<rqt_gui plugin="${prefix}/rqt_plugin.xml" />
+	</export>
+</package>

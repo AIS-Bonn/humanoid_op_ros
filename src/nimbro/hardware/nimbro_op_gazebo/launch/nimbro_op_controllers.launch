@@ -1,0 +1,37 @@
+<launch>
+	<!-- Load joint controller configurations from YAML file to parameter server -->
+	<rosparam file="$(find nimbro_op_gazebo)/config/controllers.yaml" command="load"/>
+
+	<!-- load the controllers -->
+	<node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+		output="screen" ns="/nimbro_op"
+		args="
+		    right_hip_yaw_position_controller
+		    right_hip_roll_position_controller
+		    right_hip_pitch_position_controller
+		    right_knee_pitch_position_controller
+		    right_ankle_pitch_position_controller
+		    right_ankle_roll_position_controller
+
+		    left_hip_yaw_position_controller
+		    left_hip_roll_position_controller
+		    left_hip_pitch_position_controller
+		    left_knee_pitch_position_controller
+		    left_ankle_pitch_position_controller
+		    left_ankle_roll_position_controller
+
+		    right_shoulder_pitch_position_controller
+		    right_shoulder_roll_position_controller
+		    right_elbow_pitch_position_controller
+
+		    left_shoulder_pitch_position_controller
+		    left_shoulder_roll_position_controller
+		    left_elbow_pitch_position_controller
+
+		    neck_yaw_position_controller
+		    head_pitch_position_controller
+
+		    joint_state_controller
+		"
+	/>
+</launch>

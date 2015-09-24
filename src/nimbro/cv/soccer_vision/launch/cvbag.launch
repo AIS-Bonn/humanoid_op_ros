@@ -1,0 +1,8 @@
+<launch>
+	<param name="use_sim_time" value="true" />
+	<include file="$(find launch)/config/server.launch" />
+
+	<node pkg="nodelet" type="nodelet" name="soccer_vision" args="standalone SoccerVision vision" output="screen">
+		<param name="use_gui" value="true" />
+	</node>
+</launch>

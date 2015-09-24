@@ -1,0 +1,12 @@
+<launch>
+  <node pkg="nodelet" type="nodelet" name="standalone_nodelet"  args="manager" output="screen"/>
+
+  <node pkg="nodelet" type="nodelet" name="CameraV4L2" args="load openplatform/camera_v4l2 standalone_nodelet" output="screen">
+	<param name="device" value="/dev/video0" />
+	<param name="width" value="800" />
+	<param name="height" value="600" />
+	<param name="configFile" value="$(find camera_v4l2)/launch/cam_settings.yaml" />
+  </node>
+  <node pkg="nodelet" type="nodelet" name="PrintFPS" args="load openplatform/print_fps standalone_nodelet" output="screen">
+  </node>
+</launch>

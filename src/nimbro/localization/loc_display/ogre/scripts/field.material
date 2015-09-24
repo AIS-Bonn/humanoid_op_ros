@@ -1,0 +1,59 @@
+material Soccer/Field
+{
+	technique
+	{
+		pass
+		{
+			lighting on
+
+			ambient 0.0 0.6 0.0   1
+			diffuse 0.0 0.1 0.0   1
+			emissive 0 0 0 1
+		}
+	}
+}
+
+material Soccer/Field/Line
+{
+	technique
+	{
+		pass
+		{
+			lighting on
+
+			ambient 0.8 0.8 0.8   1
+			diffuse 0.1 0.1 0.1   1
+			emissive 0 0 0 1
+		}
+	}
+}
+
+material Soccer/Field/GoalPost
+{
+	technique
+	{
+		pass
+		{
+			lighting on
+
+			ambient 0.6 0.6 0.0   1
+			diffuse 0.4 0.4 0.0   1
+			emissive 0 0 0 1
+		}
+	}
+}
+
+material Soccer/Field/FloorMarker
+{
+	technique
+	{
+		pass
+		{
+			lighting on
+
+			ambient 0.2 0.2 0.2 1
+			diffuse 0.1 0.1 0.1 1
+			emissive 0 0 0 1
+		}
+	}
+}

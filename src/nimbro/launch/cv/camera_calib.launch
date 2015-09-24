@@ -1,0 +1,3 @@
+<launch>
+	<node pkg="vision_module" name="camera_calibration_node" type="camera_calibration_node" output="screen"/>
+</launch>

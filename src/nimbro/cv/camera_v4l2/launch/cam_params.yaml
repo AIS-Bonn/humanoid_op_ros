@@ -1,0 +1,11 @@
+parameters:
+    - "Brightness"
+    - "Contrast"
+    - "Saturation"
+    - "White Balance Temperature, Auto"
+    - "Gain"
+    - "Sharpness"
+    - "Backlight Compensation"
+    - "Exposure, Auto"
+    - "Exposure (Absolute)"
+    - "Exposure, Auto Priority"

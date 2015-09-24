@@ -1,0 +1,38 @@
+<?xml version="1.0" ?>
+<sdf version="1.4">
+	<world name="default">
+		<scene>
+			<shadows>false</shadows>
+		</scene>
+		<gui>
+			<camera name="camera">
+				<pose>3.0 0.0 1.0 0.0 0.3 3.14</pose>
+			</camera>
+		</gui>
+		<physics type="ode">
+			<gravity>0 0 -9.81</gravity>
+			<real_time_update_rate>2000</real_time_update_rate>
+			<max_step_size>0.0005</max_step_size>
+			<ode>
+				<solver>
+					<type>quick</type>
+					<iters>50</iters>
+					<sor>1.4</sor>
+				</solver>
+				<constraints>
+ 					<cfm>0.0</cfm>
+					<erp>0.2</erp>
+					<contact_max_correcting_vel>100.0</contact_max_correcting_vel>
+					<contact_surface_layer>0.0</contact_surface_layer>
+				</constraints>
+			</ode>
+		</physics>
+		<include>
+			<uri>model://soft_ground_plane</uri>
+		</include>
+		<include>
+			<uri>model://sun</uri>
+		</include>
+<!-- 		<plugin name="foot_fixer" filename="libfoot_fixer.so" /> -->
+	</world>
+</sdf>

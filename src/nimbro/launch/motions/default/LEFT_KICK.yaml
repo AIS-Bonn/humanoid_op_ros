@@ -1,0 +1,1168 @@
+header:
+  name: LEFT_KICK
+  preState: init
+  playState: ""
+  postState: init
+motion:
+  - duration: 0
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.136524290121822
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.526155410244775
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.0138058270909708
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31768949679377
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -0.602854449639057
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.00613592315154256
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0230097118182846
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 0.912718568791956
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 0.868233125943273
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.446388409274722
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0230097118182846
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.543029198911517
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.00766990393942821
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.2824079386724
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.628932123033113
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00613592315154256
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.917320511155613
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.714835047154709
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.420310735880666
+        effort: 0.2
+        velocity: 0
+  - duration: 0.992
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.136524290121822
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.526155410244775
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.0138058270909708
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31768949679377
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -0.602854449639057
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.00613592315154256
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0230097118182846
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 0.912718568791956
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 0.868233125943273
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.446388409274722
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0230097118182846
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.543029198911517
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.00766990393942821
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.2824079386724
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.628932123033113
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00613592315154256
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.917320511155613
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.714835047154709
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.420310735880666
+        effort: 0.2
+        velocity: 0
+  - duration: 0
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.207087406364562
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.526155410244775
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.237767022122274
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31462153521799
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -0.602854449639057
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.0138058270909708
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 0.901980703276757
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 1.00782537764087
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.434116562971636
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.543029198911517
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.131922347758165
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.28547590024817
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.628932123033113
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: 0.0184077694546277
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00920388472731385
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.917320511155613
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.564504929941916
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.360485485153126
+        effort: 0.2
+        velocity: 0
+  - duration: 0.4
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.207087406364562
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.526155410244775
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.237767022122274
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31462153521799
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -0.602854449639057
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.0138058270909708
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 0.901980703276757
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 1.00782537764087
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.434116562971636
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.543029198911517
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.131922347758165
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.28547590024817
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.628932123033113
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: 0.0184077694546277
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00920388472731385
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.917320511155613
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.564504929941916
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.360485485153126
+        effort: 0.2
+        velocity: 0
+  - duration: 0
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.207087406364562
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.747048643700307
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.237767022122274
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31462153521799
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -0.914252549579842
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.268446637879987
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 1.47568951794599
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 1.00782537764087
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.434116562971636
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.543029198911517
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.131922347758165
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.28547590024817
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.834485548609789
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: -0.0322135965455985
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00920388472731385
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.99248556976201
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.564504929941916
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.360485485153126
+        effort: 0.2
+        velocity: 0
+  - duration: 0.144
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.207087406364562
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.747048643700307
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.237767022122274
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31462153521799
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -0.914252549579842
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.268446637879987
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 1.47568951794599
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 1.00782537764087
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.434116562971636
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.543029198911517
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.131922347758165
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.28547590024817
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.834485548609789
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: -0.0322135965455985
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00920388472731385
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.99248556976201
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.564504929941916
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.360485485153126
+        effort: 0.2
+        velocity: 0
+  - duration: 0.144
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.667281642730254
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: 0.386563158547182
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.167203905879535
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.67357303958323
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -1.32842736230897
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.268446637879987
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 0.504679679214376
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 1.1106020904292
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.38349519697141
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.36968936988044
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.187145656122048
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -0.774660297882249
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.757786509215507
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: -0.0322135965455985
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00920388472731385
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.961805954004297
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.257708772364788
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.360485485153126
+        effort: 0.2
+        velocity: 0
+  - duration: 0.096
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.667281642730254
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: 0.386563158547182
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.167203905879535
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.67357303958323
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -1.32842736230897
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.268446637879987
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 0.504679679214376
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 1.1106020904292
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.38349519697141
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.36968936988044
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.187145656122048
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -0.774660297882249
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.757786509215507
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: -0.0322135965455985
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00920388472731385
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.961805954004297
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.257708772364788
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.360485485153126
+        effort: 0.2
+        velocity: 0
+  - duration: 0
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.207087406364562
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.440252486123179
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.237767022122274
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31462153521799
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -1.45114582533982
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.268446637879987
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 1.78248567552312
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 1.00782537764087
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.434116562971636
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.532291333396318
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.0859029241215959
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.28547590024817
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.74244670133665
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: -0.0322135965455985
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00920388472731385
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.961805954004297
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.564504929941916
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.360485485153126
+        effort: 0.2
+        velocity: 0
+  - duration: 0.144
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.207087406364562
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.440252486123179
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.237767022122274
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31462153521799
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -1.45114582533982
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.268446637879987
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 1.78248567552312
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 1.00782537764087
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.434116562971636
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.532291333396318
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.0859029241215959
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.28547590024817
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.74244670133665
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: -0.0322135965455985
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00920388472731385
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.961805954004297
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.564504929941916
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.360485485153126
+        effort: 0.2
+        velocity: 0
+  - duration: 0
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.136524290121822
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.526155410244775
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.0138058270909708
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31768949679377
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -0.756252528427621
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.159534001940107
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0230097118182846
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 1.21951472636908
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 0.868233125943273
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.446388409274722
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0230097118182846
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.543029198911517
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.00766990393942821
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.2824079386724
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.628932123033113
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00613592315154256
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.917320511155613
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.714835047154709
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.420310735880666
+        effort: 0.2
+        velocity: 0
+  - duration: 0.224
+    support: ""
+    joints:
+      head_pitch:
+        position: -0.136524290121822
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.526155410244775
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.0138058270909708
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31768949679377
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -0.756252528427621
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.159534001940107
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.0230097118182846
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 1.21951472636908
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 0.868233125943273
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.446388409274722
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0230097118182846
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.543029198911517
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: -0.00766990393942821
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.2824079386724
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.628932123033113
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: 0.0199417502425133
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00613592315154256
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.917320511155613
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.714835047154709
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.420310735880666
+        effort: 0.2
+        velocity: 0
+  - duration: 0
+    support: ""
+    joints:
+      head_pitch:
+        position: 0.038349519697141
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.277650522607301
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.0766990393942821
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31768949679377
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -0.151864098000678
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.0628932123033113
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.021475731030399
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 0.377359273819868
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 0.460194236365692
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.460194236365692
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0230097118182846
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.294524311274043
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: 0.0552233083638831
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.2824079386724
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.177941771394734
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: -0.0368155389092554
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00460194236365692
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.381961216183525
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.42951462060798
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.420310735880666
+        effort: 0.2
+        velocity: 0
+  - duration: 1
+    support: ""
+    joints:
+      head_pitch:
+        position: 0.038349519697141
+        effort: 0.2
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.277650522607301
+        effort: 0.2
+        velocity: 0
+      left_ankle_roll:
+        position: -0.0766990393942821
+        effort: 0.2
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.31768949679377
+        effort: 0.2
+        velocity: 0
+      left_hip_pitch:
+        position: -0.151864098000678
+        effort: 0.2
+        velocity: 0
+      left_hip_roll:
+        position: 0.0628932123033113
+        effort: 0.2
+        velocity: 0
+      left_hip_yaw:
+        position: 0.021475731030399
+        effort: 0.2
+        velocity: 0
+      left_knee_pitch:
+        position: 0.377359273819868
+        effort: 0.2
+        velocity: 0
+      left_shoulder_pitch:
+        position: 0.460194236365692
+        effort: 0.2
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.460194236365692
+        effort: 0.2
+        velocity: 0
+      neck_yaw:
+        position: 0.0230097118182846
+        effort: 0.2
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.294524311274043
+        effort: 0.2
+        velocity: 0
+      right_ankle_roll:
+        position: 0.0552233083638831
+        effort: 0.2
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.2824079386724
+        effort: 0.2
+        velocity: 0
+      right_hip_pitch:
+        position: -0.177941771394734
+        effort: 0.2
+        velocity: 0
+      right_hip_roll:
+        position: -0.0368155389092554
+        effort: 0.2
+        velocity: 0
+      right_hip_yaw:
+        position: -0.00460194236365692
+        effort: 0.2
+        velocity: 0
+      right_knee_pitch:
+        position: 0.381961216183525
+        effort: 0.2
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.42951462060798
+        effort: 0.2
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.420310735880666
+        effort: 0.2
+        velocity: 0

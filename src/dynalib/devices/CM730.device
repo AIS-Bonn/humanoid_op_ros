@@ -1,0 +1,24 @@
+name CM730
+model 0x7300
+
+section RAM
+reg  0 2 MODEL_NUMBER       hex
+reg  2 1 FIRMWARE_VERSION   hex
+reg  3 1 ID
+reg  4 1 BAUD_RATE
+reg  5 1 RETURN_DELAY_TIME
+reg 24 1 DYNAMIXEL_POWER
+reg 25 1 LED_PANEL          hex
+reg 26 2 LED_HEAD           hex
+reg 28 2 LED_EYE            hex
+reg 30 1 BUTTON             hex
+reg 32 2 CMP_X
+reg 34 2 CMP_Y
+reg 36 2 CMP_Z
+reg 38 2 GYRO_Z
+reg 40 2 GYRO_Y
+reg 42 2 GYRO_X
+reg 44 2 ACC_X
+reg 46 2 ACC_Y
+reg 48 2 ACC_Z
+reg 50 1 BAT_VOLTAGE

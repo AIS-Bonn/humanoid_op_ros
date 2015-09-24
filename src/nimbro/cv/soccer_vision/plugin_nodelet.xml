@@ -1,0 +1,7 @@
+<library path="lib/libsoccer_vision">
+	<class type="SoccerVision" base_class_type="nodelet::Nodelet">
+		<description>
+			NimbRo soccer vision
+		</description>
+	</class>
+</library>

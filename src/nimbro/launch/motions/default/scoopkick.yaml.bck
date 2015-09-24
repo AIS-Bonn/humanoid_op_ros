@@ -1,0 +1,90 @@
+
+header:
+  name: scoopkick
+  preState: init
+  playState: init
+  postState: init
+motion:
+  - duration: 5
+    support: ""
+    joints:
+      left_hip_yaw:
+        position: 0.0
+        effort: 0.5
+        velocity: 0
+      left_hip_roll:
+        position: 0.04647812954163369 
+        effort: 0.5
+        velocity: 0
+      left_hip_pitch:
+        position: -0.10461528494623713
+        effort: 0.5
+        velocity: 0
+      left_knee_pitch:
+        position: 0.38071626059343866
+        effort: 0.5
+        velocity: 0
+      left_ankle_pitch:
+        position: -0.27610097564720154
+        effort: 0.5
+        velocity: 0
+      left_ankle_roll:
+        position: -0.04647812954163369
+        effort: 0.5
+        velocity: 0
+      left_shoulder_pitch:
+        position: 0.5053605410638626
+        effort: 0.5
+        velocity: 0
+      left_shoulder_roll:
+        position: 0.1899999976158142
+        effort: 0.5
+        velocity: 0
+      left_elbow_pitch:
+        position: -1.0107210821277253
+        effort: 0.5
+        velocity: 0
+      neck_yaw:
+        position: 0.007327933700090643
+        effort: 0.5
+        velocity: 0
+      head_pitch:
+        position: 0.010991900550135963
+        effort: 0.5
+        velocity: 0
+      right_hip_yaw:
+        position: 0.0
+        effort: 0.5
+        velocity: 0
+      right_hip_roll:
+        position: -0.04647812954163369
+        effort: 0.5
+        velocity: 0
+      right_hip_pitch:
+        position: -0.10461528494623713
+        effort: 0.5
+        velocity: 0
+      right_knee_pitch:
+        position: 0.38071626059343866
+        effort: 0.5
+        velocity: 0
+      right_ankle_pitch:
+        position: -0.27610097564720154
+        effort: 0.5
+        velocity: 0
+      right_ankle_roll:
+        position: 0.04647812954163369
+        effort: 0.5
+        velocity: 0
+      right_shoulder_pitch:
+        position: 0.5053605410638626
+        effort: 0.5
+        velocity: 0
+      right_shoulder_roll:
+        position: -0.1899999976158142
+        effort: 0.5
+        velocity: 0
+      right_elbow_pitch:
+        position: -1.0107210821277253
+        effort: 0.5
+        velocity: 0

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package>
+  <name>rviz_dynamics</name>
+  <version>0.0.0</version>
+  <description>Dynamics displays for RViz</description>
+  <maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>rviz</build_depend>
+  <build_depend>plot_msgs</build_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>rviz</run_depend>
+  <run_depend>plot_msgs</run_depend>
+
+  <export>
+    <rviz plugin="${prefix}/plugin_rviz.xml" />
+  </export>
+</package>

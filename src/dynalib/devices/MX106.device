@@ -1,0 +1,8 @@
+include MX.device
+
+model 0x0140
+name MX106
+
+section RAM
+reg 70 1 TORQUE_CONTROL_ENABLE
+reg 71 2 GOAL_TORQUE

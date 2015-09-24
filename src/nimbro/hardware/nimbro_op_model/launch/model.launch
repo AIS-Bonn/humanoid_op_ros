@@ -1,0 +1,3 @@
+<launch>
+	<param name="robot_description" command="$(find xacro)/xacro.py $(find nimbro_op_model)/robots/$(optenv NIMBRO_ROBOT_VARIANT nimbro_op).xacro" />
+</launch>

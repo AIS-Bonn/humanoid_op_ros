@@ -1,0 +1,88 @@
+/*! @defgroup CalibrationPackageDoc Color Calibration
+
+\section cameracalib Performing Camera calibration
+
+The first step in computer vision calibration is camera calibration. Our camera
+(Logitech C905) has a number of internal parameters which need to be adapted to
+the environment.
+
+Start the computer vision on the robot:
+
+@code
+[bot]$ roslaunch launch cv.launch
+@endcode
+
+Connect your PC via ethernet, set the ROS master and start the calibration tool:
+@code
+[pc]$ nimbro host xs2.local
+[pc]$ roslaunch calibration calibration.launch
+@endcode
+
+\image html calibration/calibration.png
+
+The calibration tool will show up (see above). By default it will show the
+unprocessed image, contrary to the figure shown.
+
+Perform the following steps for initial camera calibration:
+
+ - If needed, change the focus by rotating the lens. You will need to pop out the camera by
+   removing the head cover and pressing gently on the camera board. You can then rotate the lens
+   until you are satisfied with the focus. Keep in mind that it is more important to have objects
+   far away in good focus, because they are smaller in the image.
+ - Tune Brightness, Contrast, Saturation and Gain in the right-handed Camera Settings view.
+   There is no magic sequence here, simply
+   play around until you like the image. Pay attention to colors which might be similar to each
+   other to make sure the color classification will be able to separate them later.
+ - Retrieve the new camera settings YAML from the robot using scp:
+   @code
+[pc]$ scp nimbro@192.168.100.11:/nimbro/share/camera_v4l2/launch/cam_settings.yaml [nimbro_op_repo]/cv/camera_v4l2/launch/
+   @endcode
+
+@section recbag Recording a vision bag file
+
+For further calibration it is recommended to work on a bag file, because you can quickly seek to
+interesting images in it and replay situations to determine whether calibration has improved.
+Because the soccer_vision node will need TF later, it is recommended that you start the whole
+soccer launch file and let the robot stand up.
+
+@code
+# Exit other launch files first!
+[bot]$ roslaunch launch soccer.launch
+[bot]$ rosbag record -O my_file_name.bag /tf /image
+@endcode
+
+@section colorcalib Color Calibration
+
+With the bag file you acquired in @ref recbag you can now start to calibrate the color
+classification:
+
+@code
+# Make sure the nimbro host is set back to your PC (e.g. open a new terminal)
+[pc]$ roslaunch calibration calibration.launch
+@endcode
+
+The calibration tool will wait a few seconds to see if there is a physical camera present,
+so do not be worried if startup takes a while. Now choose the `File` button in the
+lower right corner under `Playback control`. Open the bag file you retrieved from
+the robot (e.g. with scp). Choose `/image` as the image topic. You can now seek
+in the bag file using the sliders or the left and right buttons of your keyboard.
+
+Open a calibration configuration using `File&rarr;Open` or the toolbar button. The
+usual path is `[nimbro op repository]/cv/calibration/launch/objects/Objects.calib`.
+You should see ellipses appear for each color class in the righthanded `YUV space`
+view.
+
+You can always switch between raw and processed view with the buttons in the lower right
+corner or using the space bar. Try playing around with the ellipses and see the classified
+colors change. You can rotate ellipses by holding the right mouse button down.
+
+A very helpful tool are color histograms. Select a rectangle of the image using the mouse
+(click-and-drag). You will see a Y histogram in the bottom view, and a UV histogram in
+the YUV space view. This makes it easier to calibrate the ellipses and choose appropriate
+Y min/max constraints.
+
+If you are satisfied with the calibration, save the configuration file *and* export
+a finished look up table via the toolbar button. The LUT file belongs in
+`[nimbro_op repository]/cv/soccer_vision/Objects.lut`.
+
+*/

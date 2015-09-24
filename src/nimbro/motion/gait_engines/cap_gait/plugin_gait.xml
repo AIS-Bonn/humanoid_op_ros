@@ -1,0 +1,7 @@
+<library path="lib/libcap_gait">
+	<class type="cap_gait::CapGait" base_class_type="gait::GaitEngine">
+		<description>
+			Capture step gait engine
+		</description>
+	</class>
+</library>

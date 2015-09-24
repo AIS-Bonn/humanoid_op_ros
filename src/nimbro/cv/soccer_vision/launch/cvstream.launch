@@ -1,0 +1,6 @@
+<launch>
+
+	<node pkg="nodelet" type="nodelet" name="soccer_vision_stream" args="standalone SoccerVision vision" output="screen">
+		<param name="use_gui" value="true" />
+	</node>
+</launch>

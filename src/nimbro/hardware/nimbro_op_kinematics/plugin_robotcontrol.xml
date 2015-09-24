@@ -1,0 +1,7 @@
+<library path="lib/libnimbro_op_kinematics_iktest">
+	<class type="nimbro_op_kinematics::IKTest" base_class_type="robotcontrol::MotionModule">
+		<description>
+			IKTest
+		</description>
+	</class>
+</library>

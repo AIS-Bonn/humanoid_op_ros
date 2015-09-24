@@ -1,0 +1,7 @@
+<library path="lib/libclassificator">
+	<class name="openplatform/classificator" type="Classificator" base_class_type="nodelet::Nodelet">
+		<description>
+			Color classificator.
+		</description>
+	</class>
+</library>

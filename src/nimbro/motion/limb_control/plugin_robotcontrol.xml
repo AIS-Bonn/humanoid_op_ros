@@ -1,0 +1,7 @@
+<library path="lib/liblimb_control">
+	<class type="limb_control::LimbControl" base_class_type="robotcontrol::MotionModule">
+		<description>
+			Motion of the robot limbs.
+		</description>
+	</class>
+</library>

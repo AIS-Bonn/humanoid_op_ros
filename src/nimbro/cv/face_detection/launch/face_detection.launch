@@ -1,0 +1,17 @@
+<launch>
+    <node pkg="nodelet" type="nodelet" name="detection" args="manager" output="screen" respawn="true" />
+    
+    <node pkg="nodelet" type="nodelet" name="cam" args="load openplatform/camera_v4l2 detection" output="screen" respawn="true" >
+        <param name="configFile" value="$(find camera_v4l2)/launch/cam_settings.yaml" />
+        <rosparam command="load" file="$(find camera_v4l2)/launch/cam_params.yaml" />
+    <!--
+        <param name="device" value="/dev/video1" />
+    -->
+        <param name="height" value="1200" />
+        <param name="width" value="1600" />
+    </node>
+
+    <node pkg="nodelet" type="nodelet" name="face_detection" args="load face_detection::FaceDetecter detection" output="screen" respawn="true">
+		<remap from="/face_detection/image" to="/image" />
+    </node>
+</launch>

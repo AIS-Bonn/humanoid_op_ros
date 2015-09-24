@@ -1,0 +1,14 @@
+<library path="lib/libnimbro_op_interface">
+	<class type="nimbro_op_interface::RobotInterface" base_class_type="robotcontrol::HardwareInterface">
+		<description>
+			NimbRo-OP robot hardware interface
+		</description>
+	</class>
+</library>
+<library path="lib/libnimbro_op_interface">
+	<class type="nimbro_op_interface::DummyInterface" base_class_type="robotcontrol::HardwareInterface">
+		<description>
+			NimbRo-OP robot hardware interface (dummy)
+		</description>
+	</class>
+</library>

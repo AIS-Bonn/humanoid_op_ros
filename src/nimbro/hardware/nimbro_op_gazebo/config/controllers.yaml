@@ -1,0 +1,95 @@
+nimbro_op:
+    # Publish all joint states -----------------------------------
+    joint_state_controller:
+        type: joint_state_controller/JointStateController
+        publish_rate: 125
+
+    # Position controllers: Right leg ---------------------------------------
+    right_hip_yaw_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: right_hip_yaw
+        pid: {p: 100.0, i: 0.00, d: 0.9}
+    right_hip_roll_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: right_hip_roll
+        pid: {p: 100.0, i: 0.00, d: 0.9}
+    right_hip_pitch_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: right_hip_pitch
+        pid: {p: 100.0, i: 0.00, d: 0.9}
+    right_knee_pitch_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: right_knee_pitch
+        pid: {p: 100.0, i: 0.00, d: 0.9}
+    right_ankle_pitch_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: right_ankle_pitch
+        pid: {p: 50.0, i: 0.00, d: 0.9}
+    right_ankle_roll_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: right_ankle_roll
+        pid: {p: 50.0, i: 0.00, d: 0.9}
+
+    # Position controllers: Left leg ---------------------------------------
+    left_hip_yaw_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: left_hip_yaw
+        pid: {p: 100.0, i: 0.00, d: 0.9}
+    left_hip_roll_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: left_hip_roll
+        pid: {p: 100.0, i: 0.00, d: 0.9}
+    left_hip_pitch_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: left_hip_pitch
+        pid: {p: 100.0, i: 0.00, d: 0.9}
+    left_knee_pitch_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: left_knee_pitch
+        pid: {p: 100.0, i: 0.00, d: 0.9}
+    left_ankle_pitch_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: left_ankle_pitch
+        pid: {p: 50.0, i: 0.00, d: 0.9}
+    left_ankle_roll_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: left_ankle_roll
+        pid: {p: 50.0, i: 0.00, d: 0.9}
+
+    # Position controllers: Right arm ---------------------------------------
+    right_shoulder_pitch_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: right_shoulder_pitch
+        pid: {p: 50.0, i: 0.00, d: 0.9}
+    right_shoulder_roll_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: right_shoulder_roll
+        pid: {p: 50.0, i: 0.00, d: 0.9}
+    right_elbow_pitch_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: right_elbow_pitch
+        pid: {p: 50.0, i: 0.00, d: 0.9}
+
+    # Position controllers: Left arm ---------------------------------------
+    left_shoulder_pitch_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: left_shoulder_pitch
+        pid: {p: 50.0, i: 0.00, d: 0.9}
+    left_shoulder_roll_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: left_shoulder_roll
+        pid: {p: 50.0, i: 0.00, d: 0.9}
+    left_elbow_pitch_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: left_elbow_pitch
+        pid: {p: 50.0, i: 0.00, d: 0.9}
+
+    # Position controllers: Head ---------------------------------------
+    neck_yaw_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: neck_yaw
+        pid: {p: 50.0, i: 0.00, d: 0.9}
+    head_pitch_position_controller:
+        type: effort_controllers/JointPositionController
+        joint: head_pitch
+        pid: {p: 50.0, i: 0.00, d: 0.9}

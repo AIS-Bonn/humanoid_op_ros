@@ -1,0 +1,7 @@
+<library path="librviz_dynamics">
+	<class name="TorqueDisplay" type="TorqueDisplay" base_class_type="rviz::Display">
+		<description>
+			Displays torque information on your RobotModel.
+		</description>
+	</class>
+</library>

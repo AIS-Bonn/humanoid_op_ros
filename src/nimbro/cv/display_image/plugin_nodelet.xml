@@ -1,0 +1,7 @@
+<library path="lib/libdisplay_image">
+	<class name="openplatform/display_image" type="DisplayImage" base_class_type="nodelet::Nodelet">
+		<description>
+			Camera display
+		</description>
+	</class>
+</library>

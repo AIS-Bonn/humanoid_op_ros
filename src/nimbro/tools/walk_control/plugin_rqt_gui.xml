@@ -1,0 +1,12 @@
+<library path="lib/libwalkcontrol">
+	<class name="walkcontrol/WalkControl" type="walkcontrol::WalkControl" base_class_type="rqt_gui_cpp::Plugin">
+		<description>
+			Controls for walking
+		</description>
+		<qtgui>
+			<label>WalkControl</label>
+			<icon type="theme">hwinfo</icon>
+			<statustip>tip</statustip>
+		</qtgui>
+	</class>
+</library>

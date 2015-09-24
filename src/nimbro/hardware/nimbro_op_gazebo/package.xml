@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package>
+	<name>nimbro_op_gazebo</name>
+	<version>0.0.0</version>
+	<description>Gazebo configuration and launch files for NimbRo-OP</description>
+
+	<maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+	<license>TODO</license>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<build_depend>urdf</build_depend>
+	<run_depend>urdf</run_depend>
+	<export>
+	</export>
+</package>

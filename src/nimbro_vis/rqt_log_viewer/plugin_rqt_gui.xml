@@ -1,0 +1,12 @@
+<library path="lib/librqt_log_viewer">
+	<class name="rqt_log_viewer" type="rqt_log_viewer::RQTLogViewer" base_class_type="rqt_gui_cpp::Plugin">
+		<description>
+			View ROS log
+		</description>
+		<qtgui>
+			<label>Log Viewer</label>
+			<icon type="theme">utilities-log-viewer</icon>
+			<statustip>View the ROS log</statustip>
+		</qtgui>
+	</class>
+</library>

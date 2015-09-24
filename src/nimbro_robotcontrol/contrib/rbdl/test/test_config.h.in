@@ -1,0 +1,9 @@
+// Test configuration
+// Author: Max Schwarz <max.schwarz@uni-bonn.de>
+
+#ifndef TEST_CONFIG_H
+#define TEST_CONFIG_H
+
+#define SOURCE_DIRECTORY "@CMAKE_CURRENT_SOURCE_DIR@"
+
+#endif

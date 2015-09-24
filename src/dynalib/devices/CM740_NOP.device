@@ -1,0 +1,54 @@
+name CM740_NOP
+model 0x7401
+
+section RAM
+reg 0   2 MODEL_NUMBER        hex
+reg 2   1 FIRMWARE_VERSION    hex
+reg 3   1 ID                  
+reg 4   1 BAUD_RATE           
+reg 5   1 RETURN_DELAY_TIME   
+reg 12  1 DOWN_LIMIT_VOLTAGE  hidden
+reg 13  1 UP_LIMIT_VOLTAGE    hidden
+reg 16  1 RETURN_LEVEL        
+reg 17  1 ALARM_LED           hidden hex
+reg 24  1 DYNAMIXEL_POWER
+reg 25  1 LED_PANEL           hex
+reg 26  2 RGBLED5             hex
+reg 28  2 RGBLED6             hex
+reg 30  1 BUTTON              hex
+reg 31  1 BATTERY_VOLTAGE     
+reg 32  2 GYRO_X              signed
+reg 34  2 GYRO_Y              signed
+reg 36  2 GYRO_Z              signed
+reg 38  2 ACC_X               signed
+reg 40  2 ACC_Y               signed
+reg 42  2 ACC_Z               signed
+reg 44  2 MAG_X               signed
+reg 46  2 MAG_Y               signed
+reg 48  2 MAG_Z               signed
+reg 50  2 ADC0_BATTERY        hidden
+reg 52  2 ADC1_MIC1           hidden
+reg 54  2 ADC2_MIC2           hidden
+reg 82  1 BUZZER_DATA         hidden
+reg 83  1 BUZZER_PLAY_LENGTH  hidden
+reg 91  2 DXLRX_PACKET_CNT    hidden
+reg 93  2 DXLRX_OVERFLOW_CNT  
+reg 95  2 DXLRX_BUFERROR_CNT  hidden
+reg 97  2 DXLRX_CHKERROR_CNT  hidden
+reg 99  2 DXLRX_ORE_CNT       hidden
+reg 101 2 DXLTX_PACKET_CNT    hidden
+reg 103 2 DXLTX_OVERFLOW_CNT
+reg 105 2 DXLTX_BUFERROR_CNT  hidden
+reg 107 2 PCRX_PACKET_CNT     hidden
+reg 109 2 PCRX_OVERFLOW_CNT
+reg 111 2 PCRX_BUFERROR_CNT   hidden
+reg 113 2 PCRX_CHKERROR_CNT   hidden
+reg 115 2 PCRX_ORE_CNT        hidden
+reg 117 2 PCTX_PACKET_CNT     hidden
+reg 119 2 PCTX_OVERFLOW_CNT
+reg 121 2 PCTX_BUFERROR_CNT   hidden
+reg 123 1 MISC0               hidden hex
+reg 124 1 MISC1               hidden hex
+reg 125 1 MISC2               hidden
+reg 126 1 MISC3               hidden
+reg 127 1 LOG                 hidden

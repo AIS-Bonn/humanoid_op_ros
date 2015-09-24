@@ -1,0 +1,5 @@
+<launch>
+	<include file="$(find launch)/hardware/robot_dummy_demo_standing.launch" />
+    
+	<node name="hand_shaking_demo" pkg="hand_shaking_demo" type="hand_shaking_demo" output="screen" />
+</launch>

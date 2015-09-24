@@ -1,0 +1,12 @@
+<library path="lib/libplotter">
+	<class name="plotter/Plotter" type="plotter::Plotter" base_class_type="rqt_gui_cpp::Plugin">
+		<description>
+			Displays some curves
+		</description>
+		<qtgui>
+			<label>Plotter</label>
+			<icon type="theme">kchart</icon>
+			<statustip>Displays some curves</statustip>
+		</qtgui>
+	</class>
+</library>

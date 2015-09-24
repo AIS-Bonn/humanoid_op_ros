@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package>
+	<name>display_image</name>
+	<version>0.0.0</version>
+	<description>Nodelet to display a camera image</description>
+
+	<maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+	<license>TODO</license>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<build_depend>roscpp</build_depend>
+	<build_depend>nodelet</build_depend>
+	<build_depend>nodelet_gui_manager</build_depend>
+	<run_depend>roscpp</run_depend>
+	<run_depend>nodelet</run_depend>
+
+	<export>
+		<nodelet plugin="${prefix}/plugin_nodelet.xml" />
+	</export>
+</package>

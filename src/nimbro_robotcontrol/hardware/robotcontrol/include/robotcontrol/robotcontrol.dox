@@ -1,0 +1,15 @@
+/**
+* @namespace robotcontrol
+*
+* @brief Contains classes and functions pertaining to the low-level control of the robot.
+* 
+* The robotcontrol node is responsible for hardware communication, robot state
+* estimation and motion command generation. It does this in a hard real-time loop,
+* which ensures that the core robot control is always responsive.
+**/
+
+/**
+* @namespace stateestimation
+*
+* @brief Contains classes and functions pertaining to the estimation of the robot state.
+**/

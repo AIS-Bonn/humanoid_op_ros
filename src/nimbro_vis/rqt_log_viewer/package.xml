@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package>
+	<name>rqt_log_viewer</name>
+	<version>0.0.0</version>
+	<description>Displays the ROS log in rqt and configures loggers</description>
+	<maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+
+	<license>GPLv2</license>
+	<buildtool_depend>catkin</buildtool_depend>
+	<build_depend>roscpp</build_depend>
+	<build_depend>rosgraph_msgs</build_depend>
+	<build_depend>rqt_gui</build_depend>
+	<build_depend>rqt_gui_cpp</build_depend>
+	<run_depend>rqt_gui</run_depend>
+
+	<export>
+		<rqt_gui plugin="${prefix}/plugin_rqt_gui.xml" />
+	</export>
+</package>

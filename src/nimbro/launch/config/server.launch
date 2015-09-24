@@ -1,0 +1,8 @@
+<launch>
+	<arg name="robot_name" value="$(optenv NIMBRO_ROBOT_NAME)" />
+
+	<node name="config_server" pkg="config_server" type="config_server" output="screen" required="true">
+		<param name="config_path" value="$(find launch)/config" />
+		<param name="robot_name" value="$(arg robot_name)" />
+	</node>
+</launch>

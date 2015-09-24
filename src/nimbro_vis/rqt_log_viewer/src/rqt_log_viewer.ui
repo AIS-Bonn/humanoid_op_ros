@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RQTLogViewer</class>
+ <widget class="QWidget" name="RQTLogViewer">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>848</width>
+    <height>646</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Log Viewer</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <item>
+    <widget class="QSplitter" name="nodeViewSplitter">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <widget class="QTreeView" name="nodeView"/>
+     <widget class="QSplitter" name="splitter">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <widget class="QWidget" name="layoutWidget">
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QPushButton" name="configButton">
+            <property name="text">
+             <string>&gt;&gt; Tree</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="rqt_log_viewer::FilterLineEdit" name="filterEdit"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="toolsButton">
+            <property name="text">
+             <string>Tools</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="rqt_log_viewer::LogView" name="logView" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="rqt_log_viewer::MessageDisplay" name="detailView" native="true">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>50</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>150</height>
+        </size>
+       </property>
+      </widget>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>rqt_log_viewer::LogView</class>
+   <extends>QWidget</extends>
+   <header>log_view.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>rqt_log_viewer::FilterLineEdit</class>
+   <extends>QLineEdit</extends>
+   <header>filter_line_edit.h</header>
+  </customwidget>
+  <customwidget>
+   <class>rqt_log_viewer::MessageDisplay</class>
+   <extends>QWidget</extends>
+   <header>message_display.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

@@ -1,0 +1,7 @@
+<library path="lib/libfall_protection">
+	<class type="fall_protection::FallProtection" base_class_type="robotcontrol::MotionModule">
+		<description>
+			Fall protection
+		</description>
+	</class>
+</library>

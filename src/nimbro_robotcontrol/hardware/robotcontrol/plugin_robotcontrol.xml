@@ -1,0 +1,21 @@
+<library path="lib/libdummy_interface">
+	<class type="robotcontrol::DummyInterface" base_class_type="robotcontrol::HardwareInterface">
+		<description>
+			Dummy robot interface
+		</description>
+	</class>
+</library>
+<library path="lib/libros_control_interface">
+	<class type="robotcontrol::ROSControlInterface" base_class_type="robotcontrol::HardwareInterface">
+		<description>
+			ROS control interface
+		</description>
+	</class>
+</library>
+<library path="lib/libgazebo_interface">
+	<class type="robotcontrol::GazeboInterface" base_class_type="robotcontrol::HardwareInterface">
+		<description>
+			Gazebo interface
+		</description>
+	</class>
+</library>

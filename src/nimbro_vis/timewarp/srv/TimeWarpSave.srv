@@ -1,0 +1,5 @@
+string bagPath
+bool append
+time startTime
+time stopTime
+---

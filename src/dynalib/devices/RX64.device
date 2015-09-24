@@ -1,0 +1,4 @@
+include RX.device
+
+model 0x0040
+name RX64

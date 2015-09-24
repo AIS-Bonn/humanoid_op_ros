@@ -1,0 +1,7 @@
+<library path="libloc_display">
+	<class name="LocDisplay" type="loc_display::LocDisplay" base_class_type="rviz::Display">
+		<description>
+			Displays a soccer field, landmarks, and object detections
+		</description>
+	</class>
+</library>

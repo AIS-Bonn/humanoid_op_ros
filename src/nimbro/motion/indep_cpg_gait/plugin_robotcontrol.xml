@@ -1,0 +1,7 @@
+<library path="lib/libindep_cpg_gait">
+	<class type="indep_cpg_gait::IndepCPGGait" base_class_type="robotcontrol::MotionModule">
+		<description>
+			Motion layer from old NimbRo software
+		</description>
+	</class>
+</library>

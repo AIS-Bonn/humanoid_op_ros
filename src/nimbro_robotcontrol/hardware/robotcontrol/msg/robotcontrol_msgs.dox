@@ -1,0 +1,5 @@
+/** @defgroup robotcontrol_msgs robotcontrol_msgs
+
+These are the message types that are defined by robotcontrol for data publishing.
+
+**/

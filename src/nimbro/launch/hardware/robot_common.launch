@@ -1,0 +1,14 @@
+<launch>
+    <param name="/robot_name" value="$(optenv NIMBRO_ROBOT_NAME)" type="str" />
+    <param name="/robot_type" value="$(optenv NIMBRO_ROBOT_TYPE)" type="str" />
+
+    <param name="/field_type" value="teensize" />
+    
+    <node name="joy" pkg="joy" type="joy_node" />
+
+    <include file="$(find nimbro_op_model)/launch/model.launch" />
+
+    <include file="$(find rrlogger)/launch/rrlogger_basic.launch" />
+
+    <include file="$(find launch)/config/server.launch" />
+</launch>

@@ -1,0 +1,14 @@
+<launch>
+	<include file="$(find nimbro_op_model)/launch/model.launch" /> 
+
+<!--	<node name="testbench" pkg="servomodel" type="testbench" required="true">
+	</node>-->
+
+<!--	<param name="use_gui" value="true" />
+	<node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+		<remap from="/joint_states" to="/joint_state_cmds" />
+	</node>
+	<node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" /> -->
+
+</launch>
+

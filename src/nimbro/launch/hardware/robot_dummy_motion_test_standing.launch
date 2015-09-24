@@ -1,0 +1,13 @@
+<launch>
+    <include file="$(find launch)/hardware/robot_common.launch" />
+
+    <node name="robotcontrol" pkg="robotcontrol" type="robotcontrol" output="screen" required="true">
+        <rosparam>
+            hw_interface: "nimbro_op_interface::DummyInterface"
+            InitPoseMotion: "init_pose_stand"
+            InitMotion: "init_stand"
+            motion_modules:
+            - "motionplayer::MotionPlayer"
+        </rosparam>
+    </node>
+</launch>

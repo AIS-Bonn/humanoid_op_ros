@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package>
+  <name>nodelet_gui_manager</name>
+  <version>0.0.0</version>
+  <description>Nodelet manager for Qt GUIs</description>
+
+  <maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>nodelet</build_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>nodelet</run_depend>
+</package>

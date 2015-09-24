@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<robot name="nimbro_op" xmlns:xacro="http://www.ros.org/wiki/xacro">
+	<xacro:include filename="$(find nimbro_op_model)/robots/nimbro_op_base.xacro" />
+
+	<xacro:nimbro_op display_variant="nimbro_op_hull" collision_variant="nimbro_op_hull" />
+</robot>

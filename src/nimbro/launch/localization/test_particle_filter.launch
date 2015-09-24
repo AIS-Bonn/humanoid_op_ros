@@ -1,0 +1,9 @@
+<launch>
+	<param name="/robotcontrol/initial_state" value="standing" />
+
+	<include file="$(find launch)/hardware/robot_dummy.launch" />
+
+	<node name="test" pkg="particle_filter" type="particleFilterTester" />
+
+	<node name="pf" pkg="particle_filter" type="particle_filter" />
+</launch>

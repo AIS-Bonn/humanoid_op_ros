@@ -1,0 +1,8 @@
+# Goal
+float32 torque
+---
+# Result
+float32 torque
+---
+# Feedback
+float32 current_torque
