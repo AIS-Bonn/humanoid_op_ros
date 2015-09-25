@@ -1,0 +1,7 @@
+*~
+*.kdev*
+.*
+*.pyc
+build
+devel
+nimbro_release.sh
