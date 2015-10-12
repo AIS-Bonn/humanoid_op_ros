@@ -54,13 +54,13 @@ void HeaderView::checkValues()
 	
 	warningString.clear();
 	
-	if(ui->nameLineEdit->text() != fileName) // check if motion name is valid
+	/*if(ui->nameLineEdit->text() != fileName) // check if motion name is valid
 	{
 		ui->nameLineEdit->setStyleSheet(errorSheet);
 		warningString.append("Motion name is not valid\n");
 	}
 	else
-		ui->nameLineEdit->setStyleSheet(okSheet);
+		ui->nameLineEdit->setStyleSheet(okSheet);*/
 	
 	if(ui->preStateLineEdit->text() == "") // check if preState is valid
 	{

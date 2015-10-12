@@ -47,6 +47,7 @@ Gait::Gait()
  : CONFIG_PARAM_PATH("/gait/")
  , m_enableJoystick(CONFIG_PARAM_PATH + "enableJoystick", true)
  , m_plotData(CONFIG_PARAM_PATH + "plotData", false)
+ , m_publishOdometry(CONFIG_PARAM_PATH + "publishOdometry", true)
  , m_publishTransforms(CONFIG_PARAM_PATH + "publishTransforms", true)
  , m_gaitCmdVecNormP(CONFIG_PARAM_PATH + "gaitCmdVecNormP", 0.5, 0.10, 10.0, 2.0)
  , m_gaitCmdVecNormMax(CONFIG_PARAM_PATH + "gaitCmdVecNormMax", 0.5, 0.05, 1.5, 1.0)
@@ -206,6 +207,10 @@ bool Gait::isTriggered()
 		}
 	}
 
+	// Increment the gait odometry ID if we are just about to start walking
+	if(m_gaitState != oldGaitState && m_gaitState == GS_STARTING_WALKING)
+		m_gait_odom.ID++;
+
 	// Trigger a kick if required
 	if(m_motionPending != MID_NONE)
 	{
@@ -285,18 +290,28 @@ void Gait::step()
 // Publish transforms function
 void Gait::publishTransforms()
 {
+	// Save the current ROS time
+	ros::Time now = ros::Time::now();
+
+	// Publish the gait odometry if required to do so
+	if(m_publishOdometry())
+	{
+		// Update the odometry timestamp
+		m_gait_odom.header.stamp = now;
+		
+		// Publish the required odometry
+		m_pub_odom.publish(m_gait_odom);
+	}
+
 	// Publish the gait transforms if required to do so
 	if(m_publishTransforms())
 	{
-		// Save the current ROS time
-		ros::Time now = ros::Time::now();
-
-		// Update the TF frame timestamps
+		// Update the TF frame timestamps (Note: m_tf_ego_floor and m_tf_odom point to elements of m_tf_transforms, so implicitly m_tf_transforms is updated here)
 		m_tf_ego_floor->stamp_ = now;
 		m_tf_odom->stamp_ = now;
 
 		// Publish the required transforms
-		m_tf_broadcaster.sendTransform(m_tf_transforms); // Note: m_tf_ego_floor and m_tf_odom point to elements of m_tf_transforms, so implicitly m_tf_transforms was just updated!
+		m_tf_broadcaster.sendTransform(m_tf_transforms);
 	}
 }
 
@@ -306,10 +321,10 @@ void Gait::updateTransforms()
 	// Update the ego_floor frame
 	m_tf_ego_floor->setOrigin(tf::Vector3(0.0, 0.0, m_engine->out.odomPosition[2]));
 
-	// Update the odom frame position
+	// Update the odometry frame position
 	m_tf_odom->setOrigin(tf::Vector3(m_engine->out.odomPosition[0], m_engine->out.odomPosition[1], 0.0));
 
-	// Update the odom frame orientation (take the fused yaw component only)
+	// Update the odometry frame orientation (take the fused yaw component only)
 	double w = m_engine->out.odomOrientation[0];
 	double z = m_engine->out.odomOrientation[3];
 	double wznorm = w*w + z*z;
@@ -325,6 +340,25 @@ void Gait::updateTransforms()
 		z = 0.0;
 	}
 	m_tf_odom->setRotation(tf::Quaternion(0.0, 0.0, z, w));
+
+	// Calculate the fused yaw of the orientation
+	double fyaw = 2.0*atan2(z,w);
+	if(fyaw >   M_PI) fyaw -= M_2PI; // fyaw is now in [-2*pi,pi]
+	if(fyaw <= -M_PI) fyaw += M_2PI; // fyaw is now in (-pi,pi]
+
+	// Update the 2D gait odometry
+	m_gait_odom.odom2D.x = m_engine->out.odomPosition[0];
+	m_gait_odom.odom2D.y = m_engine->out.odomPosition[1];
+	m_gait_odom.odom2D.theta = fyaw;
+
+	// Update the 3D gait odometry
+	m_gait_odom.odom.position.x = m_engine->out.odomPosition[0];
+	m_gait_odom.odom.position.y = m_engine->out.odomPosition[1];
+	m_gait_odom.odom.position.z = m_engine->out.odomPosition[2];
+	m_gait_odom.odom.orientation.w = m_engine->out.odomOrientation[0];
+	m_gait_odom.odom.orientation.x = m_engine->out.odomOrientation[1];
+	m_gait_odom.odom.orientation.y = m_engine->out.odomOrientation[2];
+	m_gait_odom.odom.orientation.z = m_engine->out.odomOrientation[3];
 }
 
 // Load the required gait engine dynamically via pluginlib
@@ -471,8 +505,8 @@ void Gait::plotGaitEngineOutputs(const GaitEngineOutput& out)
 	// Plot the required outputs
 	for(int i = 0; i < NUM_JOINTS; i++)
 	{
-		m_PM.plotScalar(out.jointCmd[i],    PM_JOINTCMD_FIRST + i);
-		m_PM.plotScalar(out.jointEffort[i], PM_JOINTEFFORT_FIRST + i);
+		m_PM.plotScalar(out.jointCmd[i],      PM_JOINTCMD_FIRST + i);
+		m_PM.plotScalar(out.jointEffort[i],   PM_JOINTEFFORT_FIRST + i);
 	}
 	m_PM.plotScalar(out.useRawJointCmds,      PM_USE_RAW_JOINT_CMDS);
 	m_PM.plotScalar(out.walking,              PM_WALKING);
@@ -481,6 +515,7 @@ void Gait::plotGaitEngineOutputs(const GaitEngineOutput& out)
 	m_PM.plotScalar(out.odomPosition[0],      PM_GAIT_ODOM_X);
 	m_PM.plotScalar(out.odomPosition[1],      PM_GAIT_ODOM_Y);
 	m_PM.plotScalar(out.odomPosition[2],      PM_GAIT_ODOM_Z);
+	m_PM.plotScalar(0.1*(((m_gait_odom.ID - 1) % 10) + 1), PM_GAIT_ODOM_ID);
 }
 
 // Handle gait command data
@@ -574,7 +609,6 @@ void Gait::continueReachHaltPose() // This function needs to set *all* gait engi
 	m_engine->out.walking = false;
 	m_engine->out.supportCoeffLeftLeg = 0.5;
 	m_engine->out.supportCoeffRightLeg = 0.5;
-	m_engine->updateOdometry();
 
 	// Check whether we have completed the required motion blend and successfully arrived at the halt pose (it may have changed in the meantime!)
 	if(t >= m_reachDuration + REACH_HALT_POSE_DELAY)
@@ -693,6 +727,28 @@ void Gait::callbackEnableJoystick()
 // Configure the TF transforms
 void Gait::configureTransforms()
 {
+	// Create ROS node handle
+	ros::NodeHandle nh("~");
+
+	// Advertise the gait odometry topic
+	m_pub_odom = nh.advertise<gait_msgs::GaitOdom>("/gait/odometry", 1);
+
+	// Initialise the gait odometry information
+	m_gait_odom.header.frame_id = gait::gaitOdomFrame;
+	m_gait_odom.header.seq = 0;
+	m_gait_odom.header.stamp.fromNSec(0);
+	m_gait_odom.ID = 0;
+	m_gait_odom.odom.position.x = 0.0;
+	m_gait_odom.odom.position.y = 0.0;
+	m_gait_odom.odom.position.z = 0.0;
+	m_gait_odom.odom.orientation.w = 1.0;
+	m_gait_odom.odom.orientation.x = 0.0;
+	m_gait_odom.odom.orientation.y = 0.0;
+	m_gait_odom.odom.orientation.z = 0.0;
+	m_gait_odom.odom2D.x = 0.0;
+	m_gait_odom.odom2D.y = 0.0;
+	m_gait_odom.odom2D.theta = 0.0;
+
 	// Initialise the TF transform broadcaster
 	m_tf_transforms.resize(2);
 	m_tf_ego_floor = &(m_tf_transforms[0]);
@@ -703,8 +759,8 @@ void Gait::configureTransforms()
 	m_tf_ego_floor->child_frame_id_ = "/ego_rot";
 	m_tf_ego_floor->setIdentity();
 
-	// Define and initialise the odom frame
-	m_tf_odom->frame_id_ = "/odom";
+	// Define and initialise the odometry frame
+	m_tf_odom->frame_id_ = gaitOdomFrame;
 	m_tf_odom->child_frame_id_ = "/ego_floor";
 	m_tf_odom->setIdentity();
 }
@@ -714,6 +770,11 @@ bool Gait::handleResetOdometry(std_srvs::EmptyRequest& req, std_srvs::EmptyRespo
 {
 	// Reset the gait engine's odometry
 	m_engine->setOdometry(0.0, 0.0, 0.0);
+	m_engine->updateOdometry();
+
+	// Increment the gait odometry ID to safely declare the jump in odometry
+	updateTransforms();
+	m_gait_odom.ID++;
 
 	// Display a message that this service was called
 	ROS_WARN("Odometry has been set to (%.3f, %.3f, %.3f)", 0.0, 0.0, 0.0);
@@ -727,6 +788,11 @@ bool Gait::handleSetOdometry(gait_msgs::SetOdomRequest &req, gait_msgs::SetOdomR
 {
 	// Set the gait engine's odometry
 	m_engine->setOdometry(req.posX, req.posY, req.rotZ);
+	m_engine->updateOdometry();
+
+	// Increment the gait odometry ID to safely declare the jump in odometry
+	updateTransforms();
+	m_gait_odom.ID++;
 
 	// Display a message that this service was called
 	ROS_WARN("Odometry has been set to (%.3f, %.3f, %.3f)", req.posX, req.posY, req.rotZ);
@@ -776,6 +842,11 @@ void Gait::resetGait()
 	m_engine->reset();
 	m_engine->setOdometry(0.0, 0.0, 0.0);
 	m_engine->resetBase();
+	m_engine->updateOdometry();
+
+	// Increment the gait odometry ID to safely declare the jump in odometry
+	updateTransforms();
+	m_gait_odom.ID++;
 
 	// Update the plot data
 	plotRawGaitCommand();
@@ -821,6 +892,7 @@ void Gait::configurePlotManager()
 	m_PM.setName(PM_GAIT_ODOM_X,         "gaitOdom/X");
 	m_PM.setName(PM_GAIT_ODOM_Y,         "gaitOdom/Y");
 	m_PM.setName(PM_GAIT_ODOM_Z,         "gaitOdom/Z");
+	m_PM.setName(PM_GAIT_ODOM_ID,        "gaitOdom/ID");
 
 	// Raw gait command
 	m_PM.setName(PM_GAITCMDRAW_LIN_VEL_X, "gaitCmdRaw/linVelX");

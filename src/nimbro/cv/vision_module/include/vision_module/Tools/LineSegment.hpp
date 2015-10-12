@@ -16,7 +16,6 @@ private:
 	bool Within(float fl, float flLow, float flHi, float flEp =
 	DEFFLEQEPSILON);
 public:
-
 	bool SortbyDistance(const Point2f & a, const Point2f &b);
 	bool IsOnThis(const Point2f& ptTest, float flEp =
 	DEFFLEQEPSILON);

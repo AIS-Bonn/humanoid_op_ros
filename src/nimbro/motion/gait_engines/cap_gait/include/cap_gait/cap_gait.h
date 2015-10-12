@@ -259,7 +259,7 @@ namespace cap_gait
 		//
 
 		// Reset function
-		void resetCaptureSteps(bool resetPose);
+		void resetCaptureSteps(bool resetRobotModel);
 
 		// Capture step robot model
 		margait_contrib::RobotModel rxRobotModel;

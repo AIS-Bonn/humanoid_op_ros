@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>behaviour_exercise</name>
+  <name>walk_and_kick</name>
   <version>0.0.0</version>
-  <description>The behaviour exercise package</description>
+  <description>The walk and kick package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
@@ -38,29 +38,21 @@
   <build_depend>roscpp</build_depend>
   <build_depend>config_server</build_depend>
   <build_depend>plot_msgs</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>behaviour_control</build_depend>
-  <build_depend>state_controller</build_depend>
-  <build_depend>test_utilities</build_depend>
-  <build_depend>robotcontrol</build_depend>
-  <build_depend>gait</build_depend>
   <build_depend>gait_msgs</build_depend>
-  <build_depend>head_control</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>timer</build_depend>
+  <build_depend>robotcontrol</build_depend>
   <build_depend>field_model</build_depend>
-  <build_depend>motion_player</build_depend>
+  <build_depend>nimbro_op_interface</build_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>config_server</run_depend>
   <run_depend>plot_msgs</run_depend>
-  <run_depend>geometry_msgs</run_depend>
-  <run_depend>behaviour_control</run_depend>
-  <run_depend>state_controller</run_depend>
-  <run_depend>test_utilities</run_depend>
-  <run_depend>robotcontrol</run_depend>
-  <run_depend>gait</run_depend>
   <run_depend>gait_msgs</run_depend>
-  <run_depend>head_control</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>timer</run_depend>
+  <run_depend>robotcontrol</run_depend>
   <run_depend>field_model</run_depend>
-  <run_depend>motion_player</run_depend>
+  <run_depend>nimbro_op_interface</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

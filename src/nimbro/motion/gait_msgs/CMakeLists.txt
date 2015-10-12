@@ -6,7 +6,7 @@ project(gait_msgs)
 #######################
 
 ## Find catkin macros and libraries
-find_package(catkin REQUIRED COMPONENTS roscpp message_generation std_msgs)
+find_package(catkin REQUIRED COMPONENTS roscpp message_generation std_msgs geometry_msgs)
 
 ###############################
 ## ROS messages and services ##
@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp message_generation std_msgs)
 add_message_files(DIRECTORY msg FILES
 	GaitCommand.msg
 	GaitPerformance.msg
+	GaitOdom.msg
 )
 add_service_files(DIRECTORY srv FILES
 	SetOdom.srv
@@ -24,6 +25,7 @@ add_service_files(DIRECTORY srv FILES
 ## Generate added messages and services with any message dependencies listed here
 generate_messages(DEPENDENCIES
 	std_msgs
+	geometry_msgs
 )
 
 ###################################################
@@ -37,7 +39,7 @@ generate_messages(DEPENDENCIES
 catkin_package(
 # 	INCLUDE_DIRS
 # 	LIBRARIES
-	CATKIN_DEPENDS message_runtime
+	CATKIN_DEPENDS message_runtime std_msgs geometry_msgs
 # 	DEPENDS
 )
 # EOF

@@ -272,6 +272,9 @@ void KeyframeModel::load()
 		s << temp->id;
 		temp->name = std::string("Frame ").append(s.str());
 	}
+	
+	// Set motion name
+	m_motion.motionName = headerView->setFileNameFromPath(filePath);
 
 	// Update views
 	m_jointManager->updateJointList(m_motion.jointList);
@@ -326,7 +329,10 @@ void KeyframeModel::saveAs()
 														, dir, tr("Motion files(*.yaml)"));
 	
 	if(headerView->requestSave()) // Save only if everything in header is ok
+	{
+		m_motion.motionName = headerView->setFileNameFromPath(path);
 		m_motion.save(path.toStdString());
+	}
 }
 
 void KeyframeModel::saveMirroredAs()
@@ -343,7 +349,9 @@ void KeyframeModel::saveMirroredAs()
 	}
 	
 	// Get filename to 'save as'
-	QString dir = QString::fromStdString(ros::package::getPath("launch") + "/motions/mirrored.yaml");
+	QString dir = QString::fromStdString(ros::package::getPath("launch") + "/motions/" 
+		+ headerView->getName() + "_mirrored.yaml");
+	
 	QString path = QFileDialog::getSaveFileName(m_parent, tr("Save motion as. Please, type extension")
 														, dir, tr("Motion files(*.yaml)"));
 	
@@ -358,7 +366,7 @@ void KeyframeModel::saveMirroredAs()
 	// Prepare mirrored frames
 	for(unsigned i = 0; i < m_motion.frames.size(); i++)
 	{
-		KeyframePtr mirroredFrame(m_motion.frames[i]);
+		KeyframePtr mirroredFrame = createFrame(m_motion.frames[i]);
 		
 		mirrorValues(m_motion.frames[i], mirroredFrame, "neck_yaw", "neck_yaw", false, true);
         
@@ -373,11 +381,39 @@ void KeyframeModel::saveMirroredAs()
 		mirrorValues(m_motion.frames[i], mirroredFrame, "left_ankle_roll", "right_ankle_roll", true, true);
 		mirrorValues(m_motion.frames[i], mirroredFrame, "left_hip_yaw", "right_hip_yaw", true, true);
 		
+		// Mirror support coefs
+		if(m_motion.frames[i]->support != "")
+		{
+			// Parse support coefs
+			QString support = QString::fromStdString(m_motion.frames[i]->support);
+			QStringList pieces = support.split( " " );
+			
+			if(pieces.size() !=2)
+			{
+				mirroredMotion.frames.push_back(mirroredFrame);
+				continue;
+			}
+				
+			// Mirror support coefs
+			double left = pieces.at(0).toDouble();
+			double right = pieces.at(1).toDouble();
+			
+			std::ostringstream ss;
+			ss << 1 - left;
+			ss << " ";
+			ss << 1 - right;
+			
+			mirroredFrame->support = ss.str();;
+		}
+		
 		mirroredMotion.frames.push_back(mirroredFrame);
 	}
 	
 	if(headerView->requestSave()) // Save only if everything in header is ok
+	{
+		mirroredMotion.motionName = headerView->setFileNameFromPath(path);
 		mirroredMotion.save(path.toStdString());
+	}
 }
 
 void  KeyframeModel::mirrorValues(KeyframePtr frame, KeyframePtr mirrored, std::string 
@@ -432,6 +468,8 @@ void KeyframeModel::createMotion()
 	filePath = path;
 	
 	// Set up new motion
+	m_motion.motionName = headerView->setFileNameFromPath(filePath);
+	
 	m_motion.frames.clear();
 	m_motion.jointList.clear();
 	m_motion.jointList.resize(m_rbdl->mJoints.size());

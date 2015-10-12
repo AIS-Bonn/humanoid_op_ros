@@ -388,7 +388,7 @@ namespace cap_gait
 		config_server::Parameter<float> gaitFrequency;          //!< @brief Nominal frequency of the gait
 		config_server::Parameter<float> gaitFrequencyMax;       //!< @brief Maximum allowed frequency of the gait
 		config_server::Parameter<bool>  leftLegFirst;           //!< @brief Flag specifying whether the first leg to step with when starting walking should be the left leg
-		config_server::Parameter<float> odomFrameOffsetZ;       //!< @brief Vertical Z offset that is added to the `odom` frame for better visualisation
+		config_server::Parameter<float> odomFrameOffsetZ;       //!< @brief Vertical Z offset that is added to the odometry frame for better visualisation
 		config_server::Parameter<float> stoppingGcvMag;         //!< @brief Unbiased gait command velocity 2-norm below which immediate walk stopping is allowed
 		config_server::Parameter<float> stoppingPhaseTolLB;     //!< @brief Gait phase tolerance below 0 and &pi;, in units of nominal phase increments (see gaitFrequency and the robotcontrol cycle time), within which intelligent walking stopping is allowed
 		config_server::Parameter<float> stoppingPhaseTolUB;     //!< @brief Gait phase tolerance above 0 and -&pi;, in units of nominal phase increments (see gaitFrequency and the robotcontrol cycle time), within which intelligent walking stopping is allowed

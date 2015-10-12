@@ -2,8 +2,6 @@
 // Created on: Apr 19, 2015
 //     Author: Hafez Farazi <farazi@ais.uni-bonn.de>
 
-/** @addtogroup VisionModule */
-/*@{*/
 #pragma once
 #include <opencv2/opencv.hpp>
 #include <sys/ioctl.h>
@@ -22,7 +20,6 @@ using namespace boost::timer;
 /**
  * @class CameraDummy
  * @brief This class is responsible for imitating image acquisition process as a dummy replacement for Camera Class \n  As an input this class listen the raw image in /vision/takenImg topic
- * @ingroup VisionModule
  **/
 class CameraDummy:public ICamera
 {
@@ -90,4 +87,4 @@ public:
 	 */
 	double TakeCapture();
 };
-/** @}*/
+

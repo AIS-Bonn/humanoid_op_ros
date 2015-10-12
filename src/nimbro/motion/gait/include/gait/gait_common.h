@@ -76,6 +76,9 @@ namespace gait
 		"right_ankle_pitch",    //          ...
 		"right_ankle_roll"      // <-- RIGHT_LEG_END
 	};
+
+	//! Name of the tf frame that is used for publishing the gait odometry
+	const std::string gaitOdomFrame = "/odom_gait";
 }
 
 #endif /* GAIT_COMMON_H */

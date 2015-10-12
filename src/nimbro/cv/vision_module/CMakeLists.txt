@@ -7,12 +7,26 @@ find_package(OpenCV REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system chrono timer)
 find_package( PkgConfig REQUIRED)
 pkg_check_modules( gsl REQUIRED gsl )
-catkin_package(
+
+
+add_message_files(
+	FILES
+	vision_output.msg
+	vision_outputs.msg
+)
+
+generate_messages(
+	DEPENDENCIES std_msgs
 )
 
 include_directories(include 
   ${catkin_INCLUDE_DIRS}
    ${OpenCV_INCLUDE_DIRS}
+)
+
+catkin_package(
+   INCLUDE_DIRS include
+   LIBRARIES vision_module
 )
 
 add_library(vision_module
@@ -34,6 +48,7 @@ add_library(vision_module
    src/${PROJECT_NAME}/soccer_objects/LineDetector.cpp
    src/${PROJECT_NAME}/soccer_objects/ObstacleDetector.cpp
 )
+
 
 target_link_libraries(vision_module
    ${catkin_LIBRARIES}
@@ -60,6 +75,7 @@ target_link_libraries(vision_module_node
 add_executable(camera_calibration_node 
    src/${PROJECT_NAME}/Calibration/camera_calibration.cpp
 )
+
 target_link_libraries(camera_calibration_node
    vision_module
    ${catkin_LIBRARIES}
@@ -69,7 +85,12 @@ target_link_libraries(camera_calibration_node
    ${gsl_LIBRARIES}
  )
 
+
 install(TARGETS vision_module vision_module_node camera_calibration_node 
-	LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-	RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
+        
+install(DIRECTORY include/${PROJECT_NAME}/
+        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+

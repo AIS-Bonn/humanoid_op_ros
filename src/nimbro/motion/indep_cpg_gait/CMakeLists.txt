@@ -4,7 +4,7 @@ project(indep_cpg_gait)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp robotcontrol nimbro_op_model gait_msgs cmake_modules)
+find_package(catkin REQUIRED COMPONENTS roscpp robotcontrol nimbro_op_model gait gait_msgs cmake_modules)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)

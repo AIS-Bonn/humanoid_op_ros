@@ -62,8 +62,8 @@ General tips:
   file.
   Example:
 ~~~~{.h}
-// Kinematic and dynamic robot model
-// Author: Max Schwarz <max.schwarz@uni-bonn.de>
+// Walking gait based on the capture step framework
+// Author: Philipp Allgeuer <pallgeuer@ais.uni-bonn.de>
 ~~~~
 
 * Capitalization: SomeClass and SomeClass::someMethod().

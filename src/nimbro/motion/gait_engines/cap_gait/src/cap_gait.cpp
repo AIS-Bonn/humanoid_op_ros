@@ -38,7 +38,7 @@ CapGait::CapGait() : GaitEngine()
  , m_resetIntegrators(CONFIG_PARAM_PATH + "resetIntegrators", false)
  , m_saveIFeedToHaltPose(CONFIG_PARAM_PATH + "saveIFeedToHaltPose", false)
  , rxRobotModel(&config)
- , m_rxVis(&rxRobotModel)
+ , m_rxVis(&rxRobotModel, gaitOdomFrame)
  , m_showRxVis(CONFIG_PARAM_PATH + "showRxVis", false)
  , rxModel(&config)
  , mxModel(&config)
@@ -110,7 +110,7 @@ void CapGait::reset()
 	resetBlending(USE_HALT_POSE);
 
 	// Reset the capture step variables
-	resetCaptureSteps(false);
+	resetCaptureSteps(true);
 
 	// Reset the integrators
 	resetIntegrators();
@@ -144,7 +144,7 @@ void CapGait::resetSaveIntegrals()
 }
 
 // Reset function for capture steps functionality
-void CapGait::resetCaptureSteps(bool resetPose)
+void CapGait::resetCaptureSteps(bool resetRobotModel)
 {
 	// Reset basic feedback filters
 	fusedXFeedFilter.reset();
@@ -177,9 +177,12 @@ void CapGait::resetCaptureSteps(bool resetPose)
 	// Reset capture step objects
 	m_rxVis.init();
 	m_rxVis.setVisOffset(config.visOffsetX(), config.visOffsetY(), config.visOffsetZ());
-	rxRobotModel.reset(resetPose);
-	rxRobotModel.setSupportLeg(m_leftLegFirst ? 1 : -1); // Left leg first in the air means that the first support leg is the right leg, 1 in the margait/contrib sign convention
-	rxRobotModel.supportExchangeLock = true;
+	if(resetRobotModel)
+	{
+		rxRobotModel.reset(resetRobotModel);
+		rxRobotModel.setSupportLeg(m_leftLegFirst ? 1 : -1); // Left leg first in the air means that the first support leg is the right leg, 1 in the margait/contrib sign convention
+		rxRobotModel.supportExchangeLock = true;
+	}
 	rxModel.reset();
 	mxModel.reset();
 	txModel.reset();
@@ -376,6 +379,10 @@ void CapGait::step()
 		m_PM.plotScalar(factor, PM_HALT_BLEND_FACTOR);
 	}
 
+	// Update visualisation markers
+	if(m_rxVis.willPublish())
+		m_rxVis.updateMarkers();
+
 	// Publish the plot data
 	m_PM.publish();
 	m_rxVis.publish();
@@ -384,7 +391,6 @@ void CapGait::step()
 // Process inputs function
 void CapGait::processInputs()
 {
-	
 	// Transcribe whether it is desired of us to walk right now
 	m_walk = in.gaitCmd.walk;
 
@@ -393,15 +399,15 @@ void CapGait::processInputs()
 	if(m_walk) m_gcvInput = gcvBias + Eigen::Vector3d(in.gaitCmd.linVelX, in.gaitCmd.linVelY, in.gaitCmd.angVelZ);
 	else       m_gcvInput = gcvBias;
 
+	// Check whether we should start walking
+	if(m_walk && !m_walking)
+		resetWalking(true, gcvBias);
+
 	// Perform update tasks if walking is active
 	if(m_walking)
 		updateRobot(gcvBias);
 	else if(m_blending)
 		m_blendPhase += config.gaitFrequency() * M_PI * in.nominaldT; // Increment the blend phase by the nominal gait frequency (blend phase updates usually happen inside updateRobot())
-
-	// Check whether we should start walking
-	if(m_walk && !m_walking)
-		resetWalking(true, gcvBias);
 
 	// Plot data
 	if(m_PM.getEnabled())
@@ -839,10 +845,6 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	//
 	// Plotting
 	//
-
-	// Update visualisation markers
-	if(m_rxVis.willPublish())
-		m_rxVis.updateMarkers();
 
 	// Plot update function variables
 	if(m_PM.getEnabled())

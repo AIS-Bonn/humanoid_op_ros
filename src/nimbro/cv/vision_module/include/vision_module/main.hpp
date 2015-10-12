@@ -2,11 +2,6 @@
 // Main Loop for the Vision Module
 // Author: Hafez Farazi <farazi@ais.uni-bonn.de>
 
-/** @defgroup VisionModule
- *  @author Hafez Farazi <farazi@ais.uni-bonn.de>
- *  @brief This module does soccer object detection
- *
- */
 #pragma once
 #include <ros/ros.h>
 #include <std_msgs/String.h>

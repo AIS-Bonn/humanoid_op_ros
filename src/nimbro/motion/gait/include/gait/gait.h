@@ -24,6 +24,7 @@
 // Includes - Messages
 #include <tf/transform_broadcaster.h>
 #include <gait_msgs/GaitCommand.h>
+#include <gait_msgs/GaitOdom.h>
 #include <gait_msgs/SetOdom.h>
 #include <sensor_msgs/Joy.h>
 #include <std_srvs/Empty.h>
@@ -67,7 +68,7 @@ namespace gait
 
 		// Publish transforms function
 		virtual void publishTransforms();
-		
+
 	protected:
 		// Get function for gait name
 		const std::string& gaitName() const { return m_gaitName; } //!< Retrieve the name of the gait (e.g. if the parameter string is `cpg_gait::CPGGait` then the gait name is everything past the first double colon, i.e. `CPGGait`)
@@ -80,7 +81,8 @@ namespace gait
 		boost::shared_ptr<config_server::Parameter<bool> > m_enableGait; // Flag whether to enable this gait motion module. The config parameter name is specific to the gait engine name.
 		config_server::Parameter<bool> m_enableJoystick;                 // Flag whether to globally enable the use of the joystick to control the gait command vector. When enabled, the first button on the joystick toggles the joystick mode on and off.
 		config_server::Parameter<bool> m_plotData;                       // Flag whether to plot gait data to the plotter visualisation.
-		config_server::Parameter<bool> m_publishTransforms;              // Flag whether to publish the ego_floor and odom TF transforms.
+		config_server::Parameter<bool> m_publishOdometry;                // Flag whether to publish the gait odometry.
+		config_server::Parameter<bool> m_publishTransforms;              // Flag whether to publish the ego_floor and gait odometry TF transforms.
 		config_server::Parameter<float> m_gaitCmdVecNormP;               // The p parameter with which to calculate the gait command vector norm (i.e. using the p-norm).
 		config_server::Parameter<float> m_gaitCmdVecNormMax;             // The maximum allowed gait command vector norm, beyond which normalisation to this maximum value is performed.
 
@@ -163,6 +165,8 @@ namespace gait
 		std::vector<tf::StampedTransform> m_tf_transforms;
 		tf::StampedTransform* m_tf_ego_floor;
 		tf::StampedTransform* m_tf_odom;
+		gait_msgs::GaitOdom m_gait_odom;
+		ros::Publisher m_pub_odom;
 		void configureTransforms();
 
 		// Gait odometry
@@ -215,6 +219,7 @@ namespace gait
 			PM_GAIT_ODOM_X,
 			PM_GAIT_ODOM_Y,
 			PM_GAIT_ODOM_Z,
+			PM_GAIT_ODOM_ID,
 			PM_COUNT
 		};
 	};

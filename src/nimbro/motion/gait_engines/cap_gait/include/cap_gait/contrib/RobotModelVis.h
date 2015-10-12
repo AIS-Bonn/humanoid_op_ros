@@ -96,13 +96,14 @@ namespace margait_contrib
 		};
 		
 		// Constructor
-		RobotModelVis(const RobotModel* model) : MarkerManager("~/cap_gait/robot_model", 1)
+		RobotModelVis(const RobotModel* model, const std::string& frame) : MarkerManager("~/cap_gait/robot_model", 1)
 		 , model(model)
-		 , Com(this, "/odom")
-		 , Head(this, "/odom")
-		 , Chest(this, "/odom")
-		 , Joints(this, "/odom")
-		 , Lines(this, "/odom")
+		 , frame(frame)
+		 , Com(this, frame)
+		 , Head(this, frame)
+		 , Chest(this, frame)
+		 , Joints(this, frame)
+		 , Lines(this, frame)
 		 , offsetX(0.0)
 		 , offsetY(0.0)
 		 , offsetZ(0.0)
@@ -531,6 +532,9 @@ namespace margait_contrib
 
 		// RobotModel object
 		const RobotModel* model;
+
+		// Reference frame for visualisation
+		const std::string frame;
 
 	private:
 		// Markers

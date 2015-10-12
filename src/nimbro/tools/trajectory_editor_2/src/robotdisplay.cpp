@@ -92,7 +92,7 @@ void RobotDisplay::onInitialize()
 	
 	
 	// Set up publisher
-	marker_pub = n.advertise<visualization_msgs::Marker>("/foo/bar", 100);
+	/*marker_pub = n.advertise<visualization_msgs::Marker>("/foo/bar", 100);
 	
 	// Set up marker
 	uint32_t shape = visualization_msgs::Marker::CUBE;
@@ -132,7 +132,7 @@ void RobotDisplay::onInitialize()
     marker.color.b = 0.0f;
     marker.color.a = 1.0;
 
-    marker.lifetime = ros::Duration();
+    marker.lifetime = ros::Duration();*/
 }
 
 void RobotDisplay::update(std::vector<double> positions)
@@ -145,6 +145,6 @@ void RobotDisplay::update(std::vector<double> positions)
 
 	m_robot->update(RBDLLinkUpdater(m_rbdl.get()));
 	
- 	marker.header.stamp = ros::Time::now();
- 	marker_pub.publish(marker);
+ 	/*marker.header.stamp = ros::Time::now();
+ 	marker_pub.publish(marker);*/
 }

@@ -60,12 +60,12 @@ void RobotModel::initKinematicModel()
 {
 	// Initialise the base frame
 	base.setReferenceFrame(NULL);
-	base.setTranslation(0, 0.5*config->hipWidth(), 2.0*config->legLinkLength() + config->footOffsetZ());
+	base.setTranslation(0, 0, 2.0*config->legLinkLength() + config->footOffsetZ());
 	base.setRotation(0, 0, 0, 1);
 	
 	// Initialise the footstep frame
 	footStep.setReferenceFrame(NULL);
-	footStep.setTranslation(0, 0, 0);
+	footStep.setTranslation(0, -0.5*config->hipWidth(), 0);
 	footStep.setRotation(0, 0, 0, 1);
 	
 	// Initialise the kinematic chain hierarchy
@@ -175,11 +175,8 @@ void RobotModel::initKinematicRotations()
 // Reset the internal RobotModel odometry so that the footStep frame coincides with the global frame (default output of initKinematicModel())
 void RobotModel::resetOdom()
 {
-	// Update the base and footStep transforms, moving the footStep frame to the origin with identity orientation
-	base.setTranslation(supportVector());
-	base.setRotation(footStep.rotation().inverse() * base.rotation());
-	footStep.setTranslation(0, 0, 0);
-	footStep.setRotation(0, 0, 0, 1);
+	// Set the odometry to zero
+	setOdom(0.0, 0.0, 0.0);
 }
 
 // Sets the internal CoM odometry to a particular position and heading

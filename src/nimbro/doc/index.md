@@ -1,18 +1,26 @@
-NimbRo ROS Soccer Package                  {#mainpage}
-=========================
+igus Humanoid Open Platform ROS Software {#mainpage}
+========================================
 
-This is the NimbRo ROS Soccer Package documentation. First-time users, please
-have a look at the @ref installation "Installation Guide".
+This is the main documentation of the igus Humanoid Open Platform ROS software release.
+Further documentation for the other components of the release can be found in the other
+root folders in the `src` directory. First-time users, please have a look at the
+@ref installation "Installation Guide".
 
 A good starting point is the <a href="modules.html"><b>List of Modules</b></a>, and the @ref nodes.
 
-This soccer package is provided open source under the BSD-3 license, and it is encouraged
+This software package is provided open source under the BSD-3 license, and it is encouraged
 for users of the framework to publish any fixes, modifications and/or additions to the
-framework, and notify the original authors at the
+framework, and notify the original authors (e.g. [email](mailto:pallgeuer@ais.uni-bonn.de)) at the
 [Autonomous Intelligent Systems Group](http://ais.uni-bonn.de)
 at the [University of Bonn](http://www.uni-bonn.de).
 
-The NimbRo ROS soccer package is detailed in the following paper:
+The igus Humanoid Open Platform ROS soccer package is detailed in the following paper:
+
+> P. Allgeuer, H. Farazi, M. Schreiber, and S. Behnke, "Child-sized 3D Printed
+> igus Humanoid Open Platform," in _Proceedings of the 15th IEEE-RAS Int.
+> Conference on Humanoid Robots (Humanoids)_, Seoul, Korea, 2015.
+
+With the foundations being laid (for a previous generation of the release) by the paper:
 
 > P. Allgeuer, M. Schwarz, J. Pastrana, S. Schueller, M. Missura, and
 > S. Behnke, “A ROS-based software framework for the NimbRo-OP
@@ -22,20 +30,22 @@ The NimbRo ROS soccer package is detailed in the following paper:
 
 We ask you to cite this paper if you use this framework on your robot or for academic work.
 
-	@INPROCEEDINGS{Allgeuer2013,
-		author = {Philipp Allgeuer and Max Schwarz and Julio Pastrana and Sebastian Schueller and Marcell Missura and Sven Behnke},
-		title = {A {ROS}-based Software Framework for the {NimbRo-OP} Humanoid Open Platform},
-		booktitle = {Proceedings of the 8th Workshop on Humanoid Soccer Robots, IEEE-RAS Int. Conference on Humanoid Robots},
-		year = {2013},
-		address = {Atlanta, USA}
+	@Conference{Allgeuer2015,
+	Title                    = {{Child-sized 3D Printed igus Humanoid Open Platform}},
+	Author                   = {Philipp Allgeuer and Hafez Farazi and Michael Schreiber and Sven Behnke},
+	Booktitle                = {Proceedings of 15th IEEE-RAS Int. Conference on Humanoid Robots (Humanoids)},
+	Year                     = {2015},
+	Address                  = {Seoul, Korea}
 	}
+
+The corresponding release of hardware files for the igus Humanoid Open Platform can be found
+[here](https://github.com/igusGmbH/HumanoidOpenPlatform).
 
 Links
 -----
 For more information, please refer to the following webpages:
 
-* NimbRo-OP: http://nimbro.net/OP
+* igus Humanoid Open Platform: http://nimbro.net/OP
 * Autonomous Intelligent Systems: http://ais.uni-bonn.de
-* RobotSource community (forum): http://robotsource.org/bs/bd.php?bt=forum_NimbRoOP
 
 @defgroup nodes List of Documented Nodes

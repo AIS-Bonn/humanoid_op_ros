@@ -3,6 +3,7 @@
 
 #include "indep_cpg_gait.h"
 
+#include <gait/gait_common.h>
 #include <gait_msgs/GaitPerformance.h>
 
 #include <pluginlib/class_list_macros.h>
@@ -44,7 +45,7 @@ IndepCPGGait::IndepCPGGait()
 	ego_floor->child_frame_id_ = "/ego_rot";
 	ego_floor->setIdentity();
 
-	odom->frame_id_ = "/odom";
+	odom->frame_id_ = gait::gaitOdomFrame;
 	odom->child_frame_id_ = "/ego_floor";
 	odom->setIdentity();
 }

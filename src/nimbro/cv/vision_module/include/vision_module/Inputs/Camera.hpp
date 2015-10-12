@@ -1,13 +1,8 @@
 //Camera.hpp
 // Created on: Apr 19, 2015
 //     Author: Hafez Farazi <farazi@ais.uni-bonn.de>
-/** @addtogroup VisionModule */
-/*@{*/
-/** @addtogroup VisionModule */
-/*@{*/
 
-/** @addtogroup VisionModule */
-/*@{*/
+
 #pragma once
 #include <opencv2/opencv.hpp>
 #include <sys/ioctl.h>
@@ -24,7 +19,6 @@ using namespace cv;
 /**
  * @class Camera
  * @brief This class is responsible for image acquisition process \n  As an output this class provides the raw image in /vision/takenImg topic
- * @ingroup VisionModule
  **/
 class Camera:public ICamera
 {
@@ -68,4 +62,3 @@ public:
 	 */
 	double TakeCapture();
 };
-/** @}*/

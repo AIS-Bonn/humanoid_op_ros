@@ -3,9 +3,10 @@
 
 // Includes
 #include "behaviour_exercise/behaviour_exercise_sample.h" // Note: This has to be switched between 'sample' and 'template' to choose which version to compile (also needs to change in the CMakeLists file)
+#include <gait/gait_common.h>
 
 // Defines
-#define SRV_CALL_DELAY 0.4
+#define SRV_CALL_DELAY  0.4
 
 // Namespaces
 using namespace std;
@@ -197,7 +198,7 @@ bool RobotSC::getRobotTransform(tf::StampedTransform& transform, bool suppressWa
 	// Try to get the latest transform of the robot
 	try
 	{
-		m_tflistener.lookupTransform("/odom", "/ego_floor", ros::Time(0), transform);
+		m_tflistener.lookupTransform(gait::gaitOdomFrame, "/ego_floor", ros::Time(0), transform);
 	}
 	catch(tf::TransformException e)
 	{
@@ -470,7 +471,7 @@ void RobotSC::publishMarkers()
 	m_markerArray.markers.clear();
 
 	// Ball marker
-	marker.header.frame_id = "/odom";
+	marker.header.frame_id = gait::gaitOdomFrame;
 	marker.header.stamp = ros::Time::now();
 	marker.ns = "ball";
 	marker.id = m_markerArray.markers.size();
@@ -496,7 +497,7 @@ void RobotSC::publishMarkers()
 	// Obstacle marker
 	if(m_be_use_obstacle())
 	{
-		marker.header.frame_id = "/odom";
+		marker.header.frame_id = gait::gaitOdomFrame;
 		marker.header.stamp = ros::Time::now();
 		marker.ns = "obstacle";
 		marker.id = m_markerArray.markers.size();

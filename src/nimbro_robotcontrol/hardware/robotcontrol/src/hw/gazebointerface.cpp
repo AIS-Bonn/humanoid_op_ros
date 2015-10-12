@@ -101,8 +101,8 @@ bool GazeboInterface::readJointStates()
 			if(m_publishOdom && m_last_modelStatesStamp - m_initTime > ros::Duration(3.0))
 			{
 				tf::StampedTransform trans;
-				trans.frame_id_ = "odom";
-				trans.child_frame_id_ = "ego_rot";
+				trans.frame_id_ = "/odom";
+				trans.child_frame_id_ = "/ego_rot";
 				trans.stamp_ = m_last_modelStatesStamp;
 				trans.setIdentity();
 

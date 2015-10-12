@@ -16,10 +16,12 @@
   <build_depend>robotcontrol</build_depend>
   <build_depend>nimbro_op_model</build_depend>
   <build_depend>nimbro_op_interface</build_depend>
+  <build_depend>gait</build_depend>
   <build_depend>gait_msgs</build_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>robotcontrol</run_depend>
   <run_depend>nimbro_op_model</run_depend>
+  <run_depend>gait</run_depend>
   <run_depend>gait_msgs</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
