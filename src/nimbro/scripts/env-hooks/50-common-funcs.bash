@@ -8,6 +8,12 @@ export ROSCONSOLE_FORMAT='[${severity}][${node}->${function}]: ${message}'
 # Aliases
 alias diff='colordiff -u'
 
+function wifi()
+{
+	WIFI_DIR="$(catkin_find scripts wifi.py)"
+	sudo $WIFI_DIR "$@"
+}
+
 # Check for running ROS processes
 function checkros()
 {

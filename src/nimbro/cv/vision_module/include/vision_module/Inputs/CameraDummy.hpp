@@ -79,6 +79,10 @@ public:
 	{
 		return true;
 	}
+	inline void DeInitCameraDevice()
+	{
+
+	}
 	bool InitCameraDevice(bool);
 	/**
 	 * @fn TakeCapture

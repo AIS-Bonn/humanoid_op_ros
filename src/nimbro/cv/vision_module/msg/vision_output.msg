@@ -1,2 +1,0 @@
-float32 start_point
-float32 end_point

@@ -199,6 +199,7 @@ cap_gait:
         footAngleY: -0.055
         legAngleX: 0.14
         legAngleXBias: 0
+        legAngleXNarrow: 0.02
         legAngleY: 0.075
         legAngleZ: 0
         legExtension: 0.03
@@ -247,10 +248,10 @@ cap_gait:
         accJerkLimitY: 0.1
         accJerkLimitZ: 0.1
       gcvAccLimits:
-        accBackwards: 0.4
-        accForwards: 0.4
-        accRotational: 0.6
-        accSidewards: 0.4
+        accBackwards: 0.6
+        accForwards: 0.6
+        accRotational: 0.8
+        accSidewards: 0.6
         decToAccRatio: 1
       gcvBias:
         angVelZ: 0
@@ -261,10 +262,12 @@ cap_gait:
         linVelX: 2
         linVelY: 1
     general:
+      enableMotionStances: 1
       gaitFrequency: 2.4
       gaitFrequencyMax: 3.2
       leftLegFirst: 1
-      odomFrameOffsetZ: 0.17
+      stanceAdjustGcvMax: 0.4
+      stanceAdjustRate: 1.5
       stoppingGcvMag: 0.001
       stoppingPhaseTolLB: 5
       stoppingPhaseTolUB: 5
@@ -295,8 +298,12 @@ cap_gait:
       legAngleYMax: 0.6
       legAngleYMin: -0.5
       legAngleYUseLimits: 1
+    robotModel:
+      footHeightHysteresis: 0.007
     robotSpec:
       armLinkLength: 0.155
+      comOffsetX: -0.015
+      comOffsetZ: 0.090
       footLength: 0.210
       footOffsetX: 0.026
       footOffsetY: 0.010
@@ -309,11 +316,15 @@ cap_gait:
       neckHeight: 0.09
       shoulderWidth: 0.245
       trunkHeight: 0.225
+      trunkLinkOffsetX: 0
+      trunkLinkOffsetY: 0
+      trunkLinkOffsetZ: 0.140
     robotVis:
       armThickness: 0.045
       headDiameter: 0.156
       jointDiameter: 0.025
       legThickness: 0.055
+      markVectors: 0
       visOffsetX: 0
       visOffsetY: -0.5
       visOffsetZ: 0
@@ -415,6 +426,8 @@ cpg_gait:
   plotData: 0
 fallProtection:
   fallProtectionEnabled: 1
+  sideGetupRollAngle: 0.8
+  sideGetupsEnabled: 1
   triggerAngle: 0.7
   triggerAngleKick: 0.80
 gait:
@@ -424,6 +437,7 @@ gait:
   gaitCmdVecNormMax: 1
   gaitCmdVecNormP: 2
   plotData: 1
+  publishOdometry: 1
   publishTransforms: 1
 gc:
   enemyIsRight: 0
@@ -751,9 +765,9 @@ robotcontrol:
         right_shoulder_pitch: 1943
         right_shoulder_roll: 2046
     attEstMagCalib:
-      x: 0.221393143584
-      y: -0.227670803058
-      z: 0
+      x: 0.190204
+      y: 0.121042
+      z: -0.359097
     attEstPIGains:
       Kp: 2.2
       KpQuick: 10
@@ -767,9 +781,9 @@ robotcontrol:
     effortSlopeLimit: 0.02
     magFilter:
       hard:
-        x: 1.30063
-        y: 0.00381759
-        z: -0.318714
+        x: 1.2080629
+        y: 0.1578570
+        z: -0.1125646
       plotCalibData: 0
     magSpikeMaxDelta: 0.07
     models:
@@ -817,6 +831,89 @@ robotcontrol:
     plotData: 1
     useFeedbackPos: 0
     useSupportInfo: 1
+  rosControlInterface:
+    jointMechDampingRatio: 0.15
+    joints:
+      head_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
+      left_ankle_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
+      left_ankle_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
+      left_elbow_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
+      left_hip_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_hip_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_hip_yaw:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_knee_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_shoulder_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
+      left_shoulder_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
+      neck_yaw:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
+      right_ankle_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
+      right_ankle_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
+      right_elbow_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
+      right_hip_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_hip_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_hip_yaw:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_knee_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_shoulder_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
+      right_shoulder_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 50
   timerDuration: 0.010
 sitting_demo:
   sittingDemoEnabled: 1

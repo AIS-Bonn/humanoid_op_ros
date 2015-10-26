@@ -1,2 +1,0 @@
-geometry_msgs/Point left_lower_corner
-geometry_msgs/Point right_lower_corner

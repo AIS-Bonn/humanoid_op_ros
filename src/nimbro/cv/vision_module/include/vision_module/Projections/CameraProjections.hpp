@@ -40,11 +40,11 @@ using namespace cv;
 class CameraProjections
 {
 public:
-	double headingOffset;
+	double headingOffset;//in radian
 private:
 	robotcontrol::RobotHeading headingData;
 	ros::Subscriber heading_sub_robotstate;
-	void handleHeadingData( const robotcontrol::RobotHeadingConstPtr& msg)
+	void handleHeadingData( const robotcontrol::RobotHeadingConstPtr& msg) //in radian
 	{
 		headingData=*msg;
 	}
@@ -97,7 +97,7 @@ public:
 
 	double getHeading()
 	{
-		return headingData.heading+headingOffset;
+		return CorrectAngleRadian360(headingData.heading+headingOffset);
 	}
 	void Calibrate();
 	bool GetOnImageCordinate(const vector<Point2f> contour,
@@ -134,7 +134,10 @@ public:
 	{
 		delete m_tf;
 	}
-
+	vector<Point2f> RotateTowardHeading(vector<Point2f> in);
+	Point2d RotateTowardHeading(Point2d in);
+	Point2f RotateTowardHeading(Point2f in);
+	vector<LineSegment> RotateTowardHeading(vector<LineSegment> in);
 	bool CalculateProjection();
 	bool Update();
 	void Publish(Mat &guiRawImg, bool showHorizonBox);

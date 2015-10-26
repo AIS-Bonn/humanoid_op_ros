@@ -32,6 +32,13 @@ LEDWidget::LEDWidget()
 		ui->LEDLayout->addWidget(leds.back());
 	}
 	
+	// Set 'on' colors for usual LEDs
+	leds.at(0)->setOnColor(QColor(0, 255, 0));    // Green 
+	leds.at(1)->setOnColor(QColor(255, 120, 1));  // Orange 
+	leds.at(2)->setOnColor(QColor(255, 0, 0));    // Red
+	leds.at(3)->setOnColor(QColor(0, 0, 255));    // Blue
+	leds.at(4)->setOnColor(QColor(0, 255, 0));    // Green
+	
 	// Init ros stuff
 	subscriber = n.subscribe("/led_state", 1000 ,&LEDWidget::stateReceived, this);
 	
@@ -51,11 +58,8 @@ void LEDWidget::stateReceived(const nimbro_op_interface::LEDCommand &state)
 	}
 	
 	// Set color for RGB LEDs
-	if(leds.at(5)->isOn())
-		leds.at(5)->setColor(QColor(state.rgb5.r*255, state.rgb5.g*255, state.rgb5.b*255));
-	
-	if(leds.at(6)->isOn())
-		leds.at(6)->setColor(QColor(state.rgb6.r*255, state.rgb6.g*255, state.rgb6.b*255));
+	leds.at(5)->setColor(QColor(state.rgb5.r*255, state.rgb5.g*255, state.rgb5.b*255));
+	leds.at(6)->setColor(QColor(state.rgb6.r*255, state.rgb6.g*255, state.rgb6.b*255));
 }
 
 void LEDWidget::initPlugin(qt_gui_cpp::PluginContext& context)
@@ -72,7 +76,7 @@ void LEDWidget::handleButton_0()
 {
 	//printf("CLICKED_0\n");
 	
-	n.setParam("//robotcontrol/nopInterface/button/pressButton0", 1);
+	n.setParam("//robotcontrol/nopInterface/button/pressButton0", true);
 	
 	/*if (n.hasParam("/robotcontrol/nopInterface/button/pressButton0"))
 	{
@@ -82,11 +86,11 @@ void LEDWidget::handleButton_0()
 
 void LEDWidget::handleButton_1()
 {
-	n.setParam("//robotcontrol/nopInterface/button/pressButton1", 1);
+	n.setParam("//robotcontrol/nopInterface/button/pressButton1", true);
 }
 void LEDWidget::handleButton_2()
 {
-	n.setParam("//robotcontrol/nopInterface/button/pressButton2", 1);
+	n.setParam("//robotcontrol/nopInterface/button/pressButton2", true);
 }
 
 LEDWidget::~LEDWidget()

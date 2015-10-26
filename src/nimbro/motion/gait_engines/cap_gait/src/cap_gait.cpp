@@ -23,6 +23,7 @@ using margait_contrib::Vec2f;
 using margait_contrib::Vec3f;
 using margait_contrib::Limp;
 using margait_contrib::LimpState;
+using margait_contrib::RobotModel;
 
 //
 // CapGait class
@@ -201,6 +202,10 @@ void CapGait::resetCaptureSteps(bool resetRobotModel)
 	resetCounter = 100; // Force Mx to match Rx completely for the next/first few cycles
 	cycleNumber = 0;
 
+	// Reset the motion stance variables
+	if(resetRobotModel)
+		resetMotionStance();
+
 	// Reset save integral feedback config parameter
 	resetSaveIntegrals();
 }
@@ -238,17 +243,17 @@ void CapGait::setOdometry(double posX, double posY, double rotZ)
 void CapGait::updateOdometry()
 {
 	// Transcribe the position odometry information
-	Vec basePos = rxRobotModel.base.position();
-	out.odomPosition[0] = basePos.x;
-	out.odomPosition[1] = basePos.y;
-	out.odomPosition[2] = basePos.z + config.odomFrameOffsetZ();
+	Vec trunkPos = rxRobotModel.trunkLink.position();
+	out.odomPosition[0] = trunkPos.x;
+	out.odomPosition[1] = trunkPos.y;
+	out.odomPosition[2] = trunkPos.z;
 
 	// Transcribe the orientation odometry information
-	Quaternion baseRot = rxRobotModel.base.orientation();
-	out.odomOrientation[0] = baseRot[3];
-	out.odomOrientation[1] = baseRot[0];
-	out.odomOrientation[2] = baseRot[1];
-	out.odomOrientation[3] = baseRot[2];
+	Quaternion trunkRot = rxRobotModel.trunkLink.orientation();
+	out.odomOrientation[0] = trunkRot[3];
+	out.odomOrientation[1] = trunkRot[0];
+	out.odomOrientation[2] = trunkRot[1];
+	out.odomOrientation[3] = trunkRot[2];
 }
 
 // Step function
@@ -485,10 +490,10 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	measuredPose.rightLegPose.ankle.setPos(in.jointPos[R_ANKLE_ROLL], in.jointPos[R_ANKLE_PITCH], 0.0);
 
 	// Update the rx robot model and filtered CoM state
-	rxRobotModel.update(measuredPose, Vec(fusedX, fusedY, 0.0));
-	Vec supportVector = rxRobotModel.supportVector();
-	if(cycleNumber == 1) m_comFilter.reset(systemIterationTime, supportVector.x, supportVector.y, 0.0, 0.0);
-	m_comFilter.update(supportVector.x, supportVector.y);
+	rxRobotModel.update(measuredPose, fusedX, fusedY);
+	Vec suppComVector = rxRobotModel.suppComVector();
+	if(cycleNumber == 1) m_comFilter.reset(systemIterationTime, suppComVector.x, suppComVector.y, 0.0, 0.0);
+	m_comFilter.update(suppComVector.x, suppComVector.y);
 
 	// If this is the first cycle then reset the odometry properly as we are now in pose
 	if(cycleNumber == 1) rxRobotModel.setOdom(0.0, 0.0, 0.0);
@@ -500,12 +505,12 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	// Handle rx robot model support exchange
 	if(rxRobotModel.supportExchange)
 	{
-		double supportOrientation = rxRobotModel.fusedYaw(rxRobotModel.footStep.orientation());
+		double supportOrientation = rxRobotModel.fusedYaw(rxRobotModel.suppFootstep.orientation());
 		double angleFromLastToNewSupport = picut(supportOrientation - lastSupportOrientation);
 		lastSupportOrientation = supportOrientation;
 		Vec2f v(rxModel.vx, rxModel.vy);
 		v.rotate(-angleFromLastToNewSupport); // To maintain continuous velocity in the world frame, rotate the CoM velocity vector into the new support frame.
-		m_comFilter.reset(systemIterationTime, supportVector.x, supportVector.y, v.x, v.y);
+		m_comFilter.reset(systemIterationTime, suppComVector.x, suppComVector.y, v.x, v.y);
 		rxModel.timeSinceStep = 0;
 		rxModel.nominalTimeToStep = 2.0*rxModel.nominalFootStepTHalf;
 		stepCounter++;
@@ -608,11 +613,6 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 // 	Vec2f fusedAngleAdaptation;
 // 	fusedAngleAdaptation.x = (absFusedY > config.nsMinDeviation() ? config.nsGain() * absFusedY : 0.0);
 // 	fusedAngleAdaptation.y = (absFusedX > config.nsMinDeviation() ? config.nsGain() * absFusedX : 0.0);
-
-// 	// Noise increases with walking velocity, e.g. faulty sensors when the robot is rotating around the z axis.
-// 	Vec2f velocityAdaptation;
-// 	velocityAdaptation.x = 1.0 - qAbs(gcvUnbiased.z());
-// 	velocityAdaptation.y = 1.0 - qAbs(gcvUnbiased.z());
 
 	// Calculate the required adaptation (0.0 => Completely trust Mx, 1.0 => Completely trust Rx)
 	adaptation.x = coerce(adaptationX, 0.0, config.nsMaxAdaptation());
@@ -828,6 +828,35 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	m_gcvAcc.z() = m_gcvAccSmoothZ.value();
 
 	//
+	// Motion stance control
+	//
+
+	// Calculate the current target motion stance factor
+	double targetLegAngleXFact = 1.0;
+	bool haveMotionStance = (config.enableMotionStances() && in.motionPending);
+	if(haveMotionStance)
+	{
+		switch(in.motionStance)
+		{
+			case STANCE_DEFAULT: targetLegAngleXFact = 1.0; break;
+			case STANCE_KICK:    targetLegAngleXFact = 0.0; break;
+			default:             targetLegAngleXFact = 1.0; break;
+		}
+	}
+	
+	// Update the motion stance factors, taking into consideration which legs we are allowed to adjust
+	if(!haveMotionStance || (gcvUnbiased.norm() <= config.stanceAdjustGcvMax() && (
+	  (in.motionAdjustLeftFoot && rxRobotModel.supportLegSign == RobotModel::RIGHT_LEG) ||
+	  (in.motionAdjustRightFoot && rxRobotModel.supportLegSign == RobotModel::LEFT_LEG) ||
+	  (!in.motionAdjustLeftFoot && !in.motionAdjustRightFoot))))
+	{
+		m_motionLegAngleXFact = SlopeLimiter::eval(targetLegAngleXFact, m_motionLegAngleXFact, config.stanceAdjustRate()*systemIterationTime);
+	}
+	
+	// Determine whether the motion stance adjustment is still ongoing
+	bool motionStanceOngoing = (fabs(m_motionLegAngleXFact - targetLegAngleXFact) > 1e-6);
+
+	//
 	// Walking control
 	//
 	
@@ -837,7 +866,7 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	double UB = nominalGaitPhaseInc * config.stoppingPhaseTolUB(); // Upper bound tolerance config variable is in the units of nominal phase increments, calculated using nominalStepTime (also a config variable)
 	if(!m_walk && gcvUnbiased.norm() <= config.stoppingGcvMag() && // Note that this is intentionally checking the gcv (unbiased) from the last cycle, not the new and unexecuted modified one from the current call to this update function
 	  ((m_gaitPhase >= 0.0 && oldGaitPhase <= 0.0 && (m_gaitPhase <= UB || oldGaitPhase >= -LB)) ||
-	  (m_gaitPhase <= 0.0 && oldGaitPhase >= 0.0 && (m_gaitPhase <= UB - M_PI || oldGaitPhase >= M_PI - LB))))
+	  (m_gaitPhase <= 0.0 && oldGaitPhase >= 0.0 && (m_gaitPhase <= UB - M_PI || oldGaitPhase >= M_PI - LB))) && (!motionStanceOngoing))
 	{
 		resetWalking(false, gcvBias);
 	}
@@ -850,16 +879,15 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	if(m_PM.getEnabled())
 	{
 		Vec tmp;
-		tmp = rxRobotModel.supportVector(); // Note: The support vector is the vector from the support foot to the swing foot (in support foot coordinates)
+		tmp = rxRobotModel.suppComVector();
 		m_PM.plotScalar(tmp.x, PM_RXRMODEL_SUPPVEC_X);
 		m_PM.plotScalar(tmp.y, PM_RXRMODEL_SUPPVEC_Y);
 		m_PM.plotScalar(tmp.z, PM_RXRMODEL_SUPPVEC_Z);
-		tmp = tmp + rxRobotModel.swingVector(); // Note: The sum of the support vector and swing vector is the vector from the support foot to the swing foot (in support foot coordinates)
-		m_PM.plotScalar(tmp.x, PM_RXRMODEL_SWINGVEC_X);
-		m_PM.plotScalar(tmp.y, PM_RXRMODEL_SWINGVEC_Y);
-		m_PM.plotScalar(tmp.z, PM_RXRMODEL_SWINGVEC_Z);
-		tmp = rxRobotModel.stepVector();
-		m_PM.plotScalar(tmp.z, PM_RXRMODEL_SWINGVEC_FYAW); // Note: This is the difference in fused yaw (fused yaw with respect to the global environment, NOT the orientation of the support foot) from the support foot to the swing foot
+		tmp = rxRobotModel.suppStepVector();
+		m_PM.plotScalar(tmp.x, PM_RXRMODEL_STEPVEC_X);
+		m_PM.plotScalar(tmp.y, PM_RXRMODEL_STEPVEC_Y);
+		m_PM.plotScalar(tmp.z, PM_RXRMODEL_STEPVEC_Z);
+		m_PM.plotScalar(rxRobotModel.suppStepYaw(), PM_RXRMODEL_STEPVEC_FYAW);
 		m_PM.plotScalar(fusedX, PM_FUSED_X);
 		m_PM.plotScalar(fusedY, PM_FUSED_Y);
 		m_PM.plotScalar(m_comFilter.x(), PM_COMFILTER_X);
@@ -915,12 +943,16 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 // Update halt pose function
 void CapGait::updateHaltPose()
 {
-	// Do not use raw joint commands
+	// Calculate the required legAngleX with regard for motion stances
+	double legAngleXFact = (config.enableMotionStances() ? m_motionLegAngleXFact : 1.0);
+	double legAngleX = legAngleXFact*config.haltLegAngleX() + (1.0 - legAngleXFact)*config.haltLegAngleXNarrow();
+
+	// Set whether to use raw joint commands
 	haltUseRawJointCmds = !config.useServoModel();
 
 	// Set the halt pose for the legs
-	m_abstractHaltPose.leftLeg .setPoseMirrored(config.haltLegExtension(), config.haltLegAngleX(), config.haltLegAngleY(), config.haltLegAngleZ());
-	m_abstractHaltPose.rightLeg.setPoseMirrored(config.haltLegExtension(), config.haltLegAngleX(), config.haltLegAngleY(), config.haltLegAngleZ());
+	m_abstractHaltPose.leftLeg .setPoseMirrored(config.haltLegExtension(), legAngleX, config.haltLegAngleY(), config.haltLegAngleZ());
+	m_abstractHaltPose.rightLeg.setPoseMirrored(config.haltLegExtension(), legAngleX, config.haltLegAngleY(), config.haltLegAngleZ());
 	m_abstractHaltPose.leftLeg .setFootPoseMirrored(config.haltFootAngleX(), config.haltFootAngleY());
 	m_abstractHaltPose.rightLeg.setFootPoseMirrored(config.haltFootAngleX(), config.haltFootAngleY());
 
@@ -1669,10 +1701,10 @@ void CapGait::configurePlotManager()
 	m_PM.setName(PM_RXRMODEL_SUPPVEC_X, "rxRobotModel/supportVector/x");
 	m_PM.setName(PM_RXRMODEL_SUPPVEC_Y, "rxRobotModel/supportVector/y");
 	m_PM.setName(PM_RXRMODEL_SUPPVEC_Z, "rxRobotModel/supportVector/z");
-	m_PM.setName(PM_RXRMODEL_SWINGVEC_X, "rxRobotModel/swingVector/x");
-	m_PM.setName(PM_RXRMODEL_SWINGVEC_Y, "rxRobotModel/swingVector/y");
-	m_PM.setName(PM_RXRMODEL_SWINGVEC_Z, "rxRobotModel/swingVector/z");
-	m_PM.setName(PM_RXRMODEL_SWINGVEC_FYAW, "rxRobotModel/swingVector/fyaw");
+	m_PM.setName(PM_RXRMODEL_STEPVEC_X, "rxRobotModel/stepVector/x");
+	m_PM.setName(PM_RXRMODEL_STEPVEC_Y, "rxRobotModel/stepVector/y");
+	m_PM.setName(PM_RXRMODEL_STEPVEC_Z, "rxRobotModel/stepVector/z");
+	m_PM.setName(PM_RXRMODEL_STEPVEC_FYAW, "rxRobotModel/stepVector/fyaw");
 	m_PM.setName(PM_FUSED_X, "fusedAngle/fusedX");
 	m_PM.setName(PM_FUSED_Y, "fusedAngle/fusedY");
 	m_PM.setName(PM_COMFILTER_X, "comFilter/x");
@@ -1797,6 +1829,13 @@ double CapGait::blendFactor()
 
 	// Return the current blend factor
 	return m_b_current;
+}
+
+// Reset the motion stance adjustment variables
+void CapGait::resetMotionStance()
+{
+	// Reset variables
+	m_motionLegAngleXFact = 1.0; // Feet normal
 }
 
 PLUGINLIB_EXPORT_CLASS(cap_gait::CapGait, gait::GaitEngine)

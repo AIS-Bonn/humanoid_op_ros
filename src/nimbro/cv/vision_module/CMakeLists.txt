@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(vision_module)
 
 
-find_package(catkin REQUIRED COMPONENTS roscpp std_msgs image_geometry image_transport cv_bridge config_server tf vis_utils nav_msgs head_control soccer_vision)
+find_package(catkin REQUIRED COMPONENTS roscpp std_msgs geometry_msgs gait_msgs image_geometry image_transport cv_bridge config_server tf vis_utils nav_msgs head_control soccer_vision)
 find_package(OpenCV REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system chrono timer)
 find_package( PkgConfig REQUIRED)
@@ -11,12 +11,16 @@ pkg_check_modules( gsl REQUIRED gsl )
 
 add_message_files(
 	FILES
-	vision_output.msg
+	ball_output.msg
+	field_output.msg
+	goal_post_output.msg
+	line_output.msg
+	obstacle_output.msg
 	vision_outputs.msg
 )
-
+ 
 generate_messages(
-	DEPENDENCIES std_msgs
+	DEPENDENCIES std_msgs geometry_msgs
 )
 
 include_directories(include 
@@ -89,8 +93,11 @@ target_link_libraries(camera_calibration_node
 install(TARGETS vision_module vision_module_node camera_calibration_node 
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
+        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
         
 install(DIRECTORY include/${PROJECT_NAME}/
         DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+        
+install(PROGRAMS scripts/watch_vision.py scripts/camera_publisher.py
+                      DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 

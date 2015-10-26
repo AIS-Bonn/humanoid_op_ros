@@ -55,6 +55,11 @@ add_message_files(
   State.msg
 )
 
+add_service_files(
+  FILES
+  MagCalib.srv
+)
+
 add_action_files(
   FILES
   FadeTorque.action

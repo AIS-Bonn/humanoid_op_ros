@@ -6,8 +6,9 @@
 #include <ros/console.h>
 
 // Includes - Other
-#include <motiontimer.h>
 #include <math.h>
+#include <motiontimer.h>
+#include <gait/gait_common.h>
 #include <nimbro_utils/slope_limiter.h>
 
 // Includes - Local
@@ -16,6 +17,7 @@
 // Namespaces
 using namespace walkandkick;
 using namespace nimbro_utils;
+using namespace gait;
 
 // Debugging
 // #define DEBUG_FORCE_HALT 1 // Uncomment to disallow walking of the robot
@@ -175,15 +177,16 @@ WalkAndKick::WalkAndKick()
 	ros::NodeHandle nh("~");
 
 	// ROS subscribers
-	m_sub_button = nh.subscribe("/button",1,&WalkAndKick::handleButtonData,this);
-	m_sub_ballvec = nh.subscribe("/vision/ballTarget",1,&WalkAndKick::handleBallData,this);
-	m_sub_goalvec = nh.subscribe("/goal/ego_goal_posts",1,&WalkAndKick::handleGoalData,this);
-	m_sub_robotpose = nh.subscribe("/vision/robotPose",1,&WalkAndKick::handleRobotPoseData,this);
+	m_sub_button = nh.subscribe("/button", 1, &WalkAndKick::handleButtonData, this);
+	m_sub_ballvec = nh.subscribe("/vision/ballTarget", 1, &WalkAndKick::handleBallData, this);
+	m_sub_goalvec = nh.subscribe("/goal/ego_goal_posts", 1, &WalkAndKick::handleGoalData, this);
+	m_sub_robotpose = nh.subscribe("/vision/robotPose", 1, &WalkAndKick::handleRobotPoseData, this);
 	m_sub_heading = nh.subscribe("/robotmodel/robot_heading", 1, &WalkAndKick::handleHeadingData, this);
-	m_sub_robotstate = nh.subscribe("/robotcontrol/state",1,&WalkAndKick::handleStateData,this);
+	m_sub_robotstate = nh.subscribe("/robotcontrol/state", 1, &WalkAndKick::handleStateData, this);
 	
 	// ROS publishers
-	m_pub_gaitcmd = nh.advertise<gait_msgs::GaitCommand>("/gaitCommand",1);
+	m_pub_gaitcmd = nh.advertise<gait_msgs::GaitCommand>("/gaitCommand", 1);
+	m_pub_headCmd = nh.advertise<head_control::LookAtTarget>("/robotcontrol/headcontrol/target", 1);
 	m_pub_leds = nh.advertise<nimbro_op_interface::LEDCommand>("/led", 1);
 	
 	// Reset the class
@@ -1560,7 +1563,6 @@ void WalkAndKick::writeActuators(const ActuatorVars& ActVar)
 #endif
 	if(m_button == BTN_GOALIE && !dsGoalieAlive)
 		cmd.walk = false;
-	m_pub_gaitcmd.publish(cmd);
 
 	// Kicking
 #ifdef DEBUG_FORCE_NOKICK
@@ -1569,13 +1571,31 @@ void WalkAndKick::writeActuators(const ActuatorVars& ActVar)
 	if(ActVar.DoKick)
 #endif
 	{
-		// TODO: Kick with foot ActVar.KickFoot
+		if(ActVar.KickFoot > 0) // 1 = Right, -1 = Left
+			cmd.motion = MID_KICK_RIGHT;
+		else
+			cmd.motion = MID_KICK_LEFT;
+		cmd.walk = false;
 	}
+
+	// Publish the walking/kicking gait command
+	m_pub_gaitcmd.publish(cmd);
 
 	// Gaze angle
 	double GazeAngle = SlopeLimiter::eval(ActVar.GazeAngle, lastAV.GazeAngle, config.gazeVelLimit * TINC);
 	GazeAngle = coerceAbs(GazeAngle, config.gazeAngleLimit);
-	// TODO: Do something with the gaze angle! (look down and just rely on head limiting when going left/right?)
+	
+	// Publish the head control command
+	head_control::LookAtTarget headCmd;
+	headCmd.enabled = true;
+	headCmd.is_angular_data = true;
+	headCmd.is_relative = false;
+	headCmd.pitchEffort = 0.0; // Use the default pitch effort
+	headCmd.yawEffort = 0.0; // Use the default yaw effort
+	headCmd.vec.x = 0.0;
+	headCmd.vec.y = 0.3;
+	headCmd.vec.z = GazeAngle;
+	m_pub_headCmd.publish(headCmd);
 }
 
 // ####################################################################

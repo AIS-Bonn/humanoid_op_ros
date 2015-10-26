@@ -163,6 +163,9 @@ namespace cap_gait
 		void setBlendTarget(double target, double phaseTime);
 		double blendFactor();
 
+		// Motion stance functions
+		void resetMotionStance();
+
 		//
 		// Gait variables
 		//
@@ -207,6 +210,9 @@ namespace cap_gait
 		double m_b_target;
 		double m_blendPhase;
 		double m_blendEndPhase;
+		
+		// Motion stance variables
+		double m_motionLegAngleXFact; // Interpolation factor between feet narrow (= 0) and feet normal (= 1) legAngleX values
 		
 		//
 		// Basic feedback variables
@@ -383,10 +389,10 @@ namespace cap_gait
 			PM_RXRMODEL_SUPPVEC_X,
 			PM_RXRMODEL_SUPPVEC_Y,
 			PM_RXRMODEL_SUPPVEC_Z,
-			PM_RXRMODEL_SWINGVEC_X,
-			PM_RXRMODEL_SWINGVEC_Y,
-			PM_RXRMODEL_SWINGVEC_Z,
-			PM_RXRMODEL_SWINGVEC_FYAW,
+			PM_RXRMODEL_STEPVEC_X,
+			PM_RXRMODEL_STEPVEC_Y,
+			PM_RXRMODEL_STEPVEC_Z,
+			PM_RXRMODEL_STEPVEC_FYAW,
 			PM_FUSED_X,
 			PM_FUSED_Y,
 			PM_COMFILTER_X,

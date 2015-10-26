@@ -79,7 +79,31 @@ namespace gait
 
 	//! Name of the tf frame that is used for publishing the gait odometry
 	const std::string gaitOdomFrame = "/odom_gait";
+
+	//! Enumeration of motion IDs that can be used in the GaitCommand::motion field to trigger motions through the gait
+	enum MotionID
+	{
+		MID_NONE,
+		MID_KICK_LEFT,
+		MID_KICK_RIGHT,
+		MID_COUNT
+	};
+
+	//! List of names corresponding to the gait motion IDs
+	static const std::string motionName[MID_COUNT] = {
+		"",
+		"kick_left",
+		"kick_right"
+	};
+	
+	//! Enumeration of motion stances that can be commanded to a gait engine
+	enum MotionStance
+	{
+		STANCE_DEFAULT,
+		STANCE_KICK,
+		STANCE_COUNT
+	};
 }
 
-#endif /* GAIT_COMMON_H */
+#endif
 // EOF

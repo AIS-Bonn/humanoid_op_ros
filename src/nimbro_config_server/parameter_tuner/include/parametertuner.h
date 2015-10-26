@@ -47,6 +47,7 @@ public slots:
 	void handleExpansion(int dir);
 
 private:
+	ros::NodeHandle m_nh;
 	QMutex m_mutex;
 	ros::Subscriber m_sub_paramList;
 	config_server::ParameterListConstPtr m_list;

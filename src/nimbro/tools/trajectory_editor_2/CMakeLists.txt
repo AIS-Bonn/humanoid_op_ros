@@ -41,7 +41,7 @@ qt4_wrap_cpp(MOCFILES
 	include/trajectory_editor_2/inversespace.h
 	include/trajectory_editor_2/positionview.h
 	include/trajectory_editor_2/historykeeper.h
-	include/trajectory_editor_2/mymarkerdisplay.h
+	#include/trajectory_editor_2/mymarkerdisplay.h
 )
 
 add_executable(trajectory_editor_2 

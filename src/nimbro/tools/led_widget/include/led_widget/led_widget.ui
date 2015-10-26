@@ -11,13 +11,17 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>LED Widget</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
     <layout class="QGridLayout" name="gridLayout_2">
      <item row="0" column="0">
-      <layout class="QHBoxLayout" name="LEDLayout"/>
+      <layout class="QHBoxLayout" name="LEDLayout">
+       <property name="spacing">
+        <number>15</number>
+       </property>
+      </layout>
      </item>
      <item row="1" column="0">
       <layout class="QHBoxLayout" name="buttonsLayout">
@@ -45,7 +49,7 @@
           </size>
          </property>
          <property name="text">
-          <string>0</string>
+          <string>Fade</string>
          </property>
         </widget>
        </item>
@@ -70,7 +74,7 @@
           </size>
          </property>
          <property name="text">
-          <string>1</string>
+          <string>Menu</string>
          </property>
         </widget>
        </item>
@@ -95,7 +99,7 @@
           </size>
          </property>
          <property name="text">
-          <string>2</string>
+          <string>Reset</string>
          </property>
         </widget>
        </item>

@@ -135,6 +135,15 @@ function _makefirmware() { # Pass the device name as the first parameter
 	return 0
 }
 
+function _callservice() { # Example: _callservice /robotcontrol/nopInterface/attEstCalibrate robotcontrol
+	if rosservice list &>/dev/null; then
+		echo "Calling service: $1"
+		rosservice call "$1" || echo "Service call failed! Is the $2 node running?"
+	else
+		echo "Could not list the available ROS services, is a roscore running?"
+	fi
+}
+
 function nimbro() {
 	local LIGHT_CYAN="$(echo -e "\E[1;36m")"
 	local NO_COLOUR="$(echo -e "\E[0m")"
@@ -776,6 +785,55 @@ function nimbro() {
 				;;
 			esac
 			;;
+		calib)
+			case "$2" in
+				"heading")
+					( # Start a subshell to have only a temporary change of the ROS master
+						if [[ -n "$3" ]]; then
+							ROS_MASTER_URI=http://"$3":11311
+							ROS_HOSTNAME=$(hostname).local
+						fi
+						local curhost="${ROS_MASTER_URI#http://}"
+						curhost="${curhost%:11311}"
+						echo "Calibration of the heading via the attitude estimator magnetometer calibration vector:"
+						echo "Put the robot on the field exactly upright and facing the positive goal..."
+						read -p "Continue with heading calibration of $curhost (Y/n)? " response 2>&1
+						response="${response:0:1}"
+						[[ "${response,,}" == "n" ]] && echo "No => Stopping here then." || _callservice /robotcontrol/nopInterface/attEstCalibrate robotcontrol
+					)
+				;;
+				"magnetometer")
+					( # Start a subshell to have only a temporary change of the ROS master
+						if [[ -n "$4" ]]; then
+							ROS_MASTER_URI=http://"$4":11311
+							ROS_HOSTNAME=$(hostname).local
+						fi
+						local curhost="${ROS_MASTER_URI#http://}"
+						curhost="${curhost%:11311}"
+						if [[ "$3" == "start" ]]; then
+							echo "Start 2D/3D calibration of the magnetometer:"
+							echo "2D => Yaw the robot in all directions but ensure it remains perfectly upright at all times"
+							echo "3D => Rotate the robot in every direction imaginable"
+							read -p "Start magnetometer calibration of $curhost (Y/n)? " response 2>&1
+							response="${response:0:1}"
+							[[ "${response,,}" == "n" ]] && echo "No => Stopping here then." || _callservice /robotcontrol/nopInterface/magFilter/startCalibration robotcontrol
+						elif [[ "$3" == "stop2D" ]]; then
+							echo "Stopping the 2D magnetometer calibration of $curhost..."
+							_callservice /robotcontrol/nopInterface/magFilter/stopCalibration2D robotcontrol
+						elif [[ "$3" == "stop3D" ]]; then
+							echo "Stopping the 3D magnetometer calibration of $curhost..."
+							_callservice /robotcontrol/nopInterface/magFilter/stopCalibration3D robotcontrol
+						else
+							echo "Usage: nimbro calib magnetometer {start|stop2D|stop3D} [robot]"
+						fi
+					)
+				;;
+				*)
+					echo "Unrecognised calib command"
+					echo "Usage: nimbro calib {heading|magnetometer} [...]"
+				;;
+			esac
+			;;
 		config)
 			case "$2" in
 				"list")
@@ -846,9 +904,34 @@ function nimbro() {
 					echo "Showing dead config parameters in '$configPath'... (see robotcontrol console)"
 					rosservice call /config_server/show_dead_vars "{configPath: '$configPath'}"
 				;;
+				"cleanyaml")
+					local LAUNCH="$(rospack find launch)"
+					if [[ -z "$3" ]]; then
+						echo "Please specify the robot to clean the config file for as an argument.";
+					elif [[ "$3" == "all" ]] || [[ "$4" == "all" ]] || [[ "$5" == "all" ]] || [[ "$6" == "all" ]]; then
+						python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/"config_*.yaml
+					else
+						[[ -n "$3" ]] && python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/config_$3.yaml"
+						[[ -n "$4" ]] && python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/config_$4.yaml"
+						[[ -n "$5" ]] && python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/config_$5.yaml"
+						[[ -n "$6" ]] && python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/config_$6.yaml"
+					fi
+				;;
+				"cpyaml")
+					local LAUNCH="$(rospack find launch)"
+					python "$LAUNCH/config/copyConfig.py" "-f$3" "-t$4" "-p$5" "-b$LAUNCH/config/"
+				;;
+				"retrieve")
+					local target="$BOT"
+					[[ -n "$2" ]] && target="$2"
+					local LAUNCH="$(rospack find launch)"
+					scp "nimbro@$target:/nimbro/share/launch/config/config*.yaml" "$LAUNCH/config/"
+					scp "nimbro@$target:/nimbro/share/launch/config/vision/*" "$LAUNCH/config/vision/"
+					scp "nimbro@$target:/nimbro/share/camera_v4l2/launch/cam_settings.yaml" "$(rospack find camera_v4l2)/launch/"
+				;;
 				*)
 					echo "Unrecognised config command"
-					echo "Usage: nimbro config {list|reset|load|save|get|set} [...]"
+					echo "Usage: nimbro config {list|reset|load|save|get|set|showdead|cleanyaml|cpyaml|retrieve} [...]"
 				;;
 			esac
 			;;
@@ -875,8 +958,8 @@ function nimbro() {
 				echo "Could not resolve host name '$host'."
 				return 1
 			fi
-			if ping -c1 `hostname`.local > /dev/null; then
-				export ROS_HOSTNAME=`hostname`.local
+			if ping -c1 $(hostname).local > /dev/null; then
+				export ROS_HOSTNAME=$(hostname).local
 			fi
 			if ! rostopic list > /dev/null; then
 				echo "Could not connect to ROS master running at '$host'"
@@ -888,20 +971,14 @@ function nimbro() {
 			BOT="$2"
 			;;
 		ssh)
-			if [ -z "$2" ]; then
+			if [[ -z "$2" ]]; then
 				while ! ping -c1 "$BOT" 1>/dev/null; do sleep 0.5s; done
-			    ssh nimbro@$BOT
+			    ssh nimbro@"$BOT"
 			else
-				target="$2"
+				local target="$2"
 				while ! ping -c1 "$target" 1>/dev/null; do sleep 0.5s; done
-				ssh nimbro@$target
+				ssh nimbro@"$target"
 			fi
-			;;
-		getconfig)
-			LAUNCH=`rospack find launch`
-			scp "nimbro@$BOT:/nimbro/share/launch/config/config*.yaml" "$LAUNCH/config/"
-			scp "nimbro@$BOT:/nimbro/share/launch/config/vision/*" "$LAUNCH/config/vision/"
-			scp "nimbro@$BOT:/nimbro/share/camera_v4l2/launch/cam_settings.yaml" "`rospack find camera_v4l2`/launch/"
 			;;
 		help|-h|--help)
 			cat <<EOS
@@ -917,6 +994,7 @@ Commands:
   doc         Opens the specified nimbro html documentation
   flash       Compiles and flashes the CM730 firmware onto a connected microcontroller
   getconfig   Get config.yaml from robot
+  cpconfig  Copy config.yaml from one robot to another
   gui         Open the git gui for repositories that have changes in the working tree
   help        Display this help message
   host        Use HOST as the ROS master, e.g. nimbro host xs2.local
@@ -951,21 +1029,27 @@ function _nimbro()
 	local subcmd="${COMP_WORDS[2]}"
 	local subsubcmd="${COMP_WORDS[3]}"
 	
+	local robotlist="xs4 xs4.local xs5 xs5.local xs6 xs6.local xs7 xs7.local"
+	local P1list="xs4 xs5 xs6 xs7"
+	
 	COMPREPLY=""
 	case "${COMP_CWORD}" in
 		1)
-			COMPREPLY=($(compgen -W "bot clean config control ctrl deploy doc flash getconfig gui help host make make-doc make-docv pull push remake-all robot set sim source src ssh status" -- "$cur"))
+			COMPREPLY=($(compgen -W "bot calib clean config control ctrl deploy doc flash gui help host make make-doc make-docv pull push remake-all robot set sim source src ssh status" -- "$cur"))
 			;;
 		2)
 			case "$cmd" in
+				calib)
+					COMPREPLY=($(compgen -W "heading magnetometer" -- "$cur"))
+					;;
 				config)
-					COMPREPLY=($(compgen -W "get list load reset save set showdead" -- "$cur"))
+					COMPREPLY=($(compgen -W "cleanyaml cpyaml get list load reset retrieve save set showdead" -- "$cur"))
 					;;
 				ctrl | control)
 					COMPREPLY=($(compgen -W "fade halt head walk" -- "$cur"))
 					;;
 				deploy)
-					COMPREPLY=($(compgen -W "clean xs2 xs2.local xs4 xs4.local xs5 xs5.local" -- "$cur"))
+					COMPREPLY=($(compgen -W "clean $robotlist" -- "$cur"))
 					;;
 				doc)
 					COMPREPLY=($(compgen -W "nimbro visualization robotcontrol config_server all" -- "$cur"))
@@ -974,16 +1058,16 @@ function _nimbro()
 					COMPREPLY=($(compgen -W "clean compile direct robot" -- "$cur"))
 					;;
 				host)
-					COMPREPLY=($(compgen -W "xs2 xs2.local xs4 xs4.local xs5 xs5.local" -- "$cur"))
+					COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
 					;;
 				make-doc | make-docv)
 					COMPREPLY=($(compgen -W "nimbro visualization robotcontrol config_server all open" -- "$cur"))
 					;;
 				robot | bot)
-					COMPREPLY=($(compgen -W "xs2 xs2.local xs4 xs4.local xs5 xs5.local" -- "$cur"))
+					COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
 					;;
 				set)
-					COMPREPLY=($(compgen -W "P0 P1" -- "$cur"))
+					COMPREPLY=($(compgen -W "P1" -- "$cur"))
 					;;
 				sim)
 					COMPREPLY=($(compgen -W "poke" -- "$cur"))
@@ -998,17 +1082,24 @@ function _nimbro()
 					COMPREPLY=($(compgen -W "$sources" -- "$cur"))
 					;;
 				ssh)
-					COMPREPLY=($(compgen -W "xs2 xs2.local xs4 xs4.local xs5 xs5.local" -- "$cur"))
+					COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
 					;;
 			esac
 			;;
 		3)
 			case "$cmd" in
+				calib)
+					[[ "$subcmd" == "heading" ]] && COMPREPLY=($(compgen -W "localhost $robotlist" -- "$cur"))
+					[[ "$subcmd" == "magnetometer" ]] && COMPREPLY=($(compgen -W "start stop2D stop3D" -- "$cur"))
+					;;
 				config)
+					[[ "$subcmd" == "cleanyaml" ]] && COMPREPLY=($(compgen -W "all $P1list" -- "$cur"))
+					[[ "$subcmd" == "cpyaml" ]] && COMPREPLY=($(compgen -W "$P1list" -- "$cur"))
+					[[ "$subcmd" == "retrieve" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
 					if [[ "$subcmd" == "get" ]] || [[ "$subcmd" == "set" ]] || [[ "$subcmd" == "showdead" ]]; then
 						proctemp="$(rostopic echo -n 1 /config_server/parameter_list 2>/dev/null | grep name | sort)"
 						if [[ -n "$proctemp" ]]; then
-							configlist=()
+							local configlist=()
 							while IFS= read -r -d $'\n' line; do
 								[[ -z "$line" ]] && continue
 								configlist+=("/${line#*/}")
@@ -1025,19 +1116,25 @@ function _nimbro()
 				flash)
 					[[ "$subcmd" == "compile" ]] && COMPREPLY=($(compgen -W "CM730 CM740" -- "$cur"))
 					[[ "$subcmd" == "direct" ]] && COMPREPLY=($(compgen -G "/dev/ttyUSB*" -- "$cur"))
-					[[ "$subcmd" == "robot" ]] && COMPREPLY=($(compgen -W "xs2 xs2.local xs4 xs4.local xs5 xs5.local" -- "$cur"))
+					[[ "$subcmd" == "robot" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
 					;;
 				make-doc | make-docv)
 					[[ "$subcmd" != "open" ]] && COMPREPLY=($(compgen -W "open" -- "$cur"))
 					;;
 				set)
-					[[ "$subcmd" == "P0" ]] && COMPREPLY=($(compgen -W "xs2" -- "$cur"))
-					[[ "$subcmd" == "P1" ]] && COMPREPLY=($(compgen -W "xs4 xs5" -- "$cur"))
+					[[ "$subcmd" == "P1" ]] && COMPREPLY=($(compgen -W "$P1list" -- "$cur"))
 					;;
 			esac
 			;;
 		4)
 			case "$cmd" in
+				calib)
+					[[ "$subcmd" == "magnetometer" ]] && COMPREPLY=($(compgen -W "localhost $robotlist" -- "$cur"))
+					;;
+				config)
+					[[ "$subcmd" == "cleanyaml" ]] && COMPREPLY=($(compgen -W "all $P1list" -- "$cur"))
+					[[ "$subcmd" == "cpyaml" ]] && COMPREPLY=($(compgen -W "$P1list" -- "$cur"))
+					;;
 				ctrl | control)
 					[[ "$subcmd" == "walk" ]] && COMPREPLY=($(compgen -W "0.0" -- "$cur"))
 					[[ "$subcmd" == "head" ]] && [[ "${subsubcmd:0:6}" == "moveto" ]] && COMPREPLY=($(compgen -W "0.0" -- "$cur"))
@@ -1047,13 +1144,30 @@ function _nimbro()
 					[[ "$subcmd" == "robot" ]] && COMPREPLY=($(compgen -W "CM730 CM740" -- "$cur"))
 					;;
 				set)
-					[[ "$subcmd" == "P0" ]] && COMPREPLY=($(compgen -W "nimbro_op nimbro_op_hull" -- "$cur"))
 					[[ "$subcmd" == "P1" ]] && COMPREPLY=($(compgen -W "nimbro_op nimbro_op_hull" -- "$cur"))
 					;;
 			esac
 			;;
 		5)
 			case "$cmd" in
+				config)
+					[[ "$subcmd" == "cleanyaml" ]] && COMPREPLY=($(compgen -W "all $P1list" -- "$cur"))
+					if [[ "$subcmd" == "cpyaml" ]]; then
+						local configdir="$(rospack find launch)/config"
+						local configfile="$configdir/config_$subsubcmd.yaml"
+						local depth="$(grep -o "/" <<< "$cur" | wc -l)"
+						[[ "$depth" == "0" ]] && depth="1"
+						proctemp="$(python "$(rospack find launch)/config/listYaml.py" "$configfile" "$depth" | sort)"
+						if [[ -n "$proctemp" ]]; then
+							local configlist=("all")
+							while IFS= read -r -d $'\n' line; do
+								[[ -z "$line" ]] && continue
+								configlist+=("$line")
+							done <<< "$proctemp"
+							COMPREPLY=($(compgen -W "${configlist[*]}" -- "$cur"))
+						fi
+					fi
+					;;
 				ctrl | control)
 					[[ "$subcmd" == "walk" ]] && COMPREPLY=($(compgen -W "0.0" -- "$cur"))
 					[[ "$subcmd" == "head" ]] && [[ "${subsubcmd:0:6}" == "moveto" ]] && COMPREPLY=($(compgen -W "0.0" -- "$cur"))
@@ -1062,6 +1176,9 @@ function _nimbro()
 			;;
 		6)
 			case "$cmd" in
+				config)
+					[[ "$subcmd" == "cleanyaml" ]] && COMPREPLY=($(compgen -W "all $P1list" -- "$cur"))
+					;;
 				ctrl | control)
 					[[ "$subcmd" == "walk" ]] && COMPREPLY=($(compgen -W "true" -- "$cur"))
 					[[ "$subcmd" == "head" ]] && [[ "$subsubcmd" == "movetoangle" ]] && COMPREPLY=($(compgen -W "0.25" -- "$cur"))

@@ -6,7 +6,7 @@ Further documentation for the other components of the release can be found in th
 root folders in the `src` directory. First-time users, please have a look at the
 @ref installation "Installation Guide".
 
-A good starting point is the <a href="modules.html"><b>List of Modules</b></a>, and the @ref nodes.
+A good starting point is the @ref packages page, and the @ref launchfiles page.
 
 This software package is provided open source under the BSD-3 license, and it is encouraged
 for users of the framework to publish any fixes, modifications and/or additions to the

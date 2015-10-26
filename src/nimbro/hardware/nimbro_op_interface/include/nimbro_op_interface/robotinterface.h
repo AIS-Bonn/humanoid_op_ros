@@ -20,6 +20,7 @@
 #include <nimbro_utils/spike_filter.h>
 #include <nimbro_op_interface/LEDCommand.h>
 #include <nimbro_op_interface/ReadOffset.h>
+#include <nimbro_op_interface/AttEstMagCalib.h>
 #include <actionlib/client/simple_action_client.h>
 #include <config_server/parameter.h>
 #include <plot_msgs/plot_manager.h>
@@ -93,7 +94,7 @@ protected:
 	static const double INT_TO_VOLTS = 0.1; // Multiply a voltage value read from the CM730 by this to convert it into volts (see 'cm730/firmware/CM730_HW/src/adc.c')
 	static const double GYRO_SCALE = (M_PI / 180) * (2 * 250) / 65536; // From control register CTRL_REG4 in "cm730/firmware/CM730_HW/src/gyro_acc.c": +-250dps is 65536 LSb
 	static const double ACC_SCALE = (2 * (4 * 9.81)) / 65536; // From control register CTRL_REG4 in "cm730/firmware/CM730_HW/src/gyro_acc.c": +-4g is 65536 LSb
-	static const double MAG_SCALE = 1 / 1090.0; // From Config Register B in "cm730/firmware/CM730_APP/src/compass.c": 1090 LSb/gauss
+	static const double MAG_SCALE = 1 / 820.0; // From Config Register B in "cm730/firmware/CM730_APP/src/compass.c": 820 LSb/gauss
 
 	//! The robot model
 	robotcontrol::RobotModel* m_model;
@@ -273,7 +274,7 @@ private:
 
 	//! Service to set the attitude estimation magnetometer calibration value
 	ros::ServiceServer m_srv_attEstCalibrate;
-	bool handleAttEstCalibrate(std_srvs::EmptyRequest& req, std_srvs::EmptyResponse& resp);
+	bool handleAttEstCalibrate(nimbro_op_interface::AttEstMagCalibRequest& req, nimbro_op_interface::AttEstMagCalibResponse& resp);
 
 	//! Fused angle estimator
 	stateestimation::AngleEstimator m_angleEstimator;

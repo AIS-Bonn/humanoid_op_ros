@@ -66,7 +66,7 @@ void HistoryKeeper::loop()
 	if(elapsedTimer->elapsed() < minElapsedTime || wasRecorded)
 		return;
 	
-	if((unsigned int) stack.size() >= maxStackSize)
+	if(stack.size() >= maxStackSize)
 		stack.remove(0);
 
 	stack.push(currentValue);

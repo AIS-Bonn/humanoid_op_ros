@@ -28,6 +28,11 @@ FrameView::FrameView(const std::vector<std::string> &jointList, QWidget *parent)
 	ui->leftBox->setChecked(true);
 	ui->rightBox->setChecked(true);
 	
+	// Set up default support coeffs value
+	ui->supportSlider->setValue(0.5 *100);
+	ui->supportLeftSpin->setValue(0.5);
+	ui->supportRightSpin->setValue(0.5);
+	
 	// Set up eventFilter
 	ui->supportSlider->installEventFilter(this);
 	ui->supportLeftSpin->installEventFilter(this);
@@ -272,6 +277,12 @@ void FrameView::setSupportFromFrame()
 	if(frame->support == "")
 	{
 		enableSupport(false);
+		
+		// Set up default support coeffs value
+		ui->supportSlider->setValue(0.5 *100);
+		ui->supportLeftSpin->setValue(0.5);
+		ui->supportRightSpin->setValue(0.5);
+		
 		return;
 	}
 	

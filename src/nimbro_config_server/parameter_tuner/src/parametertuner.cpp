@@ -34,8 +34,8 @@ void Parametertuner::initPlugin(qt_gui_cpp::PluginContext& context)
 	// /parametertuner/Parametertuner_1 as namespace, which is not unique -.-
 	// Instead, use the global node handle with the ROS node name, which is
 	// unique up to the rqt process (which is what we want).
-	ros::NodeHandle nh(getNodeHandle(), ros::this_node::getName());
-	config_server::ParameterClient::initialize(nh);
+	m_nh = ros::NodeHandle(getNodeHandle(), ros::this_node::getName());
+	config_server::ParameterClient::initialize(m_nh);
 
 	QWidget* w = new QWidget();
 
@@ -61,7 +61,7 @@ void Parametertuner::initPlugin(qt_gui_cpp::PluginContext& context)
 	context.addWidget(w);
 	
 	m_updateCounter = 0;
-	m_updateTimer = nh.createWallTimer(ros::WallDuration(1.0), boost::bind(&Parametertuner::handleUpdateTimer, this), true, false);
+	m_updateTimer = m_nh.createWallTimer(ros::WallDuration(1.0), boost::bind(&Parametertuner::handleUpdateTimer, this), true, false);
 }
 
 void Parametertuner::shutdownPlugin()

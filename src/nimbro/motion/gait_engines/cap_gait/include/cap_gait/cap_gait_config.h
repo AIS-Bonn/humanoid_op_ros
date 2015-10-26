@@ -17,13 +17,6 @@ namespace cap_gait
 	* @struct CapConfig
 	*
 	* @brief Configuration struct for the capture step gait.
-	*
-	* TODO: Explain the gait phase and that it's (-pi,pi] and crucial that it's always wrapped to this range
-	* TODO: Explain the swing and support phase that's driving the whole gait
-	* TODO: Explain the main components => What is pushout, what is swing, etc...
-	* TODO: Recommended order for gait tuning
-	* TODO: Swing phase must not be smaller than the support phase! (should not be possible with the config variable ranges supplied)
-	* TODO: Explain Mag/Lat/Sag/etc and the GradX/Y/Z system
 	**/
 	struct CapConfig
 	{
@@ -37,6 +30,11 @@ namespace cap_gait
 		 , shoulderWidth          (CONFIG_PARAM_PATH + "robotSpec/shoulderWidth", 0.01, 0.005, 0.6, 0.2)
 		 , hipWidth               (CONFIG_PARAM_PATH + "robotSpec/hipWidth", 0.01, 0.005, 0.6, 0.2)
 		 , trunkHeight            (CONFIG_PARAM_PATH + "robotSpec/trunkHeight", 0.01, 0.005, 1.0, 0.4)
+		 , trunkLinkOffsetX       (CONFIG_PARAM_PATH + "robotSpec/trunkLinkOffsetX", -0.3, 0.005, 0.3, 0.0)
+		 , trunkLinkOffsetY       (CONFIG_PARAM_PATH + "robotSpec/trunkLinkOffsetY", -0.3, 0.005, 0.3, 0.0)
+		 , trunkLinkOffsetZ       (CONFIG_PARAM_PATH + "robotSpec/trunkLinkOffsetZ", -0.3, 0.005, 0.7, 0.2)
+		 , comOffsetX             (CONFIG_PARAM_PATH + "robotSpec/comOffsetX", -0.25, 0.005, 0.25, 0.0)
+		 , comOffsetZ             (CONFIG_PARAM_PATH + "robotSpec/comOffsetZ", 0.0, 0.005, 1.0, 0.2)
 		 , footWidth              (CONFIG_PARAM_PATH + "robotSpec/footWidth", 0.01, 0.005, 0.3, 0.1)
 		 , footLength             (CONFIG_PARAM_PATH + "robotSpec/footLength", 0.01, 0.005, 0.5, 0.2)
 		 , footOffsetX            (CONFIG_PARAM_PATH + "robotSpec/footOffsetX", -0.25, 0.005, 0.25, 0.0)
@@ -53,11 +51,16 @@ namespace cap_gait
 		 , visOffsetX             (CONFIG_PARAM_PATH + "robotVis/visOffsetX", -2.0, 0.01, 2.0, 0.0)
 		 , visOffsetY             (CONFIG_PARAM_PATH + "robotVis/visOffsetY", -2.0, 0.01, 2.0, -0.5)
 		 , visOffsetZ             (CONFIG_PARAM_PATH + "robotVis/visOffsetZ", -2.0, 0.01, 2.0, 0.0)
+		 , markVectors            (CONFIG_PARAM_PATH + "robotVis/markVectors", false)
 		 
+		 , footHeightHysteresis   (CONFIG_PARAM_PATH + "robotModel/footHeightHysteresis", 0.0, 0.001, 0.1, 0.005)
+		 
+		 , enableMotionStances    (CONFIG_PARAM_PATH + "general/enableMotionStances", false)
 		 , gaitFrequency          (CONFIG_PARAM_PATH + "general/gaitFrequency", 0.3, 0.02, 5.0, 3.0)
 		 , gaitFrequencyMax       (CONFIG_PARAM_PATH + "general/gaitFrequencyMax", 0.3, 0.02, 5.0, 3.0)
 		 , leftLegFirst           (CONFIG_PARAM_PATH + "general/leftLegFirst", true)
-		 , odomFrameOffsetZ       (CONFIG_PARAM_PATH + "general/odomFrameOffsetZ", -2.0, 0.01, 2.0, 0.0)
+		 , stanceAdjustGcvMax     (CONFIG_PARAM_PATH + "general/stanceAdjustGcvMax", 0.0, 0.01, 1.0, 0.4)
+		 , stanceAdjustRate       (CONFIG_PARAM_PATH + "general/stanceAdjustRate", 0.1, 0.05, 5.0, 1.0)
 		 , stoppingGcvMag         (CONFIG_PARAM_PATH + "general/stoppingGcvMag", 0.001, 0.001, 0.15, 0.001)
 		 , stoppingPhaseTolLB     (CONFIG_PARAM_PATH + "general/stoppingPhaseTolLB", 2.0, 0.1, 20.0, 5.0)
 		 , stoppingPhaseTolUB     (CONFIG_PARAM_PATH + "general/stoppingPhaseTolUB", 2.0, 0.1, 20.0, 5.0)
@@ -123,6 +126,7 @@ namespace cap_gait
 		 , haltLegExtensionBias   (CONFIG_PARAM_PATH + "OL/haltPose/legExtensionBias", -0.3, 0.005, 0.3, 0.0)
 		 , haltLegAngleX          (CONFIG_PARAM_PATH + "OL/haltPose/legAngleX", -0.1, 0.01, 0.6, 0.0)
 		 , haltLegAngleXBias      (CONFIG_PARAM_PATH + "OL/haltPose/legAngleXBias", -0.2, 0.005, 0.2, 0.0)
+		 , haltLegAngleXNarrow    (CONFIG_PARAM_PATH + "OL/haltPose/legAngleXNarrow", -0.1, 0.01, 0.6, 0.0)
 		 , haltLegAngleY          (CONFIG_PARAM_PATH + "OL/haltPose/legAngleY", -1.0, 0.005, 1.0, 0.0)
 		 , haltLegAngleZ          (CONFIG_PARAM_PATH + "OL/haltPose/legAngleZ", -0.6, 0.005, 0.6, 0.0)
 		 , haltFootAngleX         (CONFIG_PARAM_PATH + "OL/haltPose/footAngleX", -0.4, 0.005, 0.4, 0.0)
@@ -340,6 +344,11 @@ namespace cap_gait
 			shoulderWidth.setCallback(robotSpecCallback);
 			hipWidth.setCallback(robotSpecCallback);
 			trunkHeight.setCallback(robotSpecCallback);
+			trunkLinkOffsetX.setCallback(robotSpecCallback);
+			trunkLinkOffsetY.setCallback(robotSpecCallback);
+			trunkLinkOffsetZ.setCallback(robotSpecCallback);
+			comOffsetX.setCallback(robotSpecCallback);
+			comOffsetZ.setCallback(robotSpecCallback);
 			footWidth.setCallback(robotSpecCallback);
 			footLength.setCallback(robotSpecCallback);
 			footOffsetX.setCallback(robotSpecCallback);
@@ -362,6 +371,11 @@ namespace cap_gait
 		config_server::Parameter<float> shoulderWidth;          //!< @brief Horizontal separation between the two hip joints (length of the hip line)
 		config_server::Parameter<float> hipWidth;               //!< @brief Horizontal separation between the two hip joints (length of the hip line)
 		config_server::Parameter<float> trunkHeight;            //!< @brief Vertical height of the trunk from the hip line to the shoulder line
+		config_server::Parameter<float> trunkLinkOffsetX;       //!< @brief Forward offset of the trunk link tf frame from the hip midpoint
+		config_server::Parameter<float> trunkLinkOffsetY;       //!< @brief Leftward offset of the trunk link tf frame from the hip midpoint
+		config_server::Parameter<float> trunkLinkOffsetZ;       //!< @brief Upward offset of the trunk link tf frame from the hip midpoint
+		config_server::Parameter<float> comOffsetX;             //!< @brief Forward offset of the CoM in front of the hip line
+		config_server::Parameter<float> comOffsetZ;             //!< @brief Height of the CoM above the hip line
 		config_server::Parameter<float> footWidth;              //!< @brief Width of the robot foot (along y-axis, the foot plate is assumed to be rectangular)
 		config_server::Parameter<float> footLength;             //!< @brief Length of the robot foot (along x-axis, the foot plate is assumed to be rectangular)
 		config_server::Parameter<float> footOffsetX;            //!< @brief Backward offset from the foot plate geometric center to the ankle joint (along x-axis)
@@ -371,7 +385,7 @@ namespace cap_gait
 		config_server::Parameter<float> headOffsetX;            //!< @brief Forward offset from the neck joint to the center of the head (not for analytic calculation)
 		config_server::Parameter<float> headOffsetZ;            //!< @brief Upward offset from the neck joint to the center of the head (not for analytic calculation)
 		///@}
-		
+
 		//! @name Robot visualisation parameters
 		///@{
 		config_server::Parameter<float> armThickness;           //!< @brief Approximate thickness of the arm segments (not for analytic calculation)
@@ -381,14 +395,22 @@ namespace cap_gait
 		config_server::Parameter<float> visOffsetX;             //!< @brief Global x offset to the robot model where the RobotModelVis visualisation should be displayed
 		config_server::Parameter<float> visOffsetY;             //!< @brief Global y offset to the robot model where the RobotModelVis visualisation should be displayed
 		config_server::Parameter<float> visOffsetZ;             //!< @brief Global z offset to the robot model where the RobotModelVis visualisation should be displayed
+		config_server::Parameter<bool>  markVectors;            //!< @brief Boolean flag whether to publish arrow markers showing the various vector quantities of the robot model
+		///@}
+
+		//! @name Robot model parameters
+		///@{
+		config_server::Parameter<float> footHeightHysteresis;   //!< @brief The minimum required foot height difference in the robot model to unlock the possibility of the model performing a support exchange
 		///@}
 
 		//! @name General gait parameters
 		///@{
+		config_server::Parameter<bool>  enableMotionStances;    //!< @brief Boolean flag whether to enable the use of motion stances (changes to the halt pose during stopping to allow a particular follow-up motion to be played)
 		config_server::Parameter<float> gaitFrequency;          //!< @brief Nominal frequency of the gait
 		config_server::Parameter<float> gaitFrequencyMax;       //!< @brief Maximum allowed frequency of the gait
 		config_server::Parameter<bool>  leftLegFirst;           //!< @brief Flag specifying whether the first leg to step with when starting walking should be the left leg
-		config_server::Parameter<float> odomFrameOffsetZ;       //!< @brief Vertical Z offset that is added to the odometry frame for better visualisation
+		config_server::Parameter<float> stanceAdjustGcvMax;     //!< @brief The maximum GCV at which stance adjustments are allowed to occur during stopping
+		config_server::Parameter<float> stanceAdjustRate;       //!< @brief The dimensionless rate at which motion stance adjustment occurs while stopping walking
 		config_server::Parameter<float> stoppingGcvMag;         //!< @brief Unbiased gait command velocity 2-norm below which immediate walk stopping is allowed
 		config_server::Parameter<float> stoppingPhaseTolLB;     //!< @brief Gait phase tolerance below 0 and &pi;, in units of nominal phase increments (see gaitFrequency and the robotcontrol cycle time), within which intelligent walking stopping is allowed
 		config_server::Parameter<float> stoppingPhaseTolUB;     //!< @brief Gait phase tolerance above 0 and -&pi;, in units of nominal phase increments (see gaitFrequency and the robotcontrol cycle time), within which intelligent walking stopping is allowed
@@ -466,6 +488,7 @@ namespace cap_gait
 		config_server::Parameter<float> haltLegExtensionBias;   //!< @brief Halt pose: Additive one-sided bias of the extension of one of the legs (+ve = Left leg only is shortened by this amount, -ve = Right leg only is shortened by this amount)
 		config_server::Parameter<float> haltLegAngleX;          //!< @brief Halt pose: Roll angle of the legs (positive is away from the body for both legs)
 		config_server::Parameter<float> haltLegAngleXBias;      //!< @brief Halt pose: Additive anti-symmetric roll angle of the legs (positive is a roll rotation about the positive x axis)
+		config_server::Parameter<float> haltLegAngleXNarrow;    //!< @brief Halt pose: Roll angle of the legs (positive is away from the body for both legs) for the narrow feet halt pose
 		config_server::Parameter<float> haltLegAngleY;          //!< @brief Halt pose: Pitch angle of the central axis of the legs (positive is moving the legs towards the back for both legs)
 		config_server::Parameter<float> haltLegAngleZ;          //!< @brief Halt pose: Yaw angle of the legs (toe-out is positive for both legs)
 		config_server::Parameter<float> haltFootAngleX;         //!< @brief Halt pose: Roll angle of the feet relative to the trunk (positive is tilting onto the inner feet for both feet)

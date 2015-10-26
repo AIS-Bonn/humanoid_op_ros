@@ -578,7 +578,7 @@ void RobotModel::visualizeData(RCMarkerMan* markers)
 	markers->MagVec2D.update(projmag.x(), projmag.y(), projmag.z());
 
 	// Publish plotter data
-	if(m_plotRobotModelData())
+	if(m_plotRobotModelData() || !m_plot.events.empty())
 	{
 		// Set plot message header data
 		m_plot.header.stamp = now;
@@ -623,6 +623,9 @@ void RobotModel::visualizeData(RCMarkerMan* markers)
 
 		// Publish the plot data
 		m_pub_plot.publish(m_plot);
+
+		// Clear the sent events out of the plot data
+		m_plot.events.clear();
 	}
 }
 
@@ -751,6 +754,8 @@ void RobotModel::setState(RobotModel::State state)
 		msg.label = m_states[state.m_idx];
 
 		m_pub_state.publish(msg);
+
+		m_plot.events.push_back("/RobotModel/events/" + msg.label);
 	}
 
 	m_currentState = state;

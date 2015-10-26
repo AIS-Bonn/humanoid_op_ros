@@ -3,6 +3,7 @@
 // Author: Philipp Allgeuer <pallgeuer@ais.uni-bonn.de>
 
 // Includes
+#include <ros/init.h>
 #include <cap_gait/contrib/RobotModel.h>
 #include <gait/gait_common.h>
 #include <iostream>
@@ -15,20 +16,31 @@
 using namespace std;
 using namespace gait;
 
-// Globals
-cap_gait::CapConfig config;
-
 // Rip open the RobotModel class
 class TestRobotModel : public margait_contrib::RobotModel
 {
 public:
 	// Constructor
-	explicit TestRobotModel(cap_gait::CapConfig* capConfig) : RobotModel(capConfig) {}
+	TestRobotModel() : RobotModel(config()) {}
 	
 	// Expose normally protected functions
-	void alignModel(qglviewer::Vec fusedAngle) { RobotModel::alignModel(fusedAngle); }
+	void alignModel(double fusedX, double fusedY) { RobotModel::alignModel(fusedX, fusedY); }
 	void setPose(const margait_contrib::Pose& pose) { RobotModel::setPose(pose); }
+	
+	// CapConfig object
+	static cap_gait::CapConfig* config()
+	{
+		if(!s_config) s_config = new cap_gait::CapConfig();
+		return s_config;
+	}
+	
+private:
+	// Static variables
+	static cap_gait::CapConfig* s_config;
 };
+
+// Static TestRobotModel variables
+cap_gait::CapConfig* TestRobotModel::s_config = NULL;
 
 // Enumerations
 enum ValueIDs
@@ -607,11 +619,16 @@ void displayModelState(const margait_contrib::RobotModel* rxRobotModel)
 	printf("Base Pos:    %.6f %.6f %.6f\n", pos.x, pos.y, pos.z);
 	printf("Base Orient: %.6f %.6f %.6f %.6f\n", orient[3], orient[0], orient[1], orient[2]);
 	printf("Base FYaw:   %.6f\n\n", margait_contrib::RobotModel::fusedYaw(orient));
-	pos = rxRobotModel->footStep.position();
-	orient = rxRobotModel->footStep.orientation();
-	printf("FootStep Pos:    %.6f %.6f %.6f\n", pos.x, pos.y, pos.z);
-	printf("FootStep Orient: %.6f %.6f %.6f %.6f\n", orient[3], orient[0], orient[1], orient[2]);
-	printf("FootStep FYaw:   %.6f\n\n", margait_contrib::RobotModel::fusedYaw(orient));
+	pos = rxRobotModel->leftFootstep.position();
+	orient = rxRobotModel->leftFootstep.orientation();
+	printf("LeftFootstep Pos:    %.6f %.6f %.6f\n", pos.x, pos.y, pos.z);
+	printf("LeftFootstep Orient: %.6f %.6f %.6f %.6f\n", orient[3], orient[0], orient[1], orient[2]);
+	printf("LeftFootstep FYaw:   %.6f\n\n", margait_contrib::RobotModel::fusedYaw(orient));
+	pos = rxRobotModel->rightFootstep.position();
+	orient = rxRobotModel->rightFootstep.orientation();
+	printf("RightFootstep Pos:    %.6f %.6f %.6f\n", pos.x, pos.y, pos.z);
+	printf("RightFootstep Orient: %.6f %.6f %.6f %.6f\n", orient[3], orient[0], orient[1], orient[2]);
+	printf("RightFootstep FYaw:   %.6f\n\n", margait_contrib::RobotModel::fusedYaw(orient));
 	pos = footFloorPoint.position();
 	orient = footFloorPoint.orientation();
 	printf("FootFloorPt Pos:    %.6f %.6f %.6f [%c]\n", pos.x, pos.y, pos.z, (rxRobotModel->supportLegSign == 1 ? 'R' : 'L'));
@@ -628,13 +645,14 @@ void displayModelState(const margait_contrib::RobotModel* rxRobotModel)
 void displayModelVectors(const margait_contrib::RobotModel* rxRobotModel)
 {
 	// Retrieve the required vectors
-	qglviewer::Vec suppVec = rxRobotModel->supportVector();
-	qglviewer::Vec stepVec = rxRobotModel->stepVector();
-	qglviewer::Vec swingVec = rxRobotModel->swingVector();
+	qglviewer::Vec suppVec = rxRobotModel->suppComVector();
+	qglviewer::Vec stepVec = rxRobotModel->suppStepVector();
+	qglviewer::Vec swingVec = rxRobotModel->suppSwingVector();
+	double stepYaw = rxRobotModel->suppStepYaw();
 
 	// Display the required vectors
 	printf("supportVector: %.6f %.6f %.6f\n", suppVec.x, suppVec.y, suppVec.z);
-	printf("stepVector:    %.6f %.6f %.6f\n", stepVec.x, stepVec.y, stepVec.z);
+	printf("stepVector:    %.6f %.6f %.6f (yaw %.6f)\n", stepVec.x, stepVec.y, stepVec.z, stepYaw);
 	printf("swingVector:   %.6f %.6f %.6f\n\n", swingVec.x, swingVec.y, swingVec.z);
 }
 
@@ -646,7 +664,7 @@ bool runFwdKin(const RDataArr& arr, const std::string& outname)
 	cout << "Executing function " << __FUNCTION__ << "():" << endl;
 
 	// Create robotmodel object
-	TestRobotModel rxRobotModel(&config);
+	TestRobotModel rxRobotModel;
 
 	// Set the initial support leg sign
 	double rawsign = arr.list.at(0).data[V_RX_SUPPLEG];
@@ -662,10 +680,10 @@ bool runFwdKin(const RDataArr& arr, const std::string& outname)
 	Out.name[1] = "CALC/cap_gait/rxRobotModel/supportVector/x";
 	Out.name[2] = "CALC/cap_gait/rxRobotModel/supportVector/y";
 	Out.name[3] = "CALC/cap_gait/rxRobotModel/supportVector/z";
-	Out.name[4] = "CALC/cap_gait/rxRobotModel/swingVector/x";
-	Out.name[5] = "CALC/cap_gait/rxRobotModel/swingVector/y";
-	Out.name[6] = "CALC/cap_gait/rxRobotModel/swingVector/z";
-	Out.name[7] = "CALC/cap_gait/rxRobotModel/swingVector/fyaw";
+	Out.name[4] = "CALC/cap_gait/rxRobotModel/stepVector/x";
+	Out.name[5] = "CALC/cap_gait/rxRobotModel/stepVector/y";
+	Out.name[6] = "CALC/cap_gait/rxRobotModel/stepVector/z";
+	Out.name[7] = "CALC/cap_gait/rxRobotModel/stepVector/fyaw";
 
 	// Declare variables
 	qglviewer::Vec fusedAngle;
@@ -701,12 +719,12 @@ bool runFwdKin(const RDataArr& arr, const std::string& outname)
 		measuredPose.rightLegPose.ankle.setPos(jointPos[R_ANKLE_ROLL], jointPos[R_ANKLE_PITCH], 0.0);
 
 		// Make the robot model walk
-		rxRobotModel.update(measuredPose, fusedAngle);
+		rxRobotModel.update(measuredPose, fusedAngle.x, fusedAngle.y);
 
 		// Get the robot model state
-		qglviewer::Vec suppvec = rxRobotModel.supportVector();
-		qglviewer::Vec swingvec = rxRobotModel.swingVector();
-		qglviewer::Vec stepvec = rxRobotModel.stepVector();
+		qglviewer::Vec suppvec = rxRobotModel.suppComVector();
+		qglviewer::Vec stepvec = rxRobotModel.suppStepVector();
+		double stepyaw = rxRobotModel.suppStepYaw();
 
 		// Verify the match of calculated to plotted robotmodel data
 		double ErrSuppX = fabs(suppvec.x - val[V_RXRM_SUPPX]);
@@ -722,10 +740,10 @@ bool runFwdKin(const RDataArr& arr, const std::string& outname)
 		Out.list.at(pt).data[1] = suppvec.x;
 		Out.list.at(pt).data[2] = suppvec.y;
 		Out.list.at(pt).data[3] = suppvec.z;
-		Out.list.at(pt).data[4] = swingvec.x;
-		Out.list.at(pt).data[5] = swingvec.y;
-		Out.list.at(pt).data[6] = swingvec.z;
-		Out.list.at(pt).data[7] = stepvec.z;
+		Out.list.at(pt).data[4] = stepvec.x;
+		Out.list.at(pt).data[5] = stepvec.y;
+		Out.list.at(pt).data[6] = stepvec.z;
+		Out.list.at(pt).data[7] = stepyaw;
 	}
 	
 	// Export the data if required
@@ -750,7 +768,7 @@ void runRobotModel(const RDataArr& arr)
 	cout << "Executing test function " << __FUNCTION__ << "():" << endl;
 
 	// Create robotmodel object
-	TestRobotModel rxRobotModel(&config);
+	TestRobotModel rxRobotModel;
 
 	// Set the initial support leg sign
 	double rawsign = arr.list.at(0).data[V_RX_SUPPLEG];
@@ -792,7 +810,7 @@ void runRobotModel(const RDataArr& arr)
 		measuredPose.rightLegPose.ankle.setPos(jointPos[R_ANKLE_ROLL], jointPos[R_ANKLE_PITCH], 0.0);
 
 		// Make the robot model walk
-		rxRobotModel.update(measuredPose, fusedAngle);
+		rxRobotModel.update(measuredPose, fusedAngle.x, fusedAngle.y);
 
 		// Get the robot model state
 		double leftz = rxRobotModel.lFootFloorPoint.position().z;
@@ -852,7 +870,7 @@ void test_alignCase(TestRobotModel* rxRobotModel, double fusedX, double fusedY)
 	// Align the model
 	printf("------------------------------------------------------\n");
 	printf("Aligning by: fusedX = %g, fusedY = %g\n\n", fusedX, fusedY);
-	rxRobotModel->alignModel(qglviewer::Vec(fusedX, fusedY, 0.0));
+	rxRobotModel->alignModel(fusedX, fusedY);
 
 	// Display the model state
 	displayModelState(rxRobotModel);
@@ -885,7 +903,7 @@ bool test_alignModel()
 	cout << "Executing test function " << __FUNCTION__ << "():" << endl << endl;
 
 	// Create robotmodel object
-	TestRobotModel rxRobotModel(&config);
+	TestRobotModel rxRobotModel;
 
 	// Set the pose of the robot
 	margait_contrib::Pose pose;
@@ -898,7 +916,7 @@ bool test_alignModel()
 	rxRobotModel.setPose(pose);
 
 	// Manually move the footStep frame
-	rxRobotModel.footStep.setTranslation(3.0, 2.0, 0.0);
+	rxRobotModel.rightFootstep.setTranslation(3.0, 2.0, 0.0);
 
 	// Display the base/footStep frames
 	displayModelState(&rxRobotModel);
@@ -958,6 +976,9 @@ int main_parse_out(const std::string& csvname, RDataArr& arr, const std::string&
 // Main function
 int main(int argc, char **argv)
 {
+	// Initialise the ROS node (needed for CapConfig)
+	ros::init(argc, argv, "test_robotmodel");
+
 	// Print header
 	cout << "Test RobotModel (margait_contrib)..." << endl;
 

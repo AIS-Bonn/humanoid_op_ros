@@ -1,0 +1,4 @@
+---
+float32 magCalibX
+float32 magCalibY
+float32 magCalibZ

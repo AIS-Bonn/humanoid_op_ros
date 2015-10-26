@@ -13,8 +13,6 @@ LED::LED(int width_, int height_, QWidget *parent) : QWidget(parent)
 	offColor = QColor(50, 50, 50);
 	
 	currentColor = offColor;
-	
-	switchedOn = false;
 }
 
 LED::~LED()
@@ -28,8 +26,6 @@ void LED::turn(bool on)
 		currentColor = onColor;
 	else
 		currentColor = offColor;
-	
-	switchedOn = on;
 }
 
 void LED::setColor(QColor color)
@@ -37,9 +33,9 @@ void LED::setColor(QColor color)
 	currentColor = color;
 }
 
-bool LED::isOn()
+void LED::setOnColor(QColor color)
 {
-	return switchedOn;
+	onColor = color;
 }
 
 void LED::paintEvent(QPaintEvent *event)

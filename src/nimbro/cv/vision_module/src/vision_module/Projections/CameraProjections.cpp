@@ -35,6 +35,36 @@ bool CameraProjections::GetOnImageCordinate(const vector<LineSegment> inLine,
 	return true;
 }
 
+vector<Point2f> CameraProjections::RotateTowardHeading(vector<Point2f> in)
+{
+	vector<Point2f> out;
+	for(size_t i=0;i<in.size();i++)
+	{
+		out.push_back( RotateTowardHeading(in[i]));
+	}
+	return out;
+}
+Point2d CameraProjections::RotateTowardHeading(Point2d in)
+{
+	return RotateAroundPoint(in,-Radian2Degree(getHeading()));
+}
+
+Point2f CameraProjections::RotateTowardHeading(Point2f in)
+{
+	return RotateAroundPoint(in,-Radian2Degree(getHeading()));
+}
+vector<LineSegment> CameraProjections::RotateTowardHeading(
+		vector<LineSegment> in)
+{
+
+	vector<LineSegment> out;
+	for(size_t i=0;i<in.size();i++)
+	{
+		out.push_back(LineSegment(RotateTowardHeading(in[i].P1),RotateTowardHeading(in[i].P2)));
+	}
+	return out;
+}
+
 bool CameraProjections::GetOnRealCordinate(const vector<LineSegment> inLine,
 		vector<LineSegment> &resLines)
 {
@@ -137,7 +167,6 @@ bool CameraProjections::GetOnRealCordinate(const vector<Point> contour,
 	vector<Point> resC;
 	if (!_distorionModel.UndistortP(contour, resC))
 	{
-
 		return false;
 	}
 
@@ -177,9 +206,7 @@ bool CameraProjections::Init(bool _dummy)
 	diagnalAngleView = _distorionModel.getDiagonalAngleView();
 	params.camera.diagonalAngleView->set(diagnalAngleView);
 	ROS_INFO(" Diagonal Camera Angle = %7.3f", diagnalAngleView);
-	DB();
 	ros::Time past = ros::Time::now() - ros::Duration(0.033);
-	DB();
 	if (dummy)
 	{
 		past = ros::Time(0); //To get latest
@@ -338,16 +365,14 @@ bool CameraProjections::Update()
 					Radian2Degree(OpticalAngle.z));
 		}
 
-		cameraLocation.x = params.location.x->get();
+		cameraLocation.x = params.location.x->get(); //todo: it seems that the actual height published in odometry
 		cameraLocation.y = params.location.y->get();
 		cameraLocation.z = params.location.z->get();
 
 		cameraOrintation.x = OpticalAngle.x + params.orientation.x->get();
 		cameraOrintation.y = OpticalAngle.y + params.orientation.y->get();
 		cameraOrintation.z = CorrectAngleRadian360(
-				OpticalAngle.z + params.orientation.z->get()
-				//+ params.heading->get());
-						+ headingData.heading);
+				OpticalAngle.z + params.orientation.z->get());
 
 	} catch (tf::TransformException &ex)
 	{

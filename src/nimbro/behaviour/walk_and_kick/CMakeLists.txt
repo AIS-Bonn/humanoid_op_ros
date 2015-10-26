@@ -7,7 +7,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-address")
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-	robotcontrol roscpp config_server tf plot_msgs gait_msgs timer field_model nimbro_op_interface nimbro_utils
+	robotcontrol roscpp config_server tf plot_msgs gait_msgs gait timer field_model nimbro_op_interface nimbro_utils head_control
 )
 
 find_library(Eigen3 REQUIRED)

@@ -43,6 +43,8 @@ public Q_SLOTS:
 	void handlePositionChanged();
 	void handleVelocityChanged();
 	void handleEffortChanged();
+	
+	void handleChangeForID(int id, PosVelEffView::Field field, float value);
 
 Q_SIGNALS:
 	void frameDataChanged();
@@ -53,7 +55,7 @@ private:
 	// Find joint jointName in jointList and create view for it. Put it on layout
 	// If jointName was not found, put warning on layout
 	void findAndPutView(std::vector<std::string>  &jointList, std::string jointName, std::string label
-														, int row, PosVelEffView::Alignment alignment);
+						, int row, PosVelEffView::Alignment alignment, int id);
 	void createHeaderLabels(PosVelEffView::Alignment alignment, int row);
 	QFrame* createLine();
 	

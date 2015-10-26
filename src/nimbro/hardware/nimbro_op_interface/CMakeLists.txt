@@ -12,6 +12,7 @@ add_message_files(FILES
 	LEDCommand.msg
 )
 add_service_files(FILES
+	AttEstMagCalib.srv
 	ReadOffset.srv
 )
 generate_messages(DEPENDENCIES

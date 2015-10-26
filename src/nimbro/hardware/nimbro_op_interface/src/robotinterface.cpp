@@ -1372,7 +1372,7 @@ void RobotInterface::updateAttEstMagCalib()
  * rosservice call /robotcontrol/nopInterface/attEstCalibrate
  * @endcode
  **/
-bool RobotInterface::handleAttEstCalibrate(std_srvs::EmptyRequest& req, std_srvs::EmptyResponse& resp)
+bool RobotInterface::handleAttEstCalibrate(nimbro_op_interface::AttEstMagCalibRequest& req, nimbro_op_interface::AttEstMagCalibResponse& resp)
 {
 	// Retrieve the current magnetic field vector
 	Eigen::Vector3d mag = m_model->magneticFieldVector();
@@ -1384,6 +1384,11 @@ bool RobotInterface::handleAttEstCalibrate(std_srvs::EmptyRequest& req, std_srvs
 
 	// Inform the user of the results of the calibration
 	ROS_INFO("Attitude estimation calibration: attEstMagCalib vector has been updated to be (%10.7lf, %10.7lf, %10.7lf)", mag.x(), mag.y(), mag.z());
+
+	// Return the result of the calibration
+	resp.magCalibX = mag.x();
+	resp.magCalibY = mag.y();
+	resp.magCalibZ = mag.z();
 
 	// Return that the service was successfully handled
 	return true;

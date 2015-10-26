@@ -11,6 +11,7 @@
 #include <ros/time.h>
 #include <Eigen/Core>
 #include <std_srvs/Empty.h>
+#include <robotcontrol/MagCalib.h>
 #include <config_server/parameter.h>
 #include <visualization_msgs/Marker.h>
 
@@ -50,12 +51,12 @@ namespace stateestimation
 
 	private:
 		// ROS service servers and service handlers
-		bool startCalibration(std_srvs::EmptyRequest&, std_srvs::EmptyResponse&);
-		bool stopCalibration(std_srvs::EmptyRequest&, std_srvs::EmptyResponse&);
-		bool stopCalibration2D(std_srvs::EmptyRequest&, std_srvs::EmptyResponse&);
+		bool startCalibration(std_srvs::EmptyRequest& req, std_srvs::EmptyResponse& resp);
+		bool stopCalibration2D(robotcontrol::MagCalibRequest& req, robotcontrol::MagCalibResponse& resp);
+		bool stopCalibration3D(robotcontrol::MagCalibRequest& req, robotcontrol::MagCalibResponse& resp);
 		ros::ServiceServer m_srv_startCalibration;
-		ros::ServiceServer m_srv_stopCalibration;
 		ros::ServiceServer m_srv_stopCalibration2D;
+		ros::ServiceServer m_srv_stopCalibration3D;
 
 		// Plotting of magnetometer calibration data
 		config_server::Parameter<bool> m_plot_calib_data;
@@ -77,5 +78,5 @@ namespace stateestimation
 	};
 }
 
-#endif /* MAGFILTER_H */
+#endif
 // EOF

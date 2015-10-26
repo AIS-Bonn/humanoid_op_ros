@@ -33,6 +33,11 @@ namespace gait
 			nominaldT = 0.0;
 			truedT = 0.0;
 			gaitCmd.reset();
+			motionPending = false;
+			motionID = MID_NONE;
+			motionStance = STANCE_DEFAULT;
+			motionAdjustLeftFoot = false;
+			motionAdjustRightFoot = false;
 		}
 
 		// Joint states
@@ -45,6 +50,13 @@ namespace gait
 
 		// Gait command
 		GaitCommand gaitCmd;         //!< @brief Gait command (e.g. desired walking velocity and so on).
+
+		// Motion parameters
+		bool motionPending;          //!< @brief Boolean flag whether a motion is pending.
+		MotionID motionID;           //!< @brief The ID of the motion that is pending.
+		MotionStance motionStance;   //!< @brief The stopping stance required for the playing of the pending motion.
+		bool motionAdjustLeftFoot;   //!< @brief Boolean flag whether the left foot should be used to adjust the stopping stance.
+		bool motionAdjustRightFoot;  //!< @brief Boolean flag whether the right foot should be used to adjust the stopping stance.
 	};
 
 	/**

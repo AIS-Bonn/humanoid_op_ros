@@ -11,6 +11,7 @@
 #include <geometry_msgs/PolygonStamped.h>
 #include <nimbro_op_interface/Button.h>
 #include <nimbro_op_interface/LEDCommand.h>
+#include <head_control/LookAtTarget.h>
 #include <robotcontrol/State.h>
 #include <gait_msgs/GaitCommand.h>
 #include <field_model/field_model.h>
@@ -453,6 +454,7 @@ namespace walkandkick
 		
 		// Data outputs
 		ros::Publisher m_pub_leds;
+		ros::Publisher m_pub_headCmd;
 		nimbro_op_interface::LEDCommand m_led;
 		
 		// Data subscribers

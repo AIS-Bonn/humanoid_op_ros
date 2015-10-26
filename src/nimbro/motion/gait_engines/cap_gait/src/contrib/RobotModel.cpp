@@ -1,5 +1,6 @@
-// RobotModel.cpp
 // Encapsulates the model of a robot for gait purposes.
+// File: RobotModel.h
+// Author: Philipp Allgeuer <pallgeuer@ais.uni-bonn.de>
 
 // Includes
 #include <cap_gait/contrib/RobotModel.h>
@@ -26,24 +27,13 @@ RobotModel::RobotModel(cap_gait::CapConfig* capConfig) : config(capConfig)
 	reset(true);
 }
 
-// Reset function
-void RobotModel::reset(bool resetPose)
+// Reset function (if resetModel is true this resets everything, otherwise it just resets the odometry)
+void RobotModel::reset(bool resetModel)
 {
-	// Reset the pose if required
-	if(resetPose)
-	{
-		// Initialise the support conditions
-		supportLegSign = 1;
-		supportExchange = false;
-		supportExchangeLock = true;
-
-		// Intialise the kinematic model
+	// Reset the entire kinematic model if required
+	if(resetModel)
 		initKinematicModel();
-		
-		// Initialise to the default pose
-		setPose(Pose());
-	}
-	
+
 	// Update the robot specifications
 	robotSpecCallback();
 
@@ -58,29 +48,59 @@ void RobotModel::reset(bool resetPose)
 // Completely initialise the kinematic chain
 void RobotModel::initKinematicModel()
 {
+	// Initialise the support conditions
+	supportLegSign = RIGHT_LEG;
+	supportExchange = false;
+	supportExchangeLock = false;
+
 	// Initialise the base frame
 	base.setReferenceFrame(NULL);
-	base.setTranslation(0, 0, 2.0*config->legLinkLength() + config->footOffsetZ());
+	base.setTranslation(0, 0, 0); // Updated further down in this function
 	base.setRotation(0, 0, 0, 1);
-	
-	// Initialise the footstep frame
-	footStep.setReferenceFrame(NULL);
-	footStep.setTranslation(0, -0.5*config->hipWidth(), 0);
-	footStep.setRotation(0, 0, 0, 1);
-	
-	// Initialise the kinematic chain hierarchy
+
+	// Initialise the left and right footstep frames
+	leftFootstep.setReferenceFrame(NULL);
+	leftFootstep.setTranslation(0, 0, 0); // Updated further down in this function
+	leftFootstep.setRotation(0, 0, 0, 1); // Updated further down in this function
+	rightFootstep.setReferenceFrame(NULL);
+	rightFootstep.setTranslation(0, 0, 0); // Updated further down in this function
+	rightFootstep.setRotation(0, 0, 0, 1); // Updated further down in this function
+
+	// Initialise the support and free footstep frames
+	suppFootstep.setTranslation(0, 0, 0);
+	suppFootstep.setRotation(0, 0, 0, 1);
+	freeFootstep.setTranslation(0, 0, 0);
+	freeFootstep.setRotation(0, 0, 0, 1);
+	updateSuppFreeFootstep(); // Sets the reference frames of the support and free footstep frames
+
+	// Initialise the kinematic chain hierarchy (reference frames)
 	initKinematicHierarchy();
 
-	// Initialise the kinematic chain translations
+	// Initialise the kinematic chain translations (translations)
 	initKinematicTranslations();
 
-	// Initialise the kinematic chain rotations
+	// Initialise the kinematic chain rotations (rotations)
 	initKinematicRotations();
+
+	// Initialise the kinematic model to the default pose (rotations)
+	setPose(Pose());
+
+	// Set the translation of the base frame so that the CoM is at (0,0), and the support foot floor point is on the floor (z = 0)
+	Vec comPos = com.position();
+	Vec suppFootFloorPointPos = (supportLegSign == RIGHT_LEG ? rFootFloorPoint.position() : lFootFloorPoint.position());
+	base.setTranslation(-comPos.x, -comPos.y, -suppFootFloorPointPos.z);
+
+	// Update the left and right footstep frames
+	updateLeftRightFootstep();
 }
 
 // Initialise the hierarchy of frames in the kinematic chain
 void RobotModel::initKinematicHierarchy()
 {
+	// Trunk
+	com.setReferenceFrame(&base);
+	trunkLink.setReferenceFrame(&base);
+	
 	// Head
 	neck.setReferenceFrame(&base);
 	head.setReferenceFrame(&neck);
@@ -111,6 +131,10 @@ void RobotModel::initKinematicHierarchy()
 // Initialise the (fixed) translations of the frames in the kinematic chain
 void RobotModel::initKinematicTranslations()
 {
+	// Trunk
+	com.setTranslation(config->comOffsetX(), 0, config->comOffsetZ());
+	trunkLink.setTranslation(config->trunkLinkOffsetX(), config->trunkLinkOffsetY(), config->trunkLinkOffsetZ());
+	
 	// Head
 	neck.setTranslation(0, 0, config->trunkHeight() + config->neckHeight());
 	head.setTranslation(config->headOffsetX(), 0, config->headOffsetZ());
@@ -141,6 +165,10 @@ void RobotModel::initKinematicTranslations()
 // Initialise the rotations of the frames in the kinematic chain
 void RobotModel::initKinematicRotations()
 {
+	// Trunk
+	com.setRotation(0, 0, 0, 1);
+	trunkLink.setRotation(0, 0, 0, 1);
+	
 	// Head
 	neck.setRotation(0, 0, 0, 1);
 	head.setRotation(0, 0, 0, 1);
@@ -169,113 +197,108 @@ void RobotModel::initKinematicRotations()
 }
 
 //
+// RobotModel update functions
+//
+
+// Update the left and right footstep frames
+void RobotModel::updateLeftRightFootstep()
+{
+	// Set the translations of the left and right footstep frames
+	leftFootstep.setTranslation(lFootFloorPoint.position());
+	leftFootstep.setRotation(Quaternion(Vec(0,0,1), fusedYaw(lFootFloorPoint.orientation())));
+	rightFootstep.setTranslation(rFootFloorPoint.position());
+	rightFootstep.setRotation(Quaternion(Vec(0,0,1), fusedYaw(rFootFloorPoint.orientation())));
+}
+
+// Update the support and free footstep frames
+void RobotModel::updateSuppFreeFootstep()
+{
+	// Update the reference frames of the support and free footstep frames
+	if(supportLegSign == RIGHT_LEG)
+	{
+		suppFootstep.setReferenceFrame(&rightFootstep);
+		freeFootstep.setReferenceFrame(&leftFootstep);
+	}
+	else
+	{
+		suppFootstep.setReferenceFrame(&leftFootstep);
+		freeFootstep.setReferenceFrame(&rightFootstep);
+	}
+}
+
+//
 // RobotModel odometry
 //
 
-// Reset the internal RobotModel odometry so that the footStep frame coincides with the global frame (default output of initKinematicModel())
+// Reset the internal CoM odometry so that the CoM frame is at (0,0) with a fused yaw of zero
 void RobotModel::resetOdom()
 {
 	// Set the odometry to zero
 	setOdom(0.0, 0.0, 0.0);
 }
 
-// Sets the internal CoM odometry to a particular position and heading
-void RobotModel::setOdom(double comX, double comY, double fYaw) // Note: fYaw is interpreted as the fused yaw of the robot
+// Sets the internal CoM odometry to a particular position and fused yaw heading
+void RobotModel::setOdom(double comX, double comY, double fYaw)
 {
-	// Retrieve the current base and footStep translations and rotations
-	Vec basePos = base.translation();
-	Vec footStepPos = footStep.translation();
-	Quaternion baseRot = base.rotation();
-	Quaternion footStepRot = footStep.rotation();
+	// Retrieve the current CoM frame position and orientation
+	Vec comPos = com.position();
+	Quaternion comOrient = com.orientation();
 
-	// Work out the yaw rotation required so that the fused yaw of the base frame matches fYaw
-	Quaternion rot(Vec(0,0,1), fYaw - fusedYaw(baseRot));
+	// Retrieve the translations of the global frames (same as their global positions by definition)
+	Vec baseTrans = base.translation();
+	Vec leftFootstepTrans = leftFootstep.translation();
+	Vec rightFootstepTrans = rightFootstep.translation();
 
-	// Update the footStep frame
-	Vec v = rot * (footStepPos - basePos);
-	footStep.setTranslation(comX + v.x, comY + v.y, footStepPos.z);
-	footStep.setRotation(rot * footStepRot);
+	// Work out the pure yaw quaternion rotation required so that the fused yaw of the CoM frame matches fYaw
+	Quaternion rot(Vec(0,0,1), fYaw - fusedYaw(comOrient));
 
-	// Update the base frame
-	base.setTranslation(comX, comY, basePos.z);
-	base.setRotation(rot * baseRot);
+	// Rotate all the global frames by the required yaw rotation
+	base.setRotation(rot * base.rotation());
+	leftFootstep.setRotation(rot * leftFootstep.rotation());
+	rightFootstep.setRotation(rot * rightFootstep.rotation());
+
+	// Update the translations of all the global frames
+	Vec baseV = rot * (baseTrans - comPos);
+	Vec leftFootstepV = rot * (leftFootstepTrans - comPos);
+	Vec rightFootstepV = rot * (rightFootstepTrans - comPos);
+	base.setTranslation(comX + baseV.x, comY + baseV.y, baseTrans.z);
+	leftFootstep.setTranslation(comX + leftFootstepV.x, comY + leftFootstepV.y, leftFootstepTrans.z);
+	rightFootstep.setTranslation(comX + rightFootstepV.x, comY + rightFootstepV.y, rightFootstepTrans.z);
 }
 
 //
-// RobotModel updates
+// RobotModel pose update functions
 //
 
-// Simulates a walk. It assumes to be fed with continuous joint angle and fused angle data.
-// It sets the model into the given pose and rotates the model such that the trunk angle
-// matches the fused angle. While applying the motion sequence, a fixed location of the
-// support foot on the floor is maintained so that the CoM trajectory can be used as motion
-// model for the particle filter. The sign of the support foot is flipped when the
-// swing foot z coordinate is less than the current support foot z coordinate. It also sets
-// the support exchange boolean flag. The stepVector() makes most sense when this method is
-// used and the support exchange indicates true.
-void RobotModel::update(const Pose& pose, Vec fusedAngle)
+// Update the robot model with a new pose and fused roll/pitch
+void RobotModel::update(const Pose& pose, double fusedX, double fusedY)
 {
-	// Update the robot model with the given sensor data
-	setPose(pose); // Applies the supplied joint angles to the kinematic hierarchy (i.e. this updates the coordinate frames from neck/shoulder/hip onwards)
-	alignModel(fusedAngle); // Updates the base transform (global position and orientation of the robot CoM) based on the current support foot location and measured fused angle
+	// Update the robot model with the new data
+	setPose(pose);              // Applies the measured joint angles to the kinematic chain
+	alignModel(fusedX, fusedY); // Updates the base transform based on the current support foot location and the measured fused angles
 
-	// Perform support exchange if needed.
-	// This will set the footStep frame to the location of the new support foot.
+	// Calculate the lower of the two feet
+	double footHeightDiff = rFootFloorPoint.position().z - lFootFloorPoint.position().z; // Positive if the right foot is higher than the left
+	int lowestFoot = (footHeightDiff > 0 ? LEFT_LEG : RIGHT_LEG);
+
+	// Allow a support exchange if the vertical foot separation has exceeded a configured threshold
+	if(supportExchangeLock && (fabs(footHeightDiff) >= config->footHeightHysteresis()))
+		supportExchangeLock = false;
+
+	// Perform a support exchange if needed
 	supportExchange = false;
-	int lowerFoot = (rFootFloorPoint.position().z < lFootFloorPoint.position().z ? 1 : -1);
-	if(lowerFoot != supportLegSign && !supportExchangeLock)
+	if(lowestFoot != supportLegSign && !supportExchangeLock)
 	{
 		supportExchangeLock = true;
 		supportExchange = true;
-		setSupportLeg(lowerFoot);
+		setSupportLeg(lowestFoot);
 	}
-
-	// Hysteresis
-	if(supportExchangeLock && (qAbs(lFootFloorPoint.position().z - rFootFloorPoint.position().z) > 0.005))
-		supportExchangeLock = false;
 }
 
-// Rotates the whole model to the given fused pitch and roll, and adds yaw so that the support foot
-// is aligned with the footStep frame in terms of fused yaw. The model is then translated so that
-// the positions of the support foot and footStep frames coincide.
-void RobotModel::alignModel(Vec fusedAngle)
-{
-	// Get the support foot frame
-	Frame& footFloorPoint = (supportLegSign == 1 ? rFootFloorPoint : lFootFloorPoint);
-
-	// Apply the given fused pitch/roll to the model
-	base.setRotation(quatFromFusedPR(fusedAngle.x, fusedAngle.y));
-
-	// Calculate the difference in fused yaw (CCW) from the foot floor point frame to the required footStep frame, and yaw the base frame by this value
-	double yawDelta = fusedYaw(footStep.orientation()) - fusedYaw(footFloorPoint.orientation());
-	base.setRotation(Quaternion(0.0, 0.0, sin(0.5*yawDelta), cos(0.5*yawDelta)) * base.rotation());
-
-	// Translate the model (base frame) so that the foot floor point and footStep frames coincide in terms of position
-	base.translate(footStep.position() - footFloorPoint.position());
-}
-
-// Sets the support leg sign and updates the footStep frame.
-void RobotModel::setSupportLeg(int sls)
-{
-	// Update the support foot
-	supportLegSign = sls;
-	Frame& footFloorPoint = (supportLegSign == 1 ? rFootFloorPoint : lFootFloorPoint);
-	Vec footPos = footFloorPoint.position();
-
-	// Update the footStep frame to be on the floor exactly under the currently nominated support foot (same x,y,fyaw)
-	footStep.setTranslation(footPos.x, footPos.y, 0.0);
-	footStep.setRotation(Quaternion(Vec(0,0,1), fusedYaw(footFloorPoint.orientation())));
-
-	// Shift the model vertically so that the support foot is on the ground
-	base.translate(0.0, 0.0, -footPos.z);
-}
-
-// Applies the joint angles to the robot model. This sets the coordinate frames of the robot into the right
-// positions and orientations, so that the model can be visualized and features can be extracted.
+// Apply the stored pose (joint angles) to the kinematic model
 void RobotModel::applyPose()
 {
-	// The order in which rotations are applied to the joints is important.
-	// We are following the mechanical servo order of NimbRo robots.
+	// The assumed orders of rotation of the robot joints are as follows:
 	// Shoulder: y -> x -> z
 	// Hip:      z -> x -> y
 	// Ankle:    y -> x
@@ -314,35 +337,207 @@ void RobotModel::applyPose()
 	                 * Quaternion(Vec(1, 0, 0), pose.rightLegPose.ankle.x));
 }
 
+// Align the model to the given fused roll/pitch, add yaw to ensure the fused yaw of the support foot hasn't changed, and translate the model to ensure that the support foot floor point is preserved
+void RobotModel::alignModel(double fusedX, double fusedY)
+{
+	// Get pointers to the required frames
+	Frame *suppFloorPoint, *otherFloorPoint, *supportFootstep, *otherFootstep; // It is assumed that the footstep frames are global
+	if(supportLegSign == RIGHT_LEG)
+	{
+		suppFloorPoint = &rFootFloorPoint;
+		otherFloorPoint = &lFootFloorPoint;
+		supportFootstep = &rightFootstep;
+		otherFootstep = &leftFootstep;
+	}
+	else
+	{
+		suppFloorPoint = &lFootFloorPoint;
+		otherFloorPoint = &rFootFloorPoint;
+		supportFootstep = &leftFootstep;
+		otherFootstep = &rightFootstep;
+	}
+
+	// Apply the given fused roll/pitch to the model (temporarily annuls the fused yaw of the robot)
+	base.setRotation(quatFromFusedPR(fusedX, fusedY));
+
+	// Calculate the difference in fused yaw (CCW) from the support foot floor point frame to the current support footstep frame, and yaw the base frame by this value
+	double yawDelta = fusedYaw(supportFootstep->rotation()) - fusedYaw(suppFloorPoint->orientation());
+	base.setRotation(Quaternion(0.0, 0.0, sin(0.5*yawDelta), cos(0.5*yawDelta)) * base.rotation());
+
+	// Translate the model (base frame) so that the support foot floor point and support footstep frames coincide in terms of position
+	base.translate(supportFootstep->translation() - suppFloorPoint->position());
+
+	// Update the free footstep frame (the support footstep frame by construction has not changed)
+	otherFootstep->setTranslation(otherFloorPoint->position());
+	otherFootstep->setRotation(Quaternion(Vec(0,0,1), fusedYaw(otherFloorPoint->orientation())));
+}
+
+// Sets the support leg sign of the model and updates the required associated frames
+void RobotModel::setSupportLeg(int sls)
+{
+	// Update the support leg sign
+	supportLegSign = sls;
+	updateSuppFreeFootstep();
+
+	// Retrieve the position of the new support foot
+	Vec footPos = (supportLegSign == RIGHT_LEG ? rFootFloorPoint.position() : lFootFloorPoint.position());
+
+	// Shift the model vertically so that the support foot is exactly on the ground
+	base.translate(0.0, 0.0, -footPos.z);
+	leftFootstep.translate(0.0, 0.0, -footPos.z);
+	rightFootstep.translate(0.0, 0.0, -footPos.z);
+}
+
 //
 // RobotModel information
 //
 
-// Returns the vector pointing from the footstep frame to the "other" foot in footStep coordinates (x,y), and the difference in fused yaw from the footStep frame to the "other" foot (z)
-Vec RobotModel::stepVector() const
+// Support footstep CoM vector
+Vec RobotModel::suppComVector() const
 {
-	// Calculate and return the required vector
-	const Frame& otherFootPt = (supportLegSign != 1 ? rFootFloorPoint : lFootFloorPoint);
-	Vec stepVec = footStep.coordinatesOf(otherFootPt.position());
-	stepVec.z = fusedYaw(otherFootPt.orientation()) - fusedYaw(footStep.orientation()); // Result is in [-2*pi,2*pi]
-	if(stepVec.z > M_PI) stepVec.z -= 2.0*M_PI;   // Value is now in [-2*pi,pi]
-	if(stepVec.z <= -M_PI) stepVec.z += 2.0*M_PI; // Value is now in (-pi,pi]
-	return stepVec;
+	// Return the required vector
+	if(supportLegSign == RIGHT_LEG)
+		return rightFootstep.coordinatesOf(com.position());
+	else
+		return leftFootstep.coordinatesOf(com.position());
 }
 
-// Returns the vector pointing from the footstep frame to the com in footStep coordinates
-Vec RobotModel::supportVector() const
+// Free footstep CoM vector
+Vec RobotModel::freeComVector() const
 {
-	// Calculate and return the required vector
-	return footStep.coordinatesOf(base.position());
+	// Return the required vector
+	if(supportLegSign == RIGHT_LEG)
+		return leftFootstep.coordinatesOf(com.position());
+	else
+		return rightFootstep.coordinatesOf(com.position());
 }
 
-// Returns the vector pointing from the com to the current swing foot floor point frame in footStep coordinates
-Vec RobotModel::swingVector() const
+// Left footstep CoM vector
+Vec RobotModel::leftComVector() const
 {
-	// Calculate and return the required vector
-	const Frame& otherFootPt = (supportLegSign != 1 ? rFootFloorPoint : lFootFloorPoint);
-	return footStep.coordinatesOf(otherFootPt.position()) - footStep.coordinatesOf(base.position());
+	// Return the required vector
+	return leftFootstep.coordinatesOf(com.position());
+}
+
+// Right footstep CoM vector
+Vec RobotModel::rightComVector() const
+{
+	// Return the required vector
+	return rightFootstep.coordinatesOf(com.position());
+}
+
+// Support footstep step vector
+Vec RobotModel::suppStepVector() const
+{
+	// Return the required vector
+	if(supportLegSign == RIGHT_LEG)
+		return rightFootstep.coordinatesOf(leftFootstep.translation());
+	else
+		return leftFootstep.coordinatesOf(rightFootstep.translation());
+}
+
+// Free footstep step vector
+Vec RobotModel::freeStepVector() const
+{
+	// Return the required vector
+	if(supportLegSign == RIGHT_LEG)
+		return leftFootstep.coordinatesOf(rightFootstep.translation());
+	else
+		return rightFootstep.coordinatesOf(leftFootstep.translation());
+}
+
+// Left footstep step vector
+Vec RobotModel::leftStepVector() const
+{
+	// Return the required vector
+	return leftFootstep.coordinatesOf(rightFootstep.translation());
+}
+
+// Right footstep step vector
+Vec RobotModel::rightStepVector() const
+{
+	// Return the required vector
+	return rightFootstep.coordinatesOf(leftFootstep.translation());
+}
+
+// Support footstep swing vector
+Vec RobotModel::suppSwingVector() const
+{
+	// Return the required vector
+	if(supportLegSign == RIGHT_LEG)
+		return rightFootstep.coordinatesOf(leftFootstep.translation()) - rightFootstep.coordinatesOf(com.position());
+	else
+		return leftFootstep.coordinatesOf(rightFootstep.translation()) - leftFootstep.coordinatesOf(com.position());
+}
+
+// Free footstep swing vector
+Vec RobotModel::freeSwingVector() const
+{
+	// Return the required vector
+	if(supportLegSign == RIGHT_LEG)
+		return leftFootstep.coordinatesOf(rightFootstep.translation()) - leftFootstep.coordinatesOf(com.position());
+	else
+		return rightFootstep.coordinatesOf(leftFootstep.translation()) - rightFootstep.coordinatesOf(com.position());
+}
+
+// Left footstep swing vector
+Vec RobotModel::leftSwingVector() const
+{
+	// Return the required vector
+	return leftFootstep.coordinatesOf(rightFootstep.translation()) - leftFootstep.coordinatesOf(com.position());
+}
+
+// Right footstep swing vector
+Vec RobotModel::rightSwingVector() const
+{
+	// Return the required vector
+	return rightFootstep.coordinatesOf(leftFootstep.translation()) - rightFootstep.coordinatesOf(com.position());
+}
+
+// Support footstep step yaw
+double RobotModel::suppStepYaw() const
+{
+	// Return the required yaw
+	if(supportLegSign == RIGHT_LEG)
+		return getStepYaw(rightFootstep, leftFootstep);
+	else
+		return getStepYaw(leftFootstep, rightFootstep);
+}
+
+// Free footstep step yaw
+double RobotModel::freeStepYaw() const
+{
+	// Return the required yaw
+	if(supportLegSign == RIGHT_LEG)
+		return getStepYaw(leftFootstep, rightFootstep);
+	else
+		return getStepYaw(rightFootstep, leftFootstep);
+}
+
+// Left footstep step yaw
+double RobotModel::leftStepYaw() const
+{
+	// Return the required yaw
+	return getStepYaw(leftFootstep, rightFootstep);
+}
+
+// Right footstep step yaw
+double RobotModel::rightStepYaw() const
+{
+	// Return the required yaw
+	return getStepYaw(rightFootstep, leftFootstep);
+}
+
+// Calculate a particular step yaw (the passed frames must be global!)
+double RobotModel::getStepYaw(const Frame& fromFootstep, const Frame& toFootstep) const
+{
+	// Calculate the fused yaw difference between the footstep frames
+	double fyaw = fusedYaw(toFootstep.rotation()) - fusedYaw(fromFootstep.rotation()); // Result is in [-2*pi,2*pi]
+	if(fyaw >   M_PI) fyaw -= 2.0*M_PI; // Value is now in [-2*pi,pi]
+	if(fyaw <= -M_PI) fyaw += 2.0*M_PI; // Value is now in (-pi,pi]
+
+	// Return the required fused yaw
+	return fyaw;
 }
 
 //

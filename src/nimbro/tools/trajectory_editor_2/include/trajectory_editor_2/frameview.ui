@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>475</width>
+    <width>563</width>
     <height>382</height>
    </rect>
   </property>
@@ -279,7 +279,7 @@
        <item row="0" column="0">
         <widget class="QLabel" name="label_5">
          <property name="text">
-          <string>&lt;- left       -       right -&gt;</string>
+          <string>← Weight on Left Leg  |  Weight on Right Leg →</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>

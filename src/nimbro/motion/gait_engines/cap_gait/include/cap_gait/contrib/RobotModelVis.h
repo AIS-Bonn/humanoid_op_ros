@@ -10,6 +10,12 @@
 #include <cap_gait/contrib/RobotModel.h>
 #include <vis_utils/marker_manager.h>
 
+// Defines
+#define NS_BODY      "body"
+#define NS_FOOTSTEP  "footstep"
+#define NS_SUPP_ARR  "support_arrows"
+#define NS_FREE_ARR  "free_arrows"
+
 // Namespace
 namespace margait_contrib
 {
@@ -94,16 +100,51 @@ namespace margait_contrib
 			LIN_SUPN_L_B,
 			LIN_COUNT
 		};
+		enum FSLinesEnum
+		{
+			FIN_LFOOTSTEP_F_A,
+			FIN_LFOOTSTEP_F_B,
+			FIN_LFOOTSTEP_R_A,
+			FIN_LFOOTSTEP_R_B,
+			FIN_LFOOTSTEP_B_A,
+			FIN_LFOOTSTEP_B_B,
+			FIN_LFOOTSTEP_L_A,
+			FIN_LFOOTSTEP_L_B,
+			FIN_LFOOTSTEP_X_A,
+			FIN_LFOOTSTEP_X_B,
+			FIN_LFOOTSTEP_Y_A,
+			FIN_LFOOTSTEP_Y_B,
+			FIN_RFOOTSTEP_F_A,
+			FIN_RFOOTSTEP_F_B,
+			FIN_RFOOTSTEP_R_A,
+			FIN_RFOOTSTEP_R_B,
+			FIN_RFOOTSTEP_B_A,
+			FIN_RFOOTSTEP_B_B,
+			FIN_RFOOTSTEP_L_A,
+			FIN_RFOOTSTEP_L_B,
+			FIN_RFOOTSTEP_X_A,
+			FIN_RFOOTSTEP_X_B,
+			FIN_RFOOTSTEP_Y_A,
+			FIN_RFOOTSTEP_Y_B,
+			FIN_COUNT
+		};
 		
 		// Constructor
 		RobotModelVis(const RobotModel* model, const std::string& frame) : MarkerManager("~/cap_gait/robot_model", 1)
 		 , model(model)
 		 , frame(frame)
-		 , Com(this, frame)
-		 , Head(this, frame)
-		 , Chest(this, frame)
-		 , Joints(this, frame)
-		 , Lines(this, frame)
+		 , Com(this, frame, 1, NS_BODY)
+		 , Base(this, frame, 1, NS_BODY)
+		 , Head(this, frame, 1, NS_BODY)
+		 , Trunk(this, frame, 1, NS_BODY)
+		 , Chest(this, frame, 1, NS_BODY)
+		 , SuppCom(this, frame, 1, 1, 1, NS_SUPP_ARR)
+		 , SuppStep(this, frame, 1, 1, 1, NS_SUPP_ARR)
+		 , FreeCom(this, frame, 1, 1, 1, NS_FREE_ARR)
+		 , FreeStep(this, frame, 1, 1, 1, NS_FREE_ARR)
+		 , Joints(this, frame, NS_BODY)
+		 , Lines(this, frame, NS_BODY)
+		 , FSLines(this, frame, NS_FOOTSTEP)
 		 , offsetX(0.0)
 		 , offsetY(0.0)
 		 , offsetZ(0.0)
@@ -112,17 +153,39 @@ namespace margait_contrib
 			geometry_msgs::Point pt;
 			pt.x = pt.y = pt.z = 0.0;
 
+			// Create a default colour type
+			visualization_msgs::Marker::_color_type col;
+			col.r = 0.0; col.g = 0.0; col.b = 0.0; col.a = 1.0;
+
 			// CoM marker
-			Com.setColor(0.5, 0.0, 0.5);
+			Com.setColor(0.8, 0.2, 0.2);
 			Com.setScale(0.050);
+			
+			// Base marker
+			Base.setColor(0.5, 0.0, 0.5);
+			Base.setScale(0.050);
 			
 			// Head marker
 			Head.setColor(0.8, 0.8, 0.8);
 			Head.setScale(0.1);
 			
+			// Trunk marker
+			Trunk.setColor(0.3, 0.3, 0.3);
+			Trunk.setScale(0.050);
+			
 			// Chest marker
 			Chest.setColor(0.5, 0.0, 0.5);
 			Chest.setScale(0.050);
+			
+			// Arrow markers
+			SuppCom.setColor(0.8, 0.8, 0.0);
+			SuppCom.setScale(0.025, 0.050, 0.050);
+			SuppStep.setColor(0.8, 0.8, 0.0);
+			SuppStep.setScale(0.025, 0.050, 0.050);
+			FreeCom.setColor(1.0, 0.5, 0.0);
+			FreeCom.setScale(0.025, 0.050, 0.050);
+			FreeStep.setColor(1.0, 0.5, 0.0);
+			FreeStep.setScale(0.025, 0.050, 0.050);
 
 			// Joint markers
 			Joints.setType(visualization_msgs::Marker::SPHERE_LIST);
@@ -137,8 +200,6 @@ namespace margait_contrib
 
 			// Line markers - Colours
 			visualization_msgs::Marker::_colors_type& cols = Lines.marker.colors;
-			visualization_msgs::Marker::_color_type col;
-			col.r = 0.0; col.g = 0.0; col.b = 0.0; col.a = 1.0;
 			cols.assign(LIN_COUNT, col);
 			cols[LIN_TRUNK_A].b = 1.0;
 			cols[LIN_TRUNK_B].b = 1.0;
@@ -216,6 +277,63 @@ namespace margait_contrib
 			cols[LIN_SUPN_B_B].b = 1.0;
 			cols[LIN_SUPN_L_A].b = 1.0;
 			cols[LIN_SUPN_L_B].b = 1.0;
+
+			// Footstep line markers
+			FSLines.setType(visualization_msgs::Marker::LINE_LIST);
+			FSLines.marker.points.assign(FIN_COUNT, pt);
+			FSLines.setScale(0.010);
+			
+			// Footstep line markers - Colours
+			visualization_msgs::Marker::_colors_type& fscols = FSLines.marker.colors;
+			fscols.assign(FIN_COUNT, col);
+			fscols[FIN_LFOOTSTEP_F_A].r = 0.6;
+			fscols[FIN_LFOOTSTEP_F_A].g = 0.3;
+			fscols[FIN_LFOOTSTEP_F_B].r = 0.6;
+			fscols[FIN_LFOOTSTEP_F_B].g = 0.3;
+			fscols[FIN_LFOOTSTEP_R_A].r = 0.6;
+			fscols[FIN_LFOOTSTEP_R_A].g = 0.3;
+			fscols[FIN_LFOOTSTEP_R_B].r = 0.6;
+			fscols[FIN_LFOOTSTEP_R_B].g = 0.3;
+			fscols[FIN_LFOOTSTEP_B_A].r = 0.6;
+			fscols[FIN_LFOOTSTEP_B_A].g = 0.3;
+			fscols[FIN_LFOOTSTEP_B_B].r = 0.6;
+			fscols[FIN_LFOOTSTEP_B_B].g = 0.3;
+			fscols[FIN_LFOOTSTEP_L_A].r = 0.6;
+			fscols[FIN_LFOOTSTEP_L_A].g = 0.3;
+			fscols[FIN_LFOOTSTEP_L_B].r = 0.6;
+			fscols[FIN_LFOOTSTEP_L_B].g = 0.3;
+			fscols[FIN_LFOOTSTEP_X_A].r = 0.6;
+			fscols[FIN_LFOOTSTEP_X_A].g = 0.3;
+			fscols[FIN_LFOOTSTEP_X_B].r = 0.6;
+			fscols[FIN_LFOOTSTEP_X_B].g = 0.3;
+			fscols[FIN_LFOOTSTEP_Y_A].r = 0.6;
+			fscols[FIN_LFOOTSTEP_Y_A].g = 0.3;
+			fscols[FIN_LFOOTSTEP_Y_B].r = 0.6;
+			fscols[FIN_LFOOTSTEP_Y_B].g = 0.3;
+			fscols[FIN_RFOOTSTEP_F_A].r = 0.6;
+			fscols[FIN_RFOOTSTEP_F_A].g = 0.3;
+			fscols[FIN_RFOOTSTEP_F_B].r = 0.6;
+			fscols[FIN_RFOOTSTEP_F_B].g = 0.3;
+			fscols[FIN_RFOOTSTEP_R_A].r = 0.6;
+			fscols[FIN_RFOOTSTEP_R_A].g = 0.3;
+			fscols[FIN_RFOOTSTEP_R_B].r = 0.6;
+			fscols[FIN_RFOOTSTEP_R_B].g = 0.3;
+			fscols[FIN_RFOOTSTEP_B_A].r = 0.6;
+			fscols[FIN_RFOOTSTEP_B_A].g = 0.3;
+			fscols[FIN_RFOOTSTEP_B_B].r = 0.6;
+			fscols[FIN_RFOOTSTEP_B_B].g = 0.3;
+			fscols[FIN_RFOOTSTEP_L_A].r = 0.6;
+			fscols[FIN_RFOOTSTEP_L_A].g = 0.3;
+			fscols[FIN_RFOOTSTEP_L_B].r = 0.6;
+			fscols[FIN_RFOOTSTEP_L_B].g = 0.3;
+			fscols[FIN_RFOOTSTEP_X_A].r = 0.6;
+			fscols[FIN_RFOOTSTEP_X_A].g = 0.3;
+			fscols[FIN_RFOOTSTEP_X_B].r = 0.6;
+			fscols[FIN_RFOOTSTEP_X_B].g = 0.3;
+			fscols[FIN_RFOOTSTEP_Y_A].r = 0.6;
+			fscols[FIN_RFOOTSTEP_Y_A].g = 0.3;
+			fscols[FIN_RFOOTSTEP_Y_B].r = 0.6;
+			fscols[FIN_RFOOTSTEP_Y_B].g = 0.3;
 		}
 
 		// Initialisation function (allowed to assume that model is constructed)
@@ -244,11 +362,19 @@ namespace margait_contrib
 			if(!config) return;
 
 			// Set the model dimensions
-			Com.setScale(config->jointDiameter());
+			double JD = config->jointDiameter();
+			Com.setScale(JD);
+			Base.setScale(JD);
 			Head.setScale(config->headDiameter());
-			Chest.setScale(config->jointDiameter());
-			Joints.setScale(config->jointDiameter());
-			Lines.setScale(0.25*config->jointDiameter());
+			Trunk.setScale(0.95*JD);
+			Chest.setScale(JD);
+			SuppCom.setScale(0.30*JD, 0.80*JD, 1.00*JD);
+			SuppStep.setScale(0.30*JD, 0.80*JD, 1.00*JD);
+			FreeCom.setScale(0.30*JD, 0.80*JD, 1.00*JD);
+			FreeStep.setScale(0.30*JD, 0.80*JD, 1.00*JD);
+			Joints.setScale(JD);
+			Lines.setScale(0.25*JD);
+			FSLines.setScale(0.25*JD);
 
 			// Retrieve robot model dimensions
 			double fh = config->footOffsetZ();
@@ -264,9 +390,12 @@ namespace margait_contrib
 			// Declare variables
 			visualization_msgs::Marker::_points_type& jpt = Joints.marker.points;
 			visualization_msgs::Marker::_points_type& lpt = Lines.marker.points;
+			visualization_msgs::Marker::_points_type& fpt = FSLines.marker.points;
 
 			// Retrieve the frame positions
-			qglviewer::Vec comPos = model->base.position();
+			qglviewer::Vec comPos = model->com.position();
+			qglviewer::Vec basePos = model->base.position();
+			qglviewer::Vec trunkPos = model->trunkLink.position();
 			qglviewer::Vec neckPos = model->neck.position();
 			qglviewer::Vec headPos = model->head.position();
 			qglviewer::Vec lShoulderPos = model->lShoulder.position();
@@ -283,11 +412,31 @@ namespace margait_contrib
 			qglviewer::Vec rAnklePos = model->rAnkle.position();
 			qglviewer::Vec lFootPos = model->lFootFloorPoint.position();
 			qglviewer::Vec rFootPos = model->rFootFloorPoint.position();
+			qglviewer::Vec lFootstepPos = model->leftFootstep.position();
+			qglviewer::Vec rFootstepPos = model->rightFootstep.position();
+			qglviewer::Vec sFootstepPos = model->suppFootstep.position();
+			qglviewer::Vec fFootstepPos = model->freeFootstep.position();
+
+			// Retrieve the frame orientations
+			qglviewer::Quaternion lFootRot = model->lFootFloorPoint.orientation();
+			qglviewer::Quaternion rFootRot = model->rFootFloorPoint.orientation();
+			qglviewer::Quaternion lFootstepRot = model->leftFootstep.orientation();
+			qglviewer::Quaternion rFootstepRot = model->rightFootstep.orientation();
+			qglviewer::Quaternion sFootstepRot = model->suppFootstep.orientation();
+			qglviewer::Quaternion fFootstepRot = model->freeFootstep.orientation();
+
+			// Retrieve the required robot model information vectors
+			qglviewer::Vec suppComVec = model->suppComVector();
+			qglviewer::Vec suppStepVec = model->suppStepVector();
+			qglviewer::Vec freeComVec = model->freeComVector();
+			qglviewer::Vec freeStepVec = model->freeStepVector();
 
 			// Offset the frame positions
 			comPos.x += offsetX; comPos.y += offsetY; comPos.z += offsetZ;
-			neckPos.x += offsetX; neckPos.y += offsetY; neckPos.z += offsetZ;
+			basePos.x += offsetX; basePos.y += offsetY; basePos.z += offsetZ;
 			headPos.x += offsetX; headPos.y += offsetY; headPos.z += offsetZ;
+			trunkPos.x += offsetX; trunkPos.y += offsetY; trunkPos.z += offsetZ;
+			neckPos.x += offsetX; neckPos.y += offsetY; neckPos.z += offsetZ;
 			lShoulderPos.x += offsetX; lShoulderPos.y += offsetY; lShoulderPos.z += offsetZ;
 			rShoulderPos.x += offsetX; rShoulderPos.y += offsetY; rShoulderPos.z += offsetZ;
 			lElbowPos.x += offsetX; lElbowPos.y += offsetY; lElbowPos.z += offsetZ;
@@ -302,15 +451,38 @@ namespace margait_contrib
 			rAnklePos.x += offsetX; rAnklePos.y += offsetY; rAnklePos.z += offsetZ;
 			lFootPos.x += offsetX; lFootPos.y += offsetY; lFootPos.z += offsetZ;
 			rFootPos.x += offsetX; rFootPos.y += offsetY; rFootPos.z += offsetZ;
+			lFootstepPos.x += offsetX; lFootstepPos.y += offsetY; lFootstepPos.z += offsetZ;
+			rFootstepPos.x += offsetX; rFootstepPos.y += offsetY; rFootstepPos.z += offsetZ;
+			sFootstepPos.x += offsetX; sFootstepPos.y += offsetY; sFootstepPos.z += offsetZ;
+			fFootstepPos.x += offsetX; fFootstepPos.y += offsetY; fFootstepPos.z += offsetZ;
 
 			// CoM marker
 			Com.update(comPos.x, comPos.y, comPos.z);
 			
+			// Base marker
+			Base.update(basePos.x, basePos.y, basePos.z);
+			
 			// Head marker
 			Head.update(headPos.x, headPos.y, headPos.z);
 			
+			// Trunk marker
+			Trunk.update(trunkPos.x, trunkPos.y, trunkPos.z);
+			
 			// Chest marker
 			Chest.update(0.5*(lShoulderPos.x + rShoulderPos.x), 0.5*(lShoulderPos.y + rShoulderPos.y), 0.5*(lShoulderPos.z + rShoulderPos.z));
+			
+			// Arrow markers
+			if(config->markVectors())
+			{
+				qglviewer::Vec suppComVecTo = sFootstepPos + sFootstepRot * suppComVec;
+				qglviewer::Vec suppStepVecTo = sFootstepPos + sFootstepRot * suppStepVec;
+				qglviewer::Vec freeComVecTo = fFootstepPos + fFootstepRot * freeComVec;
+				qglviewer::Vec freeStepVecTo = fFootstepPos + fFootstepRot * freeStepVec;
+				SuppCom.update(sFootstepPos.x, sFootstepPos.y, sFootstepPos.z, suppComVecTo.x, suppComVecTo.y, suppComVecTo.z);
+				SuppStep.update(sFootstepPos.x, sFootstepPos.y, sFootstepPos.z, suppStepVecTo.x, suppStepVecTo.y, suppStepVecTo.z);
+				FreeCom.update(fFootstepPos.x, fFootstepPos.y, fFootstepPos.z, freeComVecTo.x, freeComVecTo.y, freeComVecTo.z);
+				FreeStep.update(fFootstepPos.x, fFootstepPos.y, fFootstepPos.z, freeStepVecTo.x, freeStepVecTo.y, freeStepVecTo.z);
+			}
 
 			// Joint markers
 			jpt[JNT_LSHOULDER].x = lShoulderPos.x;
@@ -351,9 +523,9 @@ namespace margait_contrib
 			lpt[LIN_HIP_B].x = rHipPos.x;
 			lpt[LIN_HIP_B].y = rHipPos.y;
 			lpt[LIN_HIP_B].z = rHipPos.z;
-			lpt[LIN_TRUNK_A].x = comPos.x;
-			lpt[LIN_TRUNK_A].y = comPos.y;
-			lpt[LIN_TRUNK_A].z = comPos.z;
+			lpt[LIN_TRUNK_A].x = basePos.x;
+			lpt[LIN_TRUNK_A].y = basePos.y;
+			lpt[LIN_TRUNK_A].z = basePos.z;
 			lpt[LIN_TRUNK_B].x = neckPos.x;
 			lpt[LIN_TRUNK_B].y = neckPos.y;
 			lpt[LIN_TRUNK_B].z = neckPos.z;
@@ -426,7 +598,7 @@ namespace margait_contrib
 
 			// Left foot
 			float lMat[3][3] = {{0}};
-			model->lFootFloorPoint.orientation().getRotationMatrix(lMat);
+			lFootRot.getRotationMatrix(lMat);
 			lpt[LIN_LFOOTX_A].x = lFootPos.x - flb * lMat[0][0];
 			lpt[LIN_LFOOTX_A].y = lFootPos.y - flb * lMat[1][0];
 			lpt[LIN_LFOOTX_A].z = lFootPos.z - flb * lMat[2][0];
@@ -448,7 +620,7 @@ namespace margait_contrib
 
 			// Right foot
 			float rMat[3][3] = {{0}};
-			model->rFootFloorPoint.orientation().getRotationMatrix(rMat);
+			rFootRot.getRotationMatrix(rMat);
 			lpt[LIN_RFOOTX_A].x = rFootPos.x - flb * rMat[0][0];
 			lpt[LIN_RFOOTX_A].y = rFootPos.y - flb * rMat[1][0];
 			lpt[LIN_RFOOTX_A].z = rFootPos.z - flb * rMat[2][0];
@@ -525,9 +697,74 @@ namespace margait_contrib
 			lpt[LIN_SUPN_B_B] = lpt[LIN_SUPN_L_A];
 			lpt[LIN_SUPN_L_B] = lpt[LIN_SUPN_F_A];
 
+			// Left footstep
+			float lFSMat[3][3] = {{0}};
+			lFootstepRot.getRotationMatrix(lFSMat);
+			fpt[FIN_LFOOTSTEP_X_A].x = lFootstepPos.x - flb * lFSMat[0][0];
+			fpt[FIN_LFOOTSTEP_X_A].y = lFootstepPos.y - flb * lFSMat[1][0];
+			fpt[FIN_LFOOTSTEP_X_A].z = lFootstepPos.z - flb * lFSMat[2][0];
+			fpt[FIN_LFOOTSTEP_X_B].x = lFootstepPos.x + flf * lFSMat[0][0];
+			fpt[FIN_LFOOTSTEP_X_B].y = lFootstepPos.y + flf * lFSMat[1][0];
+			fpt[FIN_LFOOTSTEP_X_B].z = lFootstepPos.z + flf * lFSMat[2][0];
+			fpt[FIN_LFOOTSTEP_Y_A].x = lFootstepPos.x - fwi * lFSMat[0][1];
+			fpt[FIN_LFOOTSTEP_Y_A].y = lFootstepPos.y - fwi * lFSMat[1][1];
+			fpt[FIN_LFOOTSTEP_Y_A].z = lFootstepPos.z - fwi * lFSMat[2][1];
+			fpt[FIN_LFOOTSTEP_Y_B].x = lFootstepPos.x + fwo * lFSMat[0][1];
+			fpt[FIN_LFOOTSTEP_Y_B].y = lFootstepPos.y + fwo * lFSMat[1][1];
+			fpt[FIN_LFOOTSTEP_Y_B].z = lFootstepPos.z + fwo * lFSMat[2][1];
+			fpt[FIN_LFOOTSTEP_F_A].x = lFootstepPos.x + flf * lFSMat[0][0] - fwi * lFSMat[0][1];
+			fpt[FIN_LFOOTSTEP_F_A].y = lFootstepPos.y + flf * lFSMat[1][0] - fwi * lFSMat[1][1];
+			fpt[FIN_LFOOTSTEP_F_A].z = lFootstepPos.z + flf * lFSMat[2][0] - fwi * lFSMat[2][1];
+			fpt[FIN_LFOOTSTEP_R_A].x = lFootstepPos.x + flf * lFSMat[0][0] + fwo * lFSMat[0][1];
+			fpt[FIN_LFOOTSTEP_R_A].y = lFootstepPos.y + flf * lFSMat[1][0] + fwo * lFSMat[1][1];
+			fpt[FIN_LFOOTSTEP_R_A].z = lFootstepPos.z + flf * lFSMat[2][0] + fwo * lFSMat[2][1];
+			fpt[FIN_LFOOTSTEP_B_A].x = lFootstepPos.x - flb * lFSMat[0][0] + fwo * lFSMat[0][1];
+			fpt[FIN_LFOOTSTEP_B_A].y = lFootstepPos.y - flb * lFSMat[1][0] + fwo * lFSMat[1][1];
+			fpt[FIN_LFOOTSTEP_B_A].z = lFootstepPos.z - flb * lFSMat[2][0] + fwo * lFSMat[2][1];
+			fpt[FIN_LFOOTSTEP_L_A].x = lFootstepPos.x - flb * lFSMat[0][0] - fwi * lFSMat[0][1];
+			fpt[FIN_LFOOTSTEP_L_A].y = lFootstepPos.y - flb * lFSMat[1][0] - fwi * lFSMat[1][1];
+			fpt[FIN_LFOOTSTEP_L_A].z = lFootstepPos.z - flb * lFSMat[2][0] - fwi * lFSMat[2][1];
+			fpt[FIN_LFOOTSTEP_F_B] = fpt[FIN_LFOOTSTEP_R_A];
+			fpt[FIN_LFOOTSTEP_R_B] = fpt[FIN_LFOOTSTEP_B_A];
+			fpt[FIN_LFOOTSTEP_B_B] = fpt[FIN_LFOOTSTEP_L_A];
+			fpt[FIN_LFOOTSTEP_L_B] = fpt[FIN_LFOOTSTEP_F_A];
+
+			// Right footstep
+			float rFSMat[3][3] = {{0}};
+			rFootstepRot.getRotationMatrix(rFSMat);
+			fpt[FIN_RFOOTSTEP_X_A].x = rFootstepPos.x - flb * rFSMat[0][0];
+			fpt[FIN_RFOOTSTEP_X_A].y = rFootstepPos.y - flb * rFSMat[1][0];
+			fpt[FIN_RFOOTSTEP_X_A].z = rFootstepPos.z - flb * rFSMat[2][0];
+			fpt[FIN_RFOOTSTEP_X_B].x = rFootstepPos.x + flf * rFSMat[0][0];
+			fpt[FIN_RFOOTSTEP_X_B].y = rFootstepPos.y + flf * rFSMat[1][0];
+			fpt[FIN_RFOOTSTEP_X_B].z = rFootstepPos.z + flf * rFSMat[2][0];
+			fpt[FIN_RFOOTSTEP_Y_A].x = rFootstepPos.x - fwo * rFSMat[0][1];
+			fpt[FIN_RFOOTSTEP_Y_A].y = rFootstepPos.y - fwo * rFSMat[1][1];
+			fpt[FIN_RFOOTSTEP_Y_A].z = rFootstepPos.z - fwo * rFSMat[2][1];
+			fpt[FIN_RFOOTSTEP_Y_B].x = rFootstepPos.x + fwi * rFSMat[0][1];
+			fpt[FIN_RFOOTSTEP_Y_B].y = rFootstepPos.y + fwi * rFSMat[1][1];
+			fpt[FIN_RFOOTSTEP_Y_B].z = rFootstepPos.z + fwi * rFSMat[2][1];
+			fpt[FIN_RFOOTSTEP_F_A].x = rFootstepPos.x + flf * rFSMat[0][0] - fwo * rFSMat[0][1];
+			fpt[FIN_RFOOTSTEP_F_A].y = rFootstepPos.y + flf * rFSMat[1][0] - fwo * rFSMat[1][1];
+			fpt[FIN_RFOOTSTEP_F_A].z = rFootstepPos.z + flf * rFSMat[2][0] - fwo * rFSMat[2][1];
+			fpt[FIN_RFOOTSTEP_R_A].x = rFootstepPos.x + flf * rFSMat[0][0] + fwi * rFSMat[0][1];
+			fpt[FIN_RFOOTSTEP_R_A].y = rFootstepPos.y + flf * rFSMat[1][0] + fwi * rFSMat[1][1];
+			fpt[FIN_RFOOTSTEP_R_A].z = rFootstepPos.z + flf * rFSMat[2][0] + fwi * rFSMat[2][1];
+			fpt[FIN_RFOOTSTEP_B_A].x = rFootstepPos.x - flb * rFSMat[0][0] + fwi * rFSMat[0][1];
+			fpt[FIN_RFOOTSTEP_B_A].y = rFootstepPos.y - flb * rFSMat[1][0] + fwi * rFSMat[1][1];
+			fpt[FIN_RFOOTSTEP_B_A].z = rFootstepPos.z - flb * rFSMat[2][0] + fwi * rFSMat[2][1];
+			fpt[FIN_RFOOTSTEP_L_A].x = rFootstepPos.x - flb * rFSMat[0][0] - fwo * rFSMat[0][1];
+			fpt[FIN_RFOOTSTEP_L_A].y = rFootstepPos.y - flb * rFSMat[1][0] - fwo * rFSMat[1][1];
+			fpt[FIN_RFOOTSTEP_L_A].z = rFootstepPos.z - flb * rFSMat[2][0] - fwo * rFSMat[2][1];
+			fpt[FIN_RFOOTSTEP_F_B] = fpt[FIN_RFOOTSTEP_R_A];
+			fpt[FIN_RFOOTSTEP_R_B] = fpt[FIN_RFOOTSTEP_B_A];
+			fpt[FIN_RFOOTSTEP_B_B] = fpt[FIN_RFOOTSTEP_L_A];
+			fpt[FIN_RFOOTSTEP_L_B] = fpt[FIN_RFOOTSTEP_F_A];
+
 			// Manually add the generic markers (GenMarker) for publishing
 			add(&Joints);
 			add(&Lines);
+			add(&FSLines);
 		}
 
 		// RobotModel object
@@ -539,10 +776,17 @@ namespace margait_contrib
 	private:
 		// Markers
 		vis_utils::SphereMarker Com;
+		vis_utils::SphereMarker Base;
 		vis_utils::SphereMarker Head;
+		vis_utils::SphereMarker Trunk;
 		vis_utils::SphereMarker Chest;
+		vis_utils::ArrowMarker SuppCom;
+		vis_utils::ArrowMarker SuppStep;
+		vis_utils::ArrowMarker FreeCom;
+		vis_utils::ArrowMarker FreeStep;
 		vis_utils::GenMarker Joints;
 		vis_utils::GenMarker Lines;
+		vis_utils::GenMarker FSLines;
 
 		// Visualisation offsets
 		double offsetX;

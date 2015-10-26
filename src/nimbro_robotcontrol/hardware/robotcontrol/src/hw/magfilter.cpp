@@ -6,6 +6,7 @@
 // Includes
 #include <robotcontrol/hw/magfilter.h>
 #include <Eigen/SVD>
+#include <numeric>
 
 // Defines
 #define MAG_PLOT_SCALE  2.0
@@ -27,8 +28,8 @@ MagFilter::MagFilter(const std::string& paramPath)
 
 	// Advertise the provided ROS services
 	m_srv_startCalibration  = nh.advertiseService(paramPath + "/startCalibration" , &MagFilter::startCalibration , this);
-	m_srv_stopCalibration   = nh.advertiseService(paramPath + "/stopCalibration"  , &MagFilter::stopCalibration  , this);
 	m_srv_stopCalibration2D = nh.advertiseService(paramPath + "/stopCalibration2D", &MagFilter::stopCalibration2D, this);
+	m_srv_stopCalibration3D = nh.advertiseService(paramPath + "/stopCalibration3D", &MagFilter::stopCalibration3D, this);
 
 	// Set up the plotting of the calibration data points
 	m_pub_marker = nh.advertise<visualization_msgs::Marker>("mag_calib_marker", 1);
@@ -85,14 +86,14 @@ void MagFilter::update(double magX, double magY, double magZ)
 }
 
 // ROS service handlers
-bool MagFilter::startCalibration(std_srvs::EmptyRequest&, std_srvs::EmptyResponse&)
+bool MagFilter::startCalibration(std_srvs::EmptyRequest& req, std_srvs::EmptyResponse& resp)
 {
 	// To use this service to calibrate the magnetometer, have this magnetometer filter running and constantly receiving new
 	// data points from the sensor (e.g. have robotcontrol running with the NimbRo-OP robotinterface using robot_calib.launch).
 	// Then, manually trigger this service using:
 	//    rosservice call /robotcontrol/magnetometer/startCalibration
 	// From that point onwards all data points are stored in a buffer until a stop calibration service call is made:
-	//    rosservice call /robotcontrol/magnetometer/stopCalibration
+	//    rosservice call /robotcontrol/magnetometer/stopCalibration3D
 	// In the meantime, try to rotate the robot in all possible directions (upside down, face down/up/left/right, etc...).
 	// Once the calibration has been stopped, you can read the results of the calibration from the console in which
 	// robotcontrol was started, or from the config server. You can use the Parameter Tuner for that, or:
@@ -109,8 +110,8 @@ bool MagFilter::startCalibration(std_srvs::EmptyRequest&, std_srvs::EmptyRespons
 
 	// Inform the user that the magnetometer calibration has started
 	ROS_INFO("Starting magnetometer calibration...");
-	ROS_INFO("If using stopCalibration:   Rotate the robot in all possible orientations including upside-down");
 	ROS_INFO("If using stopCalibration2D: Keep the robot perfectly upright and rotate it in pure global yaw");
+	ROS_INFO("If using stopCalibration3D: Rotate the robot in all possible orientations including upside-down");
 
 	// Set the internal calibrating flag
 	m_calibrating = true;
@@ -125,80 +126,7 @@ bool MagFilter::startCalibration(std_srvs::EmptyRequest&, std_srvs::EmptyRespons
 	// Return that the service call was successfully handled
 	return true;
 }
-bool MagFilter::stopCalibration(std_srvs::EmptyRequest&, std_srvs::EmptyResponse&)
-{
-	// The hard iron calibration method used here is described in:
-	//    Freescale Semiconductor AN4246: Calibrating an eCompass in the Presence of Hard and Soft-Iron Interference
-	//    Freescale Semiconductor AN4399: High Precision Calibration of a Three-Axis Accelerometer
-	// Suppose the i-th measurement is (mxi,myi,mzi), and we are trying to find the hard iron calibration
-	// offset (cx,cy,cz) (centre of the sphere that the measurements should be on), and the magnetic field
-	// strength B (radius of the sphere on which the measurements should be on). Then:
-	// A = N rows of [mxi myi mzi 1]                  {Nx4 matrix}
-	// x = [2*cx; 2*cy; 2*cz; B^2-cx^2-cy^2-cz^2]     {4x1 column vector}
-	// b = N rows of [mxi^2 + myi^2 + mzi^2]          {Nx1 column vector}
-	// Ax = b is equivalent to the condition that all measured data points lie on a sphere of radius B,
-	// centered at (cx,cy,cz). Hence by solving Ax = b for x in a least squares sense, we are implicitly
-	// solving for the values of cx, cy, cz, B for which the corresponding sphere most closely fits the data.
-
-	// Don't do anything if a calibration isn't active
-	if(!m_calibrating)
-	{
-		ROS_INFO("StopCalibration: Service call received even though no calibration is active");
-		if(m_plot_calib_data() && !m_marker.points.empty())
-		{
-			ROS_INFO("StopCalibration: Republishing data points of last calibration");
-			updatePlotCalibData();
-		}
-		return true;
-	}
-
-	// Indicate to the user that this service call has been received
-	ROS_INFO("Stopping magnetometer calibration...");
-
-	// Declare variables
-	size_t N = m_calibrationMeasurements.size();
-	Eigen::MatrixXd A(N, 4);
-	Eigen::VectorXd b(N);
-
-	// Construct the linear equation to solve for the hard iron calibration coefficients (Ax = b)
-	for(size_t i = 0; i < N; i++)
-	{
-		const Eigen::Vector3d m = m_calibrationMeasurements[i];
-		A.row(i).head<3>() = m;
-		A(i, 3) = 1;
-		b(i) = m.squaredNorm();
-	}
-
-	// Find the least squares solution to Ax = b using Singular Value Decomposition (linear least squares fitting)
-	Eigen::VectorXd coefficients = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
-
-	// Extract the hard iron calibration coefficients and the magnetic field strength
-	Eigen::Vector3d hard_iron = coefficients.head<3>() / 2.0;
-	double B = sqrt(coefficients(3) + hard_iron.squaredNorm());
-
-	// Inform the user of the results of the magnetometer calibration
-	ROS_INFO("Calibration ended with hard iron offset (%10.7lf, %10.7lf, %10.7lf) and field strength %10.7lf gauss", hard_iron.x(), hard_iron.y(), hard_iron.z(), B);
-
-	// Unset the internal calibrating flag
-	m_calibrating = false;
-
-	// Update the hard iron calibration coefficients on the config server (from which they are retrieved in every call to update())
-	m_hard_x.set((float) hard_iron.x());
-	m_hard_y.set((float) hard_iron.y());
-	m_hard_z.set((float) hard_iron.z());
-
-	// Add the calculated hard iron offset point to the list
-	geometry_msgs::Point p;
-	p.x = MAG_PLOT_SCALE * hard_iron.x();
-	p.y = MAG_PLOT_SCALE * hard_iron.y();
-	p.z = MAG_PLOT_SCALE * hard_iron.z();
-	m_marker.points.push_back(p);
-	updatePlotCalibData();
-
-	// Return that the service call was successfully handled
-	return true;
-}
-bool MagFilter::stopCalibration2D(std_srvs::EmptyRequest&, std_srvs::EmptyResponse&)
+bool MagFilter::stopCalibration2D(robotcontrol::MagCalibRequest& req, robotcontrol::MagCalibResponse& resp)
 {
 	// This calibration method assumes that the robot was rotated purely about its z-axis while upright.
 	// Suppose the i-th measurement is (mxi,myi,mzi). We discard the z component and try to fit a circle
@@ -219,6 +147,7 @@ bool MagFilter::stopCalibration2D(std_srvs::EmptyRequest&, std_srvs::EmptyRespon
 			ROS_INFO("StopCalibration2D: Republishing data points of last calibration");
 			updatePlotCalibData();
 		}
+		resp.hardIronX = resp.hardIronY = resp.hardIronZ = 0.0;
 		return true;
 	}
 
@@ -249,19 +178,111 @@ bool MagFilter::stopCalibration2D(std_srvs::EmptyRequest&, std_srvs::EmptyRespon
 	double radius  = sqrt(coefficients(2) + offsetX*offsetX + offsetY*offsetY);
 
 	// Inform the user of the results of the magnetometer calibration
-	ROS_INFO("Calibration (2D) ended with recommended hard iron offset (%10.7lf, %10.7lf, #####) and radius %10.7lf gauss. No config server parameters have been automatically updated.", offsetX, offsetY, radius);
+	ROS_INFO("Calibration (2D) ended with hard iron offset (%10.7lf, %10.7lf, #####) and radius %10.7lf gauss", offsetX, offsetY, radius);
 
 	// Unset the internal calibrating flag
 	m_calibrating = false;
+
+	// Update the x/y hard iron calibration coefficients on the config server (from which they are retrieved in every call to update())
+	m_hard_x.set((float) offsetX);
+	m_hard_y.set((float) offsetY);
+
+	// Calculate an average z value
+	double offsetZ = m_hard_z();
+	if(N >= 1)
+		offsetZ = std::accumulate(m_calibrationMeasurements.begin(), m_calibrationMeasurements.end(), Eigen::Vector3d::Zero().eval()).z() / m_calibrationMeasurements.size();
 
 	// Add the calculated hard iron offset point to the list
 	geometry_msgs::Point p;
 	p.x = MAG_PLOT_SCALE * offsetX;
 	p.y = MAG_PLOT_SCALE * offsetY;
-	if(N >= 1) p.z = MAG_PLOT_SCALE * m_calibrationMeasurements[0].z();
-	else p.z = MAG_PLOT_SCALE * m_hard_z();
+	p.z = MAG_PLOT_SCALE * offsetZ;
 	m_marker.points.push_back(p);
 	updatePlotCalibData();
+
+	// Populate the response packet of the service call
+	resp.hardIronX = offsetX;
+	resp.hardIronY = offsetY;
+	resp.hardIronZ = offsetZ;
+
+	// Return that the service call was successfully handled
+	return true;
+}
+bool MagFilter::stopCalibration3D(robotcontrol::MagCalibRequest& req , robotcontrol::MagCalibResponse& resp)
+{
+	// The hard iron calibration method used here is described in:
+	//    Freescale Semiconductor AN4246: Calibrating an eCompass in the Presence of Hard and Soft-Iron Interference
+	//    Freescale Semiconductor AN4399: High Precision Calibration of a Three-Axis Accelerometer
+	// Suppose the i-th measurement is (mxi,myi,mzi), and we are trying to find the hard iron calibration
+	// offset (cx,cy,cz) (centre of the sphere that the measurements should be on), and the magnetic field
+	// strength B (radius of the sphere on which the measurements should be on). Then:
+	// A = N rows of [mxi myi mzi 1]                  {Nx4 matrix}
+	// x = [2*cx; 2*cy; 2*cz; B^2-cx^2-cy^2-cz^2]     {4x1 column vector}
+	// b = N rows of [mxi^2 + myi^2 + mzi^2]          {Nx1 column vector}
+	// Ax = b is equivalent to the condition that all measured data points lie on a sphere of radius B,
+	// centered at (cx,cy,cz). Hence by solving Ax = b for x in a least squares sense, we are implicitly
+	// solving for the values of cx, cy, cz, B for which the corresponding sphere most closely fits the data.
+
+	// Don't do anything if a calibration isn't active
+	if(!m_calibrating)
+	{
+		ROS_INFO("StopCalibration3D: Service call received even though no calibration is active");
+		if(m_plot_calib_data() && !m_marker.points.empty())
+		{
+			ROS_INFO("StopCalibration3D: Republishing data points of last calibration");
+			updatePlotCalibData();
+		}
+		resp.hardIronX = resp.hardIronY = resp.hardIronZ = 0.0;
+		return true;
+	}
+
+	// Indicate to the user that this service call has been received
+	ROS_INFO("Stopping magnetometer calibration (3D)...");
+
+	// Declare variables
+	size_t N = m_calibrationMeasurements.size();
+	Eigen::MatrixXd A(N, 4);
+	Eigen::VectorXd b(N);
+
+	// Construct the linear equation to solve for the hard iron calibration coefficients (Ax = b)
+	for(size_t i = 0; i < N; i++)
+	{
+		const Eigen::Vector3d m = m_calibrationMeasurements[i];
+		A.row(i).head<3>() = m;
+		A(i, 3) = 1;
+		b(i) = m.squaredNorm();
+	}
+
+	// Find the least squares solution to Ax = b using Singular Value Decomposition (linear least squares fitting)
+	Eigen::VectorXd coefficients = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+
+	// Extract the hard iron calibration coefficients and the magnetic field strength
+	Eigen::Vector3d hard_iron = coefficients.head<3>() / 2.0;
+	double B = sqrt(coefficients(3) + hard_iron.squaredNorm());
+
+	// Inform the user of the results of the magnetometer calibration
+	ROS_INFO("Calibration (3D) ended with hard iron offset (%10.7lf, %10.7lf, %10.7lf) and field strength %10.7lf gauss", hard_iron.x(), hard_iron.y(), hard_iron.z(), B);
+
+	// Unset the internal calibrating flag
+	m_calibrating = false;
+
+	// Update the hard iron calibration coefficients on the config server (from which they are retrieved in every call to update())
+	m_hard_x.set((float) hard_iron.x());
+	m_hard_y.set((float) hard_iron.y());
+	m_hard_z.set((float) hard_iron.z());
+
+	// Add the calculated hard iron offset point to the list
+	geometry_msgs::Point p;
+	p.x = MAG_PLOT_SCALE * hard_iron.x();
+	p.y = MAG_PLOT_SCALE * hard_iron.y();
+	p.z = MAG_PLOT_SCALE * hard_iron.z();
+	m_marker.points.push_back(p);
+	updatePlotCalibData();
+
+	// Populate the response packet of the service call
+	resp.hardIronX = hard_iron.x();
+	resp.hardIronY = hard_iron.y();
+	resp.hardIronZ = hard_iron.z();
 
 	// Return that the service call was successfully handled
 	return true;

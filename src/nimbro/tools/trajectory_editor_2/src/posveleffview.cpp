@@ -4,6 +4,7 @@
 #include <QLabel>
 #include <QEvent>
 #include <QKeyEvent>
+#include <QApplication>
 
 #include <ros/package.h>
 #include <ros/console.h>
@@ -12,16 +13,24 @@
 
 const double ratio = 10000; // Ratio to convert between position slider/spin
 
-PosVelEffView::PosVelEffView(PosVelEffView::Alignment alignment, std::string  jointName, QWidget *parent)
+PosVelEffView::PosVelEffView(PosVelEffView::Alignment alignment, std::string  jointName, int id, QWidget *parent)
 	: QWidget(parent)
 {
 	// Init members
 	this->jointName = jointName;
+	this->id = id;
+	
+	if(alignment == NO_PAIR)
+		connectedID = id;
+	else if(alignment == LEFT)
+		connectedID = ++id;
+	else if(alignment == RIGHT)
+		connectedID = --id;
 	
 	min = -M_PI;
 	max = M_PI;
 	
-	effortHistory = new HistoryKeeper(10, 1000);
+	effortHistory   = new HistoryKeeper(10, 1000);
 	positionHistory = new HistoryKeeper(10, 1000);
 	velocityHistory = new HistoryKeeper(10, 1000);
 	
@@ -63,14 +72,14 @@ PosVelEffView::PosVelEffView(PosVelEffView::Alignment alignment, std::string  jo
 	velocitySpin->installEventFilter(this);
 	
 	// Set up widgets alignment and layout
-	if(alignment == LEFT)
+	if(alignment == LEFT || alignment == NO_PAIR)
 	{
 		layout->addWidget(effortSpin, 1, 0);
 		layout->addWidget(velocitySpin, 1, 1);
 		layout->addWidget(positionSpin, 1, 2);
 		layout->addWidget(positionSlider, 1, 3);
 	}
-	else
+	else if(alignment == RIGHT)
 	{
 		layout->addWidget(effortSpin, 1, 3);
 		layout->addWidget(velocitySpin, 1, 2);
@@ -133,6 +142,33 @@ double PosVelEffView::getPosition()
 	return positionSpin->value();
 }
 
+int PosVelEffView::getID()
+{
+	return id;
+}
+
+void PosVelEffView::setField(Field field, float value)
+{
+	if(field == PosVelEffView::POSITION)
+	{
+		setPosition(value);
+		positionChanged();
+		return;
+	}
+	else if(field == PosVelEffView::EFFORT)
+	{
+		setEffort(value);
+		effortChanged();
+		return;
+	}
+	else if(field == PosVelEffView::VELOCITY)
+	{
+		setVelocity(value);
+		velocityChanged();
+		return;
+	}
+}
+
 void PosVelEffView::positionSliderChanged()
 {
 	positionSpin->blockSignals(true);
@@ -141,6 +177,14 @@ void PosVelEffView::positionSliderChanged()
 	
 	positionHistory->valueChanged(positionSpin->value());
 	positionChanged();
+	
+	Qt::KeyboardModifiers modifier = QApplication::keyboardModifiers();
+	
+	if(modifier == Qt::ShiftModifier && (id != connectedID))
+	{
+		//printf("change from %d to %d for value %f\n", id, connectedID, positionSpin->value());
+		changeForID(connectedID, PosVelEffView::POSITION, positionSpin->value());
+	}
 }
 
 void PosVelEffView::positionSpinChanged()
@@ -151,18 +195,30 @@ void PosVelEffView::positionSpinChanged()
 	
 	positionHistory->valueChanged(positionSpin->value());
 	positionChanged();
+	
+	Qt::KeyboardModifiers modifier = QApplication::keyboardModifiers();
+	if(modifier == Qt::ShiftModifier && id != connectedID)
+		changeForID(connectedID, PosVelEffView::POSITION, positionSpin->value());
 }
 
 void PosVelEffView::handleEffortChanged()
 {
 	effortHistory->valueChanged(effortSpin->value());
 	effortChanged();
+	
+	Qt::KeyboardModifiers modifier = QApplication::keyboardModifiers();
+	if(modifier == Qt::ShiftModifier && id != connectedID)
+		changeForID(connectedID, PosVelEffView::EFFORT, effortSpin->value());
 }
 
 void PosVelEffView::handleVelocityChanged()
 {
 	velocityHistory->valueChanged(velocitySpin->value());
 	velocityChanged();
+	
+	Qt::KeyboardModifiers modifier = QApplication::keyboardModifiers();
+	if(modifier == Qt::ShiftModifier && id != connectedID)
+		changeForID(connectedID, PosVelEffView::VELOCITY, velocitySpin->value());
 }
 
 bool PosVelEffView::eventFilter(QObject *object, QEvent *event)

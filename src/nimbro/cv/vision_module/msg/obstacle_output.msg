@@ -1,0 +1,2 @@
+geometry_msgs/Point obstacle_point
+float32 probability

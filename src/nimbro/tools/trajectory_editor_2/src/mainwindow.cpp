@@ -23,7 +23,7 @@ MainWindow::MainWindow()
     m_ui->setupUi(this);
 	
 	this->setMinimumSize(1200, 650);
-	this->installEventFilter(this);
+	m_ui->jointsTabWidget->setMinimumSize(850, 200);
 	
 	QFont font = m_ui->headerLabel->font();
     font.setPointSize(14);
@@ -184,67 +184,6 @@ void MainWindow::handleRemoveButton()
 
 	for(int i = 0; i < list.size(); i++)
 		m_kModel->removeFrame(list.at(i).row());
-}
-
-// Handle hotkeys
-bool MainWindow::eventFilter(QObject *object, QEvent *event)
-{
-	if(event->type() == QEvent::KeyPress)
-	{
-		QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
-		
-		// Remove selected frames
-		if(keyEvent->key() == Qt::Key_Delete && m_ui->trajectoryView->hasFocus())
-		{
-			handleRemoveButton();
-			return false;
-		}
-		// Add frame
-		else if(keyEvent->key() == Qt::Key_Insert && m_ui->trajectoryView->hasFocus())
-		{
-			m_kModel->addFrame();
-			return false;
-		}
-		// Move selected frames down
-		else if(keyEvent->key() == Qt::Key_Down && keyEvent->modifiers() == Qt::ControlModifier && m_ui->trajectoryView->hasFocus())
-		{
-			handleMoveDown();
-			return false;
-		}
-		// Move selected frames up
-		else if(keyEvent->key() == Qt::Key_Up && keyEvent->modifiers() == Qt::ControlModifier && m_ui->trajectoryView->hasFocus())
-		{
-			handleMoveUp();
-			return false;
-		}
-		
-		// Open
-		if(keyEvent->key() == Qt::Key_O && keyEvent->modifiers() == Qt::ControlModifier)
-		{
-			m_kModel->load();
-			return false;
-		}
-		// Save
-		else if(keyEvent->key() == Qt::Key_S && keyEvent->modifiers() == Qt::ControlModifier)
-		{
-			m_kModel->save();
-			return false;
-		}
-		// Play frame
-		else if(keyEvent->key() == Qt::Key_F && keyEvent->modifiers() == Qt::ControlModifier)
-		{
-			m_kModel->playFrame();
-			return false;
-		}
-		// Play motion
-		else if(keyEvent->key() == Qt::Key_M && keyEvent->modifiers() == Qt::ControlModifier)
-		{
-			m_kModel->playMotion();
-			return false;
-		}
-	}
-    
-    return false;
 }
 
 void MainWindow::showAbout()

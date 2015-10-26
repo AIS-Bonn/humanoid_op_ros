@@ -109,7 +109,6 @@ public:
 	constParameter<float> *aspH;
 	config_server::Parameter<bool> *flipVer;
 	config_server::Parameter<bool> *flipHor;
-	config_server::Parameter<int> *devNumber;
 	constParameter<int> *width;
 	constParameter<int> *height;
 	constParameter<int> *widthUnDistortion;
@@ -166,6 +165,7 @@ public:
 	config_server::Parameter<bool> *maskGoal;
 	config_server::Parameter<bool> *maskLine;
 	config_server::Parameter<bool> *showBallD;
+	config_server::Parameter<bool> *disableLocalization;
 	config_server::Parameter<bool> *showLineD;
 	config_server::Parameter<bool> *showGoalD;
 	config_server::Parameter<bool> *showObstacleD;
@@ -432,8 +432,6 @@ public:
 				"/vision/camera/flipHor", false);
 		camera.flipVer = new config_server::Parameter<bool>(
 				"/vision/camera/flipVer", false);
-		camera.devNumber = new config_server::Parameter<int>(
-				"/vision/camera/devNumber", 0, 1, 3, 0);
 
 		camera.width = new constParameter<int>(IMGWIDTH);
 		camera.height = new constParameter<int>(IMGHEIGHT);
@@ -495,6 +493,9 @@ public:
 
 		debug.showAllLine = new config_server::Parameter<bool>(
 				"/vision/debug/showAllLine", false);
+
+		debug.disableLocalization = new config_server::Parameter<bool>(
+				"/vision/debug/disableLocalization", false);
 
 		debug.showBallD = new config_server::Parameter<bool>(
 				"/vision/debug/showBallD", false);

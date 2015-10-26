@@ -127,15 +127,13 @@ namespace gait
 		void plotRawGaitCommand();
 
 		// Motions
-		enum MotionID
-		{
-			MID_NONE,
-			MID_KICK_LEFT,
-			MID_KICK_RIGHT,
-			MID_COUNT
-		};
-		static const std::string motionName[MID_COUNT];
-		int m_motionPending;
+		void setPendingMotion(MotionID ID, MotionStance stance = STANCE_DEFAULT, bool adjustLeft = true, bool adjustRight = true);
+		void clearPendingMotion();
+		MotionID m_motionPending;     // The ID of a pending motion, if there is one, otherwise MID_NONE
+		MotionID m_oldMotionPending;  // The value of m_motionPending in the last cycle, for algorithmic purposes
+		MotionStance m_motionStance;  // The required stance of the robot before executing the motion
+		bool m_motionAdjustLeftFoot;  // Flag whether the left foot should be adjusted to attain the required foot separation (how the required foot separation for various motions is defined is up to the gait engine)
+		bool m_motionAdjustRightFoot; // Flag whether the right foot should be adjusted to attain the required foot separation (how the required foot separation for various motions is defined is up to the gait engine)
 
 		// Halt pose
 		nimbro_utils::TrapVelSpline m_jointSpline[NUM_JOINTS];

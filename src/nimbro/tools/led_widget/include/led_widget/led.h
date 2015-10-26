@@ -18,7 +18,8 @@ public:
 	
 	void turn(bool on);
 	void setColor(QColor color);
-	bool isOn();
+	
+	void setOnColor(QColor color);
 	
 private:
 	void paintEvent(QPaintEvent *event);
@@ -29,8 +30,6 @@ private:
 	QColor onColor;
 	QColor offColor;
 	QColor currentColor;
-	
-	bool switchedOn;
 };
 
 #endif

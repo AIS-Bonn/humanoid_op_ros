@@ -18,9 +18,6 @@ Q_OBJECT
 public:
     MainWindow();
     virtual ~MainWindow();
-	
-	// Handle hotkeys for managing frames
-	virtual bool eventFilter(QObject *object, QEvent *event);
 
     void updateStatusBar(QString status);
 	void updateHeaderLabel(QString text);

@@ -41,6 +41,14 @@ sudo apt-get update
 sudo apt-get install guvcview
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+* Python dependencies:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo apt-get install python-pip python-dev build-essential
+sudo pip install --upgrade pip
+sudo pip install --upgrade virtualenv
+sudo pip install termcolor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Installation
 ------------
 

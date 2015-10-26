@@ -24,8 +24,6 @@
 #define ROBOT_STANDING_STATE_NAME  "standing"   // Standing state from which the gait can trigger
 #define ROBOT_WALKING_STATE_NAME   "walking_"   // State during walking (active gait)
 #define PLAY_MOTION_TOKEN          "|play_"     // State prefix to make the motion player play a motion
-#define MOTION_NAME_KICK_LEFT      "kick_left"  // Name of a left kick motion
-#define MOTION_NAME_KICK_RIGHT     "kick_right" // Name of a right kick motion
 
 // Namespaces
 using namespace gait;
@@ -34,13 +32,6 @@ using namespace nimbro_utils;
 //
 // Gait class
 //
-
-// Constants
-const std::string Gait::motionName[] = {
-	"",
-	MOTION_NAME_KICK_LEFT,
-	MOTION_NAME_KICK_RIGHT
-};
 
 // Constructor
 Gait::Gait()
@@ -55,6 +46,10 @@ Gait::Gait()
  , m_lastNow(0, 0)
  , m_enginePluginLoader("gait", "gait::GaitEngine")
  , m_motionPending(MID_NONE)
+ , m_oldMotionPending(MID_NONE)
+ , m_motionStance(STANCE_DEFAULT)
+ , m_motionAdjustLeftFoot(true)
+ , m_motionAdjustRightFoot(true)
  , m_reachDuration(0.0)
  , m_reachedHalt(false)
  , m_updatedHalt(false)
@@ -145,6 +140,9 @@ bool Gait::init(robotcontrol::RobotModel* model)
 	// Reset the gait
 	resetGait();
 
+	// Initialise that no motion is pending
+	clearPendingMotion();
+
 	// Return that initialisation was successful
 	return true;
 }
@@ -164,6 +162,12 @@ bool Gait::isTriggered()
 
 	// Reset the halt pose update flag
 	m_updatedHalt = false;
+
+	// Reset the gait command to stop walking if a motion is pending
+	if(m_motionPending < MID_NONE || m_motionPending >= MID_COUNT)
+		clearPendingMotion();
+	if(m_motionPending != MID_NONE && m_oldMotionPending == MID_NONE)
+		m_gaitCmd.reset();
 
 	// Save the current gait state
 	GaitState oldGaitState = m_gaitState;
@@ -211,24 +215,22 @@ bool Gait::isTriggered()
 	if(m_gaitState != oldGaitState && m_gaitState == GS_STARTING_WALKING)
 		m_gait_odom.ID++;
 
-	// Trigger a kick if required
+	// Trigger a motion if one is pending
 	if(m_motionPending != MID_NONE)
 	{
-		if(m_motionPending > MID_NONE && m_motionPending < MID_COUNT)
+		if(m_model->state() == m_state_standing) // A call to resetGait() above sets the state to standing and the gait state to GS_INACTIVE simultaneously. If the gait state changes without returning to the standing state (e.g. continuance of walking) then the pending motion is forgotten below.
 		{
-			if(m_model->state() == m_state_standing)
-			{
-				const std::string& motion = motionName[m_motionPending];
-				m_model->setState(m_model->registerState(ROBOT_STANDING_STATE_NAME PLAY_MOTION_TOKEN + motion));
-				m_PM.plotEvent("play_" + motion);
-				m_motionPending = MID_NONE;
-			}
-			if(m_gaitState != GS_STOPPING_WALKING)
-				m_motionPending = MID_NONE;
+			const std::string& motion = motionName[m_motionPending];
+			m_model->setState(m_model->registerState(ROBOT_STANDING_STATE_NAME PLAY_MOTION_TOKEN + motion));
+			m_PM.plotEvent("play_" + motion);
+			clearPendingMotion();
 		}
-		else
-			m_motionPending = MID_NONE;
+		if(m_gaitState != GS_STOPPING_WALKING) // This ensures that if a non-motion gait command is received before the robot has stopped walking, and the robot starts walking again, the motion is aborted and not played. It also normally executes in the same cycle as a motion is triggered above.
+			clearPendingMotion();
 	}
+
+	// Save the current motion pending state
+	m_oldMotionPending = m_motionPending;
 
 	// Plot data
 	if(m_PM.getEnabled())
@@ -438,6 +440,23 @@ void Gait::updateGaitEngineInputs(GaitEngineInput& in)
 		in.gaitCmd.angVelZ = 0.0;
 	}
 
+	// Update the motion parameters
+	in.motionPending = (m_motionPending > MID_NONE && m_motionPending < MID_COUNT);
+	if(in.motionPending)
+	{
+		in.motionID = (in.motionPending ? m_motionPending : MID_NONE);
+		in.motionStance = m_motionStance;
+		in.motionAdjustLeftFoot = m_motionAdjustLeftFoot;
+		in.motionAdjustRightFoot = m_motionAdjustRightFoot;
+	}
+	else
+	{
+		in.motionID = MID_NONE;
+		in.motionStance = STANCE_DEFAULT;
+		in.motionAdjustLeftFoot = false;
+		in.motionAdjustRightFoot = false;
+	}
+
 	// Plot the raw gait command
 	plotRawGaitCommand();
 }
@@ -526,8 +545,12 @@ void Gait::handleGaitCommand(const gait_msgs::GaitCommandConstPtr& cmd)
 	{
 		if(cmd->motion > MID_NONE && cmd->motion < MID_COUNT)
 		{
-			m_gaitCmd.reset();
-			m_motionPending = cmd->motion;
+			switch(cmd->motion)
+			{
+				case MID_KICK_LEFT:  setPendingMotion((MotionID) cmd->motion, STANCE_KICK, false, true); break;
+				case MID_KICK_RIGHT: setPendingMotion((MotionID) cmd->motion, STANCE_KICK, true, false); break;
+				default:             setPendingMotion((MotionID) cmd->motion, STANCE_DEFAULT, true, true); break;
+			}
 		}
 		else
 		{
@@ -550,6 +573,26 @@ void Gait::plotRawGaitCommand()
 	m_PM.plotScalar(m_gaitCmd.linVelY, PM_GAITCMDRAW_LIN_VEL_Y);
 	m_PM.plotScalar(m_gaitCmd.angVelZ, PM_GAITCMDRAW_ANG_VEL_Z);
 	m_PM.plotScalar(m_gaitCmd.walk,    PM_GAITCMDRAW_WALK);
+}
+
+// Set a pending motion
+void Gait::setPendingMotion(MotionID ID, MotionStance stance, bool adjustLeft, bool adjustRight)
+{
+	// Update the motion variables
+	m_motionPending = ID;
+	m_motionStance = stance;
+	m_motionAdjustLeftFoot = adjustLeft;
+	m_motionAdjustRightFoot = adjustRight;
+}
+
+// Clear a pending motion
+void Gait::clearPendingMotion()
+{
+	// Clear any pending motion
+	m_motionPending = MID_NONE;
+	m_motionStance = STANCE_DEFAULT;
+	m_motionAdjustLeftFoot = true;
+	m_motionAdjustRightFoot = true;
 }
 
 // Start blending to the robot's halt pose
@@ -673,20 +716,14 @@ void Gait::handleJoystickData(const sensor_msgs::JoyConstPtr& joy)
 	}
 	m_joystickButton1Pressed = joy->buttons[1];
 
-	// Trigger a kick motion sequence if a falling edge is detected on button 2
+	// Trigger a right kick motion if a falling edge is detected on button 2
 	if(m_joystickButton2Pressed && !joy->buttons[2])
-	{
-		m_gaitCmd.reset();
-		m_motionPending = MID_KICK_RIGHT;
-	}
+		setPendingMotion(MID_KICK_RIGHT, STANCE_KICK, true, false);
 	m_joystickButton2Pressed = joy->buttons[2];
 
-	// Trigger a left kick motion sequence if a falling edge is detected on button 3
+	// Trigger a left kick motion if a falling edge is detected on button 3
 	if(m_joystickButton3Pressed && !joy->buttons[3])
-	{
-		m_gaitCmd.reset();
-		m_motionPending = MID_KICK_LEFT;
-	}
+		setPendingMotion(MID_KICK_LEFT, STANCE_KICK, false, true);
 	m_joystickButton3Pressed = joy->buttons[3];
 
 	// Transcribe the gait command

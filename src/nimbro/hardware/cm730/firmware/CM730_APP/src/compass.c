@@ -85,7 +85,7 @@ const struct Command g_script[] = {
 	{CMD_START, 0},
 	{CMD_WRITE, 0x3C}, // Device I2C write address
 	{CMD_WRITE, 0x01}, // Config Register B
-	{CMD_WRITE, 0x20}, // <7-5> = 001 = 1090 LSb/gauss = +-1.88 gauss full scale range, +-1.3 gauss recommended measurement range / <4-0> = 00000
+	{CMD_WRITE, 0x40}, // <7-5> = 010 = 820 LSb/gauss = +-2.50 gauss full scale range, +-1.90 gauss recommended measurement range / <4-0> = 00000
 	{CMD_STOP , 0},
 
 	{CMD_START, 0},

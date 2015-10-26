@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>213</width>
-    <height>101</height>
+    <width>278</width>
+    <height>128</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Walk Control</string>
   </property>
   <layout class="QGridLayout" name="gridLayout_2">
    <item row="0" column="0">

@@ -20,13 +20,21 @@ class PosVelEffView : public QWidget
     Q_OBJECT
 public:
 	
+	enum Field
+	{
+		POSITION,
+		EFFORT,
+		VELOCITY
+	};
+	
 	enum Alignment
 	{
+		NO_PAIR,
 		LEFT,
 		RIGHT
 	};
 	
-	PosVelEffView(PosVelEffView::Alignment alignment, std::string jointName, QWidget *parent = 0);
+	PosVelEffView(PosVelEffView::Alignment alignment, std::string jointName, int id, QWidget *parent = 0);
 	~PosVelEffView();
 	
 	virtual bool eventFilter(QObject *object, QEvent *event);
@@ -36,6 +44,10 @@ public:
 	
 	void setPosition(double rate);
 	double getPosition();
+	
+	int getID();
+	
+	void setField(PosVelEffView::Field field, float value);
 	
 	void clearHistoryOfChanges();
 	
@@ -51,6 +63,8 @@ Q_SIGNALS:
 	void velocityChanged();
 	void effortChanged();
 	
+	void changeForID(int id, PosVelEffView::Field field, float value); // Set field in connected widget to be value
+	
 private Q_SLOTS:
 	void positionSliderChanged();
 	void positionSpinChanged();
@@ -61,6 +75,9 @@ private Q_SLOTS:
 private:
 	double min;
 	double max;
+	
+	int id;
+	int connectedID; // ID of connected widget. By holding SHIFT both widgets will receive the same value
 	
 	HistoryKeeper *effortHistory;
 	HistoryKeeper *positionHistory;

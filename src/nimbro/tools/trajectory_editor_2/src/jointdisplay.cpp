@@ -73,44 +73,45 @@ void JointManager::initFrames(std::vector<std::string> jointList)
 	
 	// Init joints
 	int row = 1;
+	int id = 0;
 	
-	findAndPutView(jointList, "head_pitch", "Head Pitch", row++, PosVelEffView::LEFT);
-	findAndPutView(jointList, "neck_yaw", "Head Yaw", row++, PosVelEffView::LEFT);
-	
-	for(int i = 0; i < 3; i++) // gap between blocks
-		jointsLayout->addWidget(createLine(), row, i); 
-	row++;
-	
-	findAndPutView(jointList, "left_shoulder_pitch", "Shoulder Pitch",  row, PosVelEffView::LEFT);
-	findAndPutView(jointList, "right_shoulder_pitch", "Shoulder Pitch", row++, PosVelEffView::RIGHT);
-	findAndPutView(jointList, "left_shoulder_roll", "Shoulder Roll",   row, PosVelEffView::LEFT);
-	findAndPutView(jointList, "right_shoulder_roll", "Shoulder Roll",  row++, PosVelEffView::RIGHT);
-	
-	findAndPutView(jointList, "left_elbow_pitch", "Elbow Pitch", row, PosVelEffView::LEFT);
-	findAndPutView(jointList, "right_elbow_pitch", "Elbow Pitch",row++, PosVelEffView::RIGHT);
+	findAndPutView(jointList, "head_pitch", "Head Pitch", row++, PosVelEffView::NO_PAIR, id++);
+	findAndPutView(jointList, "neck_yaw", "Head Yaw", row++, PosVelEffView::NO_PAIR, id++);
 	
 	for(int i = 0; i < 3; i++) // gap between blocks
 		jointsLayout->addWidget(createLine(), row, i); 
 	row++;
 	
-	findAndPutView(jointList, "left_hip_yaw", "Hip Yaw",    row, PosVelEffView::LEFT);
-	findAndPutView(jointList, "right_hip_yaw", "Hip Yaw",   row++, PosVelEffView::RIGHT);
-	findAndPutView(jointList, "left_hip_roll", "Hip Roll",   row, PosVelEffView::LEFT);
-	findAndPutView(jointList, "right_hip_roll", "Hip Roll",  row++, PosVelEffView::RIGHT);
-	findAndPutView(jointList, "left_hip_pitch", "Hip Pitch",  row, PosVelEffView::LEFT);
-	findAndPutView(jointList, "right_hip_pitch", "Hip Pitch", row++, PosVelEffView::RIGHT);
+	findAndPutView(jointList, "left_shoulder_pitch", "Shoulder Pitch",  row, PosVelEffView::LEFT, id++);
+	findAndPutView(jointList, "right_shoulder_pitch", "Shoulder Pitch", row++, PosVelEffView::RIGHT, id++);
+	findAndPutView(jointList, "left_shoulder_roll", "Shoulder Roll",   row, PosVelEffView::LEFT, id++);
+	findAndPutView(jointList, "right_shoulder_roll", "Shoulder Roll",  row++, PosVelEffView::RIGHT, id++);
+	
+	findAndPutView(jointList, "left_elbow_pitch", "Elbow Pitch", row, PosVelEffView::LEFT, id++);
+	findAndPutView(jointList, "right_elbow_pitch", "Elbow Pitch",row++, PosVelEffView::RIGHT, id++);
 	
 	for(int i = 0; i < 3; i++) // gap between blocks
 		jointsLayout->addWidget(createLine(), row, i); 
 	row++;
 	
-	findAndPutView(jointList, "left_knee_pitch", "Knee Pitch", row, PosVelEffView::LEFT);
-	findAndPutView(jointList, "right_knee_pitch", "Knee Pitch",row++, PosVelEffView::RIGHT);
+	findAndPutView(jointList, "left_hip_yaw", "Hip Yaw",    row, PosVelEffView::LEFT, id++);
+	findAndPutView(jointList, "right_hip_yaw", "Hip Yaw",   row++, PosVelEffView::RIGHT, id++);
+	findAndPutView(jointList, "left_hip_roll", "Hip Roll",   row, PosVelEffView::LEFT, id++);
+	findAndPutView(jointList, "right_hip_roll", "Hip Roll",  row++, PosVelEffView::RIGHT, id++);
+	findAndPutView(jointList, "left_hip_pitch", "Hip Pitch",  row, PosVelEffView::LEFT, id++);
+	findAndPutView(jointList, "right_hip_pitch", "Hip Pitch", row++, PosVelEffView::RIGHT, id++);
 	
-	findAndPutView(jointList, "left_ankle_pitch", "Ankle Pitch",  row, PosVelEffView::LEFT);
-	findAndPutView(jointList, "right_ankle_pitch", "Ankle Pitch", row++, PosVelEffView::RIGHT);
-	findAndPutView(jointList, "left_ankle_roll", "Ankle Roll",   row, PosVelEffView::LEFT);
-	findAndPutView(jointList, "right_ankle_roll", "Ankle Roll",  row++, PosVelEffView::RIGHT);
+	for(int i = 0; i < 3; i++) // gap between blocks
+		jointsLayout->addWidget(createLine(), row, i); 
+	row++;
+	
+	findAndPutView(jointList, "left_knee_pitch", "Knee Pitch", row, PosVelEffView::LEFT, id++);
+	findAndPutView(jointList, "right_knee_pitch", "Knee Pitch",row++, PosVelEffView::RIGHT, id++);
+	
+	findAndPutView(jointList, "left_ankle_pitch", "Ankle Pitch",  row, PosVelEffView::LEFT, id++);
+	findAndPutView(jointList, "right_ankle_pitch", "Ankle Pitch", row++, PosVelEffView::RIGHT, id++);
+	findAndPutView(jointList, "left_ankle_roll", "Ankle Roll",   row, PosVelEffView::LEFT, id++);
+	findAndPutView(jointList, "right_ankle_roll", "Ankle Roll",  row++, PosVelEffView::RIGHT, id++);
 	
 	jointsLayout->setMargin(0);
 	jointsLayout->setSpacing(0);
@@ -118,19 +119,22 @@ void JointManager::initFrames(std::vector<std::string> jointList)
 }
 
 void JointManager::findAndPutView(std::vector<std::string>  &jointList, std::string jointName, std::string label
-									, int row, PosVelEffView::Alignment alignment)
+									, int row, PosVelEffView::Alignment alignment, int id)
 {
 	for (unsigned i = 0; i < jointList.size(); i++)
 	{
 		if(jointList.at(i) == jointName)
 		{
-			PosVelEffView *view = new PosVelEffView(alignment, jointList.at(i), this);
+			PosVelEffView *view = new PosVelEffView(alignment, jointList.at(i), id, this);
 				
 			connect(view, SIGNAL(positionChanged()), this, SLOT(handlePositionChanged()));
 			connect(view, SIGNAL(velocityChanged()), this, SLOT(handleVelocityChanged()));
 			connect(view, SIGNAL(effortChanged()), this, SLOT(handleEffortChanged()));
 			
-			if(alignment == PosVelEffView::LEFT)
+			connect(view, SIGNAL(changeForID(int,PosVelEffView::Field,float))
+					, this, SLOT(handleChangeForID(int,PosVelEffView::Field,float)));
+			
+			if(alignment == PosVelEffView::LEFT || alignment == PosVelEffView::NO_PAIR)
 				jointsLayout->addWidget(view, row, 0);
 			else
 				jointsLayout->addWidget(view, row, 2);
@@ -172,6 +176,20 @@ void JointManager::updateFrame()
 	}
 	
 	frameDataChanged(); // Signal that robot view should be updated
+}
+
+void JointManager::handleChangeForID(int id, PosVelEffView::Field field, float value)
+{
+	for (unsigned i = 0; i < jointViews.size(); i++)
+	{
+		PosVelEffView *view = jointViews.at(i);
+		
+		if(view->getID() == id)
+		{
+			view->setField(field, value);
+			return;
+		}
+	}
 }
 
 void JointManager::handleEffortChanged()
