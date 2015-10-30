@@ -20,6 +20,8 @@ PosVelEffView::PosVelEffView(PosVelEffView::Alignment alignment, std::string  jo
 	this->jointName = jointName;
 	this->id = id;
 	
+	onShiftMirrored = false;
+	
 	if(alignment == NO_PAIR)
 		connectedID = id;
 	else if(alignment == LEFT)
@@ -147,6 +149,17 @@ int PosVelEffView::getID()
 	return id;
 }
 
+bool PosVelEffView::isShiftPressed()
+{
+	Qt::KeyboardModifiers modifier = QApplication::keyboardModifiers();
+	return modifier == Qt::ShiftModifier;
+}
+
+void PosVelEffView::setOnShiftMirrored(bool mirrored)
+{
+	onShiftMirrored = mirrored;
+}
+
 void PosVelEffView::setField(Field field, float value)
 {
 	if(field == PosVelEffView::POSITION)
@@ -178,12 +191,12 @@ void PosVelEffView::positionSliderChanged()
 	positionHistory->valueChanged(positionSpin->value());
 	positionChanged();
 	
-	Qt::KeyboardModifiers modifier = QApplication::keyboardModifiers();
-	
-	if(modifier == Qt::ShiftModifier && (id != connectedID))
+	if(isShiftPressed() && (id != connectedID))
 	{
-		//printf("change from %d to %d for value %f\n", id, connectedID, positionSpin->value());
-		changeForID(connectedID, PosVelEffView::POSITION, positionSpin->value());
+		if(onShiftMirrored)
+			changeForID(connectedID, PosVelEffView::POSITION, -positionSpin->value());
+		else
+			changeForID(connectedID, PosVelEffView::POSITION, positionSpin->value());
 	}
 }
 
@@ -196,9 +209,13 @@ void PosVelEffView::positionSpinChanged()
 	positionHistory->valueChanged(positionSpin->value());
 	positionChanged();
 	
-	Qt::KeyboardModifiers modifier = QApplication::keyboardModifiers();
-	if(modifier == Qt::ShiftModifier && id != connectedID)
-		changeForID(connectedID, PosVelEffView::POSITION, positionSpin->value());
+	if(isShiftPressed() && id != connectedID)
+	{
+		if(onShiftMirrored)
+			changeForID(connectedID, PosVelEffView::POSITION, -positionSpin->value());
+		else
+			changeForID(connectedID, PosVelEffView::POSITION, positionSpin->value());
+	}
 }
 
 void PosVelEffView::handleEffortChanged()
@@ -206,8 +223,7 @@ void PosVelEffView::handleEffortChanged()
 	effortHistory->valueChanged(effortSpin->value());
 	effortChanged();
 	
-	Qt::KeyboardModifiers modifier = QApplication::keyboardModifiers();
-	if(modifier == Qt::ShiftModifier && id != connectedID)
+	if(isShiftPressed() && id != connectedID)
 		changeForID(connectedID, PosVelEffView::EFFORT, effortSpin->value());
 }
 
@@ -215,9 +231,8 @@ void PosVelEffView::handleVelocityChanged()
 {
 	velocityHistory->valueChanged(velocitySpin->value());
 	velocityChanged();
-	
-	Qt::KeyboardModifiers modifier = QApplication::keyboardModifiers();
-	if(modifier == Qt::ShiftModifier && id != connectedID)
+
+	if(isShiftPressed() && id != connectedID)
 		changeForID(connectedID, PosVelEffView::VELOCITY, velocitySpin->value());
 }
 

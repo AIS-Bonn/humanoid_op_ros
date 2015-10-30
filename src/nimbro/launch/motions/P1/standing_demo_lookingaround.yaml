@@ -5,7 +5,7 @@ header:
   postState: standing
 motion:
   - duration: 4
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.1700000017881393
@@ -88,7 +88,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 1.700000000000042
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.17
@@ -171,7 +171,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 0.3
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.17
@@ -254,7 +254,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 1
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.17
@@ -337,7 +337,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 0.4
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.17
@@ -420,7 +420,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 2
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.17
@@ -503,7 +503,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 0.5
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.17
@@ -586,7 +586,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 1
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.17
@@ -669,7 +669,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 0.4
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.17
@@ -752,7 +752,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 1
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.17
@@ -835,7 +835,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 2
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.17
@@ -918,7 +918,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 2
-    support: ""
+    support: "0.5 0.5"
     joints:
       left_shoulder_roll:
         position: 0.1700000017881393

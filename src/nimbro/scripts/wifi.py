@@ -112,8 +112,10 @@ f.write('ap_scan=1\n')
 f.write('network={\n')
 f.write('    ssid="'+options.ssid+'"\n')
 f.write('    scan_ssid=1\n')
-if options.pwd:
+if len(options.pwd)>4:
     f.write('    psk="'+options.pwd+'"\n')
+else:
+    f.write('    key_mgmt=NONE\n')
 f.write('    priority=5\n')
 f.write('}\n')
 f.close()

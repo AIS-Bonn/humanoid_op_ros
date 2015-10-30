@@ -36,6 +36,8 @@ DummyInterface::DummyInterface()
  , m_fakeAttEnable(CONFIG_PARAM_PATH + "fakeAttitude/enabled", true)
  , m_fakeAttFusedX(CONFIG_PARAM_PATH + "fakeAttitude/fusedX", -M_PI_2, 0.01, M_PI_2, 0.0)
  , m_fakeAttFusedY(CONFIG_PARAM_PATH + "fakeAttitude/fusedY", -M_PI_2, 0.01, M_PI_2, 0.0)
+ , m_fakeAttFusedZ(CONFIG_PARAM_PATH + "fakeAttitude/fusedZ", -M_PI, 0.02, M_PI, 0.0)
+ , m_fakeAttFusedHemi(CONFIG_PARAM_PATH + "fakeAttitude/fusedHemi", true)
  , m_calledReadFeedback(false)
  , m_jointCmdBuf(5) // Note: This is the size of the joint position circular buffer, which determines the delay (number of cycles) introduced by the dummy
 {
@@ -69,7 +71,7 @@ bool DummyInterface::readJointStates()
 	// See whether the fake attitude should be written to the robot model
 	if(m_calledReadFeedback && m_fakeAttEnable())
 	{
-		Eigen::Quaterniond fakeAtt = rot_conv::QuatFromFused(m_fakeAttFusedY(), m_fakeAttFusedX());
+		Eigen::Quaterniond fakeAtt = rot_conv::QuatFromFused(m_fakeAttFusedZ(), m_fakeAttFusedY(), m_fakeAttFusedX(), m_fakeAttFusedHemi());
 		m_model->setRobotOrientation(fakeAtt);
 	}
 	

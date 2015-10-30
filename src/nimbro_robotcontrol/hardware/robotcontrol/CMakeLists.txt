@@ -58,6 +58,7 @@ add_message_files(
 add_service_files(
   FILES
   MagCalib.srv
+  WarpAddPoint.srv
 )
 
 add_action_files(

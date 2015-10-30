@@ -9,7 +9,6 @@
 #include <ros/package.h>
 #include <rviz/frame_manager.h>
 #include <rviz/ogre_helpers/arrow.h>
-#include <rviz/validate_floats.h>
 
 #include <field_model/field_model.h>
 #include <OGRE/OgreEntity.h>
@@ -143,8 +142,6 @@ void LocDisplay::onInitialize()
 	m_manual_object->setDynamic( true );
 	scene_node_->attachObject( m_manual_object );
 
-	m_sub_particles = ros::NodeHandle("~").subscribe("/pf/particles", 1, &LocDisplay::handleParticles, this);
-
 	scene_node_->setVisible(isEnabled());
 }
 
@@ -189,77 +186,6 @@ void LocDisplay::update(float wall_dt, float ros_dt)
 		}
 	}
 }
-
-bool LocDisplay::validateFloats(const particle_filter::ParticleSet& msg)
-{
-	BOOST_FOREACH(const particle_filter::Particle& p, msg.particles)
-	{
-		if(!rviz::validateFloats(p.pose.x)
-				|| !rviz::validateFloats(p.pose.y)
-				|| !rviz::validateFloats(p.pose.theta)
-				|| !rviz::validateFloats(p.weight))
-			return false;
-	}
-
-	return true;
-}
-
-
-void LocDisplay::handleParticles(const particle_filter::ParticleSetConstPtr& msg)
-{
-	if( !validateFloats( *msg ))
-	{
-		setStatus(rviz::StatusProperty::Error, "Topic", "Message contained invalid floating point values (nans or infs)" );
-		return;
-	}
-
-	m_manual_object->clear();
-
-	Ogre::Vector3 position;
-	Ogre::Quaternion orientation;
-	if( !context_->getFrameManager()->getTransform( msg->header, position, orientation ))
-	{
-		ROS_DEBUG( "Error transforming from frame '%s' to frame '%s'", msg->header.frame_id.c_str(), qPrintable( fixed_frame_ ));
-	}
-
-	scene_node_->setPosition( position );
-	scene_node_->setOrientation( orientation );
-
-	m_manual_object->clear();
-
-	Ogre::ColourValue color = Ogre::ColourValue(1.0, 0.0, 0.0, 1.0);
-
-	size_t num_poses = msg->particles.size();
-	m_manual_object->estimateVertexCount( num_poses * 6 );
-	m_manual_object->begin( "BaseWhiteNoLighting", Ogre::RenderOperation::OT_LINE_LIST );
-
-	BOOST_FOREACH(const particle_filter::Particle& p, msg->particles)
-	{
-		Ogre::Vector3 pos(p.pose.x, p.pose.y, 0.03);
-
-		Ogre::Quaternion orient(Ogre::Radian(p.pose.theta), Ogre::Vector3::UNIT_Z);
-
-		double length = 0.2 * p.weight;
-
-		Ogre::Vector3 vertices[6];
-		vertices[0] = pos; // back of arrow
-		vertices[1] = pos + orient * Ogre::Vector3( length, 0, 0 ); // tip of arrow
-		vertices[2] = vertices[ 1 ];
-		vertices[3] = pos + orient * Ogre::Vector3( 0.75*length, 0.2*length, 0 );
-		vertices[4] = vertices[ 1 ];
-		vertices[5] = pos + orient * Ogre::Vector3( 0.75*length, -0.2*length, 0 );
-
-		for( int i = 0; i < 6; ++i )
-		{
-			m_manual_object->position( vertices[i] );
-			m_manual_object->colour( color );
-		}
-	}
-	m_manual_object->end();
-
-	context_->queueRender();
-}
-
 
 }
 

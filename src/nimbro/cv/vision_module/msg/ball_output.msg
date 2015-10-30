@@ -1,2 +1,0 @@
-geometry_msgs/Point ball_point
-float32 probability

@@ -412,7 +412,9 @@ void RobotModel::setRobotOrientation(const Eigen::Quaterniond& quaternion, const
 // Update the robot orientation state parameters based on the given quaternions
 void RobotModel::setRobotOrientation(const Eigen::Quaterniond& quaternion, const Eigen::Quaterniond& quaternionPR, const ros::Time& timestamp)
 {
+	// Save the timestamp
 	m_robotOrientationTime = timestamp;
+
 	// PART 1: Robot orientation
 	
 	// Update the robot orientation

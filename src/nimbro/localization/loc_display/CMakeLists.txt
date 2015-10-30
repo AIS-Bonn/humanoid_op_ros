@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(loc_display)
 
-find_package(catkin REQUIRED COMPONENTS roscpp rviz field_model particle_filter)
+find_package(catkin REQUIRED COMPONENTS roscpp rviz field_model)
 
 find_package(Qt4 REQUIRED)
 include(${QT_USE_FILE})

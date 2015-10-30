@@ -21,6 +21,6 @@ public:
 	virtual bool IsDummy()=0;
 	virtual bool IsReady()=0;
 	virtual bool InitCameraDevice(bool)=0;
-	virtual void DeInitCameraDevice()=0;
 	virtual double TakeCapture()=0;
 };
+

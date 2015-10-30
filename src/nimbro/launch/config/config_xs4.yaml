@@ -303,22 +303,22 @@ cap_gait:
     robotSpec:
       armLinkLength: 0.155
       comOffsetX: -0.015
-      comOffsetZ: 0.090
-      footLength: 0.210
+      comOffsetZ: 0.09
+      footLength: 0.21
       footOffsetX: 0.026
-      footOffsetY: 0.010
+      footOffsetY: 0.01
       footOffsetZ: 0.0385
-      footWidth: 0.130
+      footWidth: 0.13
       headOffsetX: 0
       headOffsetZ: 0.075
-      hipWidth: 0.110
+      hipWidth: 0.11
       legLinkLength: 0.2
       neckHeight: 0.09
       shoulderWidth: 0.245
       trunkHeight: 0.225
       trunkLinkOffsetX: 0
       trunkLinkOffsetY: 0
-      trunkLinkOffsetZ: 0.140
+      trunkLinkOffsetZ: 0.14
     robotVis:
       armThickness: 0.045
       headDiameter: 0.156
@@ -429,7 +429,7 @@ fallProtection:
   sideGetupRollAngle: 0.8
   sideGetupsEnabled: 1
   triggerAngle: 0.7
-  triggerAngleKick: 0.80
+  triggerAngleKick: 0.8
 gait:
   enableCPGGait: 1
   enableCapGait: 1
@@ -563,7 +563,7 @@ indep_cpg_gait:
     simulationFrequency: 0
     solverIterations: 0
   supportEffort: 0.35
-  systemIterationTime: 0.010
+  systemIterationTime: 0.01
 limbControl:
   limbControlEnabled: 1
 particle_filter:
@@ -781,10 +781,15 @@ robotcontrol:
     effortSlopeLimit: 0.02
     magFilter:
       hard:
+        enableHardIron: 1
         x: 1.2080629
-        y: 0.1578570
+        y: 0.157857
         z: -0.1125646
       plotCalibData: 0
+      warp:
+        enableAngleWarping: 0
+        paramString: ""
+        useDegrees: 1
     magSpikeMaxDelta: 0.07
     models:
       MX-106:
@@ -806,8 +811,10 @@ robotcontrol:
       pressButton2: 0
     fakeAttitude:
       enabled: 1
+      fusedHemi: 1
       fusedX: 0
       fusedY: 0
+      fusedZ: 0
     fakeIMU:
       accX: 0
       accY: 0
@@ -914,7 +921,7 @@ robotcontrol:
         DGain: 0.9
         IGain: 0
         PGain: 50
-  timerDuration: 0.010
+  timerDuration: 0.01
 sitting_demo:
   sittingDemoEnabled: 1
 standing_demo:

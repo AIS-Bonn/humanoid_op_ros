@@ -83,3 +83,4 @@ double Camera::TakeCapture()
 	return 1;
 }
 
+

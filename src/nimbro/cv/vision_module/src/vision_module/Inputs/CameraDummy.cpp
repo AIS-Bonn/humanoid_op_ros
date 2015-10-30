@@ -23,4 +23,3 @@ double CameraDummy::TakeCapture()
 
 	return 1;
 }
-

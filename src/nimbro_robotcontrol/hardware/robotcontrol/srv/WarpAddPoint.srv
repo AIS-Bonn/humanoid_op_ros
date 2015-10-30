@@ -1,0 +1,5 @@
+float32 trueHeading # In degrees!
+---
+float32 trueHeading # In degrees or radians depending on configuration parameter warpUseDegrees
+float32 magHeading # In degrees or radians depending on configuration parameter warpUseDegrees
+string newParamString

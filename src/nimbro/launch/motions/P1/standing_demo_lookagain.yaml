@@ -5,7 +5,7 @@ header:
   postState: standing
 motion:
   - duration: 2
-    support: ""
+    support: "0.5 0.5"
     joints:
       head_pitch:
         position: -0.18
@@ -88,7 +88,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 1.5
-    support: ""
+    support: "0.5 0.5"
     joints:
       head_pitch:
         position: -0.32
@@ -171,7 +171,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 0.5
-    support: ""
+    support: "0.5 0.5"
     joints:
       head_pitch:
         position: -0.32
@@ -254,7 +254,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 2
-    support: ""
+    support: "0.5 0.5"
     joints:
       head_pitch:
         position: 0.13
@@ -337,7 +337,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 0.5
-    support: ""
+    support: "0.5 0.5"
     joints:
       head_pitch:
         position: 0.13
@@ -420,7 +420,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 1
-    support: ""
+    support: "0.5 0.5"
     joints:
       head_pitch:
         position: -0.44
@@ -503,7 +503,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 1.15
-    support: ""
+    support: "0.5 0.5"
     joints:
       head_pitch:
         position: -0.18
@@ -586,7 +586,7 @@ motion:
         effort: 0.2
         velocity: 0
   - duration: 0.5
-    support: ""
+    support: "0.5 0.5"
     joints:
       head_pitch:
         position: -0.18

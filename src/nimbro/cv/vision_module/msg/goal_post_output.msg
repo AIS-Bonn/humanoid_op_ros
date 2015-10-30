@@ -1,2 +1,0 @@
-geometry_msgs/Point base_point
-float32 probability

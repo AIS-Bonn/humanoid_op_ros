@@ -86,7 +86,7 @@ motion:
       effort: 0.2
       position: -0.1700000017881393
       velocity: 0
-  support: ''
+  support: "0.5 0.5"
 - duration: 1.700000000000042
   joints:
     head_pitch:
@@ -169,7 +169,7 @@ motion:
       effort: 0.2
       position: -0.17
       velocity: 0
-  support: ''
+  support: "0.5 0.5"
 - duration: 0.3
   joints:
     head_pitch:
@@ -252,7 +252,7 @@ motion:
       effort: 0.2
       position: -0.17
       velocity: 0
-  support: ''
+  support: "0.5 0.5"
 - duration: 1
   joints:
     head_pitch:
@@ -335,7 +335,7 @@ motion:
       effort: 0.2
       position: -0.17
       velocity: 0
-  support: ''
+  support: "0.5 0.5"
 - duration: 0.4
   joints:
     head_pitch:
@@ -418,7 +418,7 @@ motion:
       effort: 0.2
       position: -0.17
       velocity: 0
-  support: ''
+  support: "0.5 0.5"
 - duration: 2
   joints:
     head_pitch:
@@ -501,7 +501,7 @@ motion:
       effort: 0.2
       position: -0.17
       velocity: 0
-  support: ''
+  support: "0.5 0.5"
 - duration: 0.5
   joints:
     head_pitch:
@@ -584,7 +584,7 @@ motion:
       effort: 0.2
       position: -0.17
       velocity: 0
-  support: ''
+  support: "0.5 0.5"
 - duration: 1
   joints:
     head_pitch:
@@ -667,7 +667,7 @@ motion:
       effort: 0.2
       position: -0.17
       velocity: 0
-  support: ''
+  support: "0.5 0.5"
 - duration: 0.4
   joints:
     head_pitch:
@@ -750,7 +750,7 @@ motion:
       effort: 0.2
       position: -0.17
       velocity: 0
-  support: ''
+  support: "0.5 0.5"
 - duration: 1
   joints:
     head_pitch:
@@ -833,7 +833,7 @@ motion:
       effort: 0.2
       position: -0.17
       velocity: 0
-  support: ''
+  support: "0.5 0.5"
 - duration: 2
   joints:
     head_pitch:
@@ -916,7 +916,7 @@ motion:
       effort: 0.2
       position: -0.17
       velocity: 0
-  support: ''
+  support: "0.5 0.5"
 - duration: 2
   joints:
     head_pitch:
@@ -999,4 +999,4 @@ motion:
       effort: 0.2
       position: -0.1700000017881393
       velocity: 0
-  support: ''
+  support: "0.5 0.5"

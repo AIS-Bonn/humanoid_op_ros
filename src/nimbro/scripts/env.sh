@@ -138,7 +138,7 @@ function _makefirmware() { # Pass the device name as the first parameter
 function _callservice() { # Example: _callservice /robotcontrol/nopInterface/attEstCalibrate robotcontrol
 	if rosservice list &>/dev/null; then
 		echo "Calling service: $1"
-		rosservice call "$1" || echo "Service call failed! Is the $2 node running?"
+		rosservice call "$1" "${@:3}" || echo "Service call failed! Is the $2 node running?"
 	else
 		echo "Could not list the available ROS services, is a roscore running?"
 	fi
@@ -804,8 +804,9 @@ function nimbro() {
 				;;
 				"magnetometer")
 					( # Start a subshell to have only a temporary change of the ROS master
-						if [[ -n "$4" ]]; then
-							ROS_MASTER_URI=http://"$4":11311
+						[[ "$3" == "warpAdd" ]] && hostvar="$5" || hostvar="$4"
+						if [[ -n "$hostvar" ]]; then
+							ROS_MASTER_URI=http://"$hostvar":11311
 							ROS_HOSTNAME=$(hostname).local
 						fi
 						local curhost="${ROS_MASTER_URI#http://}"
@@ -823,8 +824,14 @@ function nimbro() {
 						elif [[ "$3" == "stop3D" ]]; then
 							echo "Stopping the 3D magnetometer calibration of $curhost..."
 							_callservice /robotcontrol/nopInterface/magFilter/stopCalibration3D robotcontrol
+						elif [[ "$3" == "warpClear" ]]; then
+							echo "Clearing the magnetometer warp parameter string, resulting in an identity yaw warp transform..."
+							_callservice /robotcontrol/nopInterface/magFilter/warpClearPoints robotcontrol
+						elif [[ "$3" == "warpAdd" ]]; then
+							echo "Adding reference point that robot is currently at a true yaw (CCW from +ve goal) of $4 degrees..."
+							_callservice /robotcontrol/nopInterface/magFilter/warpAddPoint robotcontrol "$4"
 						else
-							echo "Usage: nimbro calib magnetometer {start|stop2D|stop3D} [robot]"
+							echo "Usage: nimbro calib magnetometer {start|stop2D|stop3D|warpClear|warpAdd} [value] [robot]"
 						fi
 					)
 				;;
@@ -923,7 +930,7 @@ function nimbro() {
 				;;
 				"retrieve")
 					local target="$BOT"
-					[[ -n "$2" ]] && target="$2"
+					[[ -n "$3" ]] && target="$3"
 					local LAUNCH="$(rospack find launch)"
 					scp "nimbro@$target:/nimbro/share/launch/config/config*.yaml" "$LAUNCH/config/"
 					scp "nimbro@$target:/nimbro/share/launch/config/vision/*" "$LAUNCH/config/vision/"
@@ -1090,7 +1097,7 @@ function _nimbro()
 			case "$cmd" in
 				calib)
 					[[ "$subcmd" == "heading" ]] && COMPREPLY=($(compgen -W "localhost $robotlist" -- "$cur"))
-					[[ "$subcmd" == "magnetometer" ]] && COMPREPLY=($(compgen -W "start stop2D stop3D" -- "$cur"))
+					[[ "$subcmd" == "magnetometer" ]] && COMPREPLY=($(compgen -W "start stop2D stop3D warpAdd warpClear" -- "$cur"))
 					;;
 				config)
 					[[ "$subcmd" == "cleanyaml" ]] && COMPREPLY=($(compgen -W "all $P1list" -- "$cur"))
@@ -1129,7 +1136,13 @@ function _nimbro()
 		4)
 			case "$cmd" in
 				calib)
-					[[ "$subcmd" == "magnetometer" ]] && COMPREPLY=($(compgen -W "localhost $robotlist" -- "$cur"))
+					if [[ "$subcmd" == "magnetometer" ]]; then
+						if [[ "$subsubcmd" == "warpAdd" ]]; then
+							COMPREPLY=($(compgen -W "0 45 90 180 225 270 315" -- "$cur"))
+						else
+							COMPREPLY=($(compgen -W "localhost $robotlist" -- "$cur"))
+						fi
+					fi
 					;;
 				config)
 					[[ "$subcmd" == "cleanyaml" ]] && COMPREPLY=($(compgen -W "all $P1list" -- "$cur"))
@@ -1150,6 +1163,9 @@ function _nimbro()
 			;;
 		5)
 			case "$cmd" in
+				calib)
+					[[ "$subcmd" == "magnetometer" ]] && [[ "$subsubcmd" == "warpAdd" ]] && COMPREPLY=($(compgen -W "localhost $robotlist" -- "$cur"))
+					;;
 				config)
 					[[ "$subcmd" == "cleanyaml" ]] && COMPREPLY=($(compgen -W "all $P1list" -- "$cur"))
 					if [[ "$subcmd" == "cpyaml" ]]; then

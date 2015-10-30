@@ -70,6 +70,8 @@ void LEDWidget::initPlugin(qt_gui_cpp::PluginContext& context)
 void LEDWidget::shutdownPlugin()
 {
 	rqt_gui_cpp::Plugin::shutdownPlugin();
+	
+	subscriber.shutdown();
 }
 
 void LEDWidget::handleButton_0()
@@ -95,7 +97,7 @@ void LEDWidget::handleButton_2()
 
 LEDWidget::~LEDWidget()
 {
-	delete view;
+	//delete view;
 }
 
 }

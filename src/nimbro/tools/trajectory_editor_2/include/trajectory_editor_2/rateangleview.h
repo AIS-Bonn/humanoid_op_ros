@@ -38,6 +38,7 @@ public:
 	
 	virtual bool eventFilter(QObject *object, QEvent *event);
 	
+	// TODO put these to private
 	QSlider        *rateSlider;
 	QDoubleSpinBox *rateSpin;
 	QDoubleSpinBox *angleRateSpin;

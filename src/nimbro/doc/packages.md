@@ -19,7 +19,7 @@ A summary of the provided software packages is given in the following table:
 | `nimbro` | `cv` | `face_detection` | Face detection routines using Haar cascading. |
 | `nimbro` | `cv` | `nodelet_gui_manager` | Nodelet GUI manager. |
 | `nimbro` | `cv` | `print_fps` | Tool for printing the fps of an image stream. |
-| `nimbro` | `cv` | `vision_module` | Vision module for playing soccer. |
+| `nimbro` | `cv` | `vision_module` | Vision module for playing soccer, including localization. |
 | `nimbro` | `demonstration` | `demo_msgs` | Common messages for demonstration nodes. |
 | `nimbro` | `demonstration` | `face_tracker` | Face tracking demonstration. |
 | `nimbro` | `demonstration` | `hand_shaking_demo` | Hand shaking demonstration. |
@@ -35,7 +35,6 @@ A summary of the provided software packages is given in the following table:
 | `nimbro` | `hardware` | `nimbro_op_model` | URDF model of the robot. |
 | `nimbro` | `localization` | `field_model` | Model of the soccer field, for standardisation across the framework. |
 | `nimbro` | `localization` | `loc_display` | RViz visualisation plugin to display the soccer field. |
-| `nimbro` | `localization` | `particle_filter` | Particle filter localization. |
 | `nimbro` | `motion` | `cap_gait` | Capture step gait plugin to the `gait` motion module. |
 | `nimbro` | `motion` | `cpg_gait` | Central pattern generated gait plugin to the `gait` motion module. |
 | `nimbro` | `motion` | `fall_protection` | Fall protection motion module. |

@@ -15,6 +15,7 @@
 
 #include <trajectory_editor_2/historykeeper.h>
 
+// TODO Make base class for all three views
 class PosVelEffView : public QWidget
 {
     Q_OBJECT
@@ -47,16 +48,19 @@ public:
 	
 	int getID();
 	
+	void setOnShiftMirrored(bool mirrored); // If true, mirrors the value for pair widget when 'shift' is pressed
 	void setField(PosVelEffView::Field field, float value);
 	
 	void clearHistoryOfChanges();
+	
+	
+	// TODO put these to private
+	std::string jointName;
 	
 	QSlider        *positionSlider;
 	QDoubleSpinBox *positionSpin;
 	QDoubleSpinBox *effortSpin;
 	QDoubleSpinBox *velocitySpin;
-	
-	std::string jointName;
 	
 Q_SIGNALS:
 	void positionChanged();
@@ -73,11 +77,16 @@ private Q_SLOTS:
 	void handleVelocityChanged();
 	
 private:
+	bool isShiftPressed();
+	
+private:
 	double min;
 	double max;
 	
 	int id;
 	int connectedID; // ID of connected widget. By holding SHIFT both widgets will receive the same value
+	
+	bool onShiftMirrored;
 	
 	HistoryKeeper *effortHistory;
 	HistoryKeeper *positionHistory;

@@ -89,7 +89,7 @@ FieldModel::FieldModel()
 		m_length = 5.45;
 		m_width = 4.10;
 		m_centerCircleDiameter = 1.20;
-		m_goalWidth = 2.60;
+		m_goalWidth = 1.7;
 		m_goalAreaWidth = 3.40;
 		m_goalAreaDepth = 0.60;
 		m_penaltyMarkerDist = 1.30;

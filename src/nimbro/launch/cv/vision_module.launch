@@ -1,0 +1,5 @@
+<launch>
+     <param name="use_sim_time" value="false" />
+	<node pkg="vision_module" name="vision_module_node" type="vision_module_node" output="screen" args=""/>
+	<node pkg="vision_module" name="watch_vision_node" type="watch_vision.py" output="log" args=""/>
+</launch>

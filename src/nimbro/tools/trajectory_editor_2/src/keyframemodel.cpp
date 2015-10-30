@@ -272,15 +272,14 @@ void KeyframeModel::load()
 		s << temp->id;
 		temp->name = std::string("Frame ").append(s.str());
 	}
-	
 	// Set motion name
 	m_motion.motionName = headerView->setFileNameFromPath(filePath);
-
+	
 	// Update views
 	m_jointManager->updateJointList(m_motion.jointList);
 	abstractSpace->updateJointList(m_motion.jointList);
 	inverseSpace->updateJointList(m_motion.jointList);
-	
+
 	frameView->updateJointList(m_motion.jointList);
 	frameView->setPathAndName(path);
 	

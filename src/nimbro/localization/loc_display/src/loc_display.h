@@ -7,7 +7,6 @@
 #include <rviz/display.h>
 #include <rviz/properties/tf_frame_property.h>
 #include <field_model/field_model.h>
-#include <particle_filter/ParticleSet.h>
 #include <OGRE/OgreManualObject.h>
 
 namespace loc_display
@@ -25,12 +24,7 @@ public:
 private:
 	void addMarkers(field_model::WorldObject::Type type);
 
-	bool validateFloats(const particle_filter::ParticleSet& msg);
-	void handleParticles(const particle_filter::ParticleSetConstPtr& msg);
-
 	rviz::TfFrameProperty* m_frame_property;
-
-	ros::Subscriber m_sub_particles;
 
 	Ogre::ManualObject* m_manual_object;
 };

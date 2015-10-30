@@ -40,7 +40,7 @@ std::string HeaderView::setFileNameFromPath(QString name)
 	QStringList pieces2 = pieces.last().split( "." );
 	
 	this->fileName = pieces2.first();
-	this->checkValues();
+	//this->checkValues();
 	
 	return fileName.toStdString();
 }

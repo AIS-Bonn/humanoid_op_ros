@@ -684,11 +684,212 @@ void Vision::Process(ros::Time now)
 						head_pub.publish(t);
 					}
 				}
+				
+				{
+				  bool circleDetected=false;
+				  const double A2 = A / 2.;
+				  const double B2 = B / 2.;
+				  double compassOffsetLoc=0;
+					vector<LineContainer> AllLines;
+			
+					if (true)
+					{
+
+						LineSegment HorLine(cv::Point(0, -10),
+								cv::Point(0, 10));
+						LineSegment VerLine(cv::Point(10, 0),
+								cv::Point(-10, 0));
+
+						for (size_t i = 0; i < clusteredLines.size(); i++)
+						{
+							LineSegment lineSeg = clusteredLines[i];
+
+							if (lineSeg.GetLength() > MIN_LINE_LENGHT_FOR_LOC)
+							{
+								cv::Point2d mid = lineSeg.GetMiddle();
+
+								if (lineSeg.GetAbsMinAngleDegree(VerLine) < 45)
+								{
+									LineType thisType = VerUndef;
+									double angleDiffVer =
+											lineSeg.GetExteriorAngleDegree(
+													VerLine);
+									if (angleDiffVer < -90)
+										angleDiffVer += 180;
+									if (angleDiffVer > 90)
+										angleDiffVer += -180;
+
+									lowPass(angleDiffVer, compassOffsetLoc,
+											getUpdateCoef(0.05, lineSeg));
+
+									if (lineSeg.DistanceFromLine(
+											cv::Point(0, 0)) > 0.7)
+									{
+										double estimatedY = 0;
+										if (mid.y > 0) 
+										{
+
+											thisType = VerLeft;
+											estimatedY = B2 - mid.y;
+										}
+										else 
+										{
+											thisType = VerRight;
+											estimatedY = -B2 + abs(mid.y);
+										}
+										lowPass(estimatedY, Localization.y,
+												getUpdateCoef(LOWPASSNORMAL,
+														lineSeg));
+									}
+									else if (lineSeg.DistanceFromLine(
+											FieldHullRealCenter) > 0.6
+											&& cv::contourArea(FieldHullReal)
+													> 4)
+									{
+										LineSegment l2Test = lineSeg;
+										if (lineSeg.P1.x > lineSeg.P2.x)
+										{
+											l2Test.P1 = lineSeg.P2;
+											l2Test.P2 = lineSeg.P1;
+										}
+
+										double estimatedY = 0;
+										if (l2Test.GetSide(FieldHullRealCenter)
+												< 0) 
+										{
+											thisType = VerLeftNear;
+											estimatedY = B2 - mid.y;
+										}
+										else 
+										{
+											thisType = VerRightNear;
+											estimatedY = -B2 + abs(mid.y);
+										}
+										lowPass(estimatedY, Localization.y,
+												getUpdateCoef(LOWPASSNORMAL,
+														lineSeg));
+									}
+									AllLines.push_back(
+											LineContainer(lineSeg, thisType));
+								}
+								else
+								{
+									LineType thisType = HorUndef;
+									double angleDiffHor =
+											lineSeg.GetExteriorAngleDegree(
+													HorLine);
+									if (angleDiffHor < -90)
+										angleDiffHor += 180;
+									if (angleDiffHor > 90)
+										angleDiffHor += -180;
+									lowPass(angleDiffHor, compassOffsetLoc,
+											getUpdateCoef(0.05, lineSeg));
+								
+									if (circleDetected
+											&& DistanceFromLineSegment(lineSeg,
+													resultCircle) < 1)
+									{
+										thisType = HorCenter;
+										double estimatedX = -mid.x;
+
+										lowPass(estimatedX, Localization.x,
+												getUpdateCoef(LOWPASSNORMAL,
+														lineSeg));
+										
+									}
+
+									if (goalPositionOnReal.size() >= 2 
+											&& lineSeg.DistanceFromLine(
+													goalPositionOnReal[0]) < 0.5
+											&& lineSeg.DistanceFromLine(
+													goalPositionOnReal[1])
+													< 0.5)
+									{
+
+										double estimatedX = 0;
+										if (mid.x > 0) 
+										{
+											estimatedX = A2 - mid.x;
+										}
+										else 
+										{
+											estimatedX = -A2 + abs(mid.x);
+										}
+										lowPass(estimatedX, Localization.x,
+												getUpdateCoef(LOWPASSSTRONG,
+														lineSeg));
+									}
+									else if (goalPositionOnReal.size() == 1 
+											&& lineSeg.DistanceFromLine(
+													goalPositionOnReal[0])
+													< 0.5)
+									{
+
+										double estimatedX = 0;
+										if (mid.x > 0) 
+										{
+											estimatedX = A2 - mid.x;
+										}
+										else
+										{
+											estimatedX = -A2 + abs(mid.x);
+										}
+										lowPass(estimatedX, Localization.x,
+												getUpdateCoef(LOWPASSNORMAL,
+														lineSeg));
+									}
+
+									AllLines.push_back(
+											LineContainer(lineSeg, thisType));
+								}
+							}
+						}
+
+						for (size_t i = 0; i < AllLines.size(); i++) 
+						{
+							LineContainer hI = AllLines[i];
+							if (hI.type != HorUndef && hI.type != HorCenter)
+								continue;
+							for (size_t j = i; j < AllLines.size(); j++)
+							{
+								LineContainer vJ = AllLines[j];
+								if (vJ.type < VerUndef)
+									continue;
+								int pNear = 0;
+								if (pNear > 0)
+								{
+									cv::Point2d intersectP;
+									if (vJ.line.IntersectLineForm(hI.line,
+											intersectP))
+									{
+										if (GetDistance(intersectP, vJ.line.P1)
+												> 0.8
+												&& GetDistance(intersectP,
+														vJ.line.P2) > 0.8) 
+										{
+											double estimatedX =
+													-hI.line.GetMiddle().x;
+
+											lowPass(estimatedX, Localization.x,
+													getUpdateCoef(LOWPASSNORMAL,
+															hI.line));
+											AllLines[i].type = HorCenter;
+
+										}
+									}
+								}
+							}
+						}
+
+					}
+
+				}
+
 			}
 		}
 	}
-
 }
+
 
 bool Vision::Init()
 {

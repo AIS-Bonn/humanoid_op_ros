@@ -2,35 +2,17 @@ cmake_minimum_required(VERSION 2.8.3)
 project(vision_module)
 
 
-find_package(catkin REQUIRED COMPONENTS roscpp std_msgs geometry_msgs gait_msgs image_geometry image_transport cv_bridge config_server tf vis_utils nav_msgs head_control soccer_vision)
+find_package(catkin REQUIRED COMPONENTS roscpp std_msgs image_geometry image_transport cv_bridge config_server tf vis_utils nav_msgs head_control)
 find_package(OpenCV REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system chrono timer)
 find_package( PkgConfig REQUIRED)
 pkg_check_modules( gsl REQUIRED gsl )
-
-
-add_message_files(
-	FILES
-	ball_output.msg
-	field_output.msg
-	goal_post_output.msg
-	line_output.msg
-	obstacle_output.msg
-	vision_outputs.msg
-)
- 
-generate_messages(
-	DEPENDENCIES std_msgs geometry_msgs
+catkin_package(
 )
 
 include_directories(include 
   ${catkin_INCLUDE_DIRS}
    ${OpenCV_INCLUDE_DIRS}
-)
-
-catkin_package(
-   INCLUDE_DIRS include
-   LIBRARIES vision_module
 )
 
 add_library(vision_module
@@ -52,7 +34,6 @@ add_library(vision_module
    src/${PROJECT_NAME}/soccer_objects/LineDetector.cpp
    src/${PROJECT_NAME}/soccer_objects/ObstacleDetector.cpp
 )
-
 
 target_link_libraries(vision_module
    ${catkin_LIBRARIES}
@@ -79,7 +60,6 @@ target_link_libraries(vision_module_node
 add_executable(camera_calibration_node 
    src/${PROJECT_NAME}/Calibration/camera_calibration.cpp
 )
-
 target_link_libraries(camera_calibration_node
    vision_module
    ${catkin_LIBRARIES}
@@ -89,15 +69,8 @@ target_link_libraries(camera_calibration_node
    ${gsl_LIBRARIES}
  )
 
-
 install(TARGETS vision_module vision_module_node camera_calibration_node 
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-        
-install(DIRECTORY include/${PROJECT_NAME}/
-        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
-        
-install(PROGRAMS scripts/watch_vision.py scripts/camera_publisher.py
-                      DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+	LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+	RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 

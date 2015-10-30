@@ -58,6 +58,8 @@ namespace nimbro_op_interface
 		config_server::Parameter<bool>  m_fakeAttEnable;
 		config_server::Parameter<float> m_fakeAttFusedX;
 		config_server::Parameter<float> m_fakeAttFusedY;
+		config_server::Parameter<float> m_fakeAttFusedZ;
+		config_server::Parameter<bool>  m_fakeAttFusedHemi;
 		
 		// Config server callbacks
 		void updateUseModel();
