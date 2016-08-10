@@ -62,7 +62,7 @@ add_executable(trajectory_editor_2
 	src/inversespace.cpp
 	src/positionview.cpp
 	src/historykeeper.cpp
-	src/mymarkerdisplay.cpp
+# 	src/mymarkerdisplay.cpp
 )
 
 target_link_libraries(trajectory_editor_2

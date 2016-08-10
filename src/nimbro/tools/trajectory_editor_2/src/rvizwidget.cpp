@@ -41,9 +41,9 @@ void RVizWidget::initialize(ros::NodeHandle* nh)
 
 	m_manager->addDisplay(m_robot, true);
 	
-	myDisplay = new MyMarkerDisplay();
-	myDisplay->setTopic(QString("/foo/bar"), QString("visualization_msgs/Marker"));
-	m_manager->addDisplay(myDisplay, true);
+// 	myDisplay = new MyMarkerDisplay();
+// 	myDisplay->setTopic(QString("/foo/bar"), QString("visualization_msgs/Marker"));
+// 	m_manager->addDisplay(myDisplay, true);
 	
 	/*markerDisplay = new rviz::MarkerDisplay();
 	markerDisplay->setTopic(QString("/foo/bar"), QString("visualization_msgs/Marker"));

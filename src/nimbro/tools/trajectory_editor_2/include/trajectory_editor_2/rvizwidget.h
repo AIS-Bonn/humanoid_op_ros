@@ -7,7 +7,7 @@
 #include <rviz/visualization_frame.h>
 #include <rviz/render_panel.h>
 #include <rviz/default_plugin/marker_display.h>
-#include <trajectory_editor_2/mymarkerdisplay.h>
+// #include <trajectory_editor_2/mymarkerdisplay.h>
 
 #include <ros/publisher.h>
 #include <sensor_msgs/JointState.h>
@@ -39,7 +39,7 @@ private:
     boost::shared_ptr<urdf::Model> m_model;
 	RobotDisplay* m_robot;
 	
-	MyMarkerDisplay     *myDisplay;
+// 	MyMarkerDisplay     *myDisplay;
 	rviz::MarkerDisplay *markerDisplay;
 	ros::NodeHandle n;
 	ros::Subscriber sub;
