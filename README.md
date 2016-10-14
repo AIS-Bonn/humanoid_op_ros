@@ -34,4 +34,4 @@ For more information, please refer to the following webpages:
 
 * The robot: http://nimbro.net/OP
 * Autonomous Intelligent Systems group: http://ais.uni-bonn.de
-[![Analytics](https://ga-beacon.appspot.com/UA-85171269-1/chromeskel_a/readme?pixel)](https://github.com/igrigorik/ga-beacon)
+[![Analytics](https://ga-beacon.appspot.com/UA-85678594-1/chromeskel_a/readme?pixel)](https://github.com/igrigorik/ga-beacon)
