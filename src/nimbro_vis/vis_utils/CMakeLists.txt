@@ -33,11 +33,20 @@ include_directories(include
 	${catkin_INCLUDE_DIRS}
 )
 
-## Build the marker_manager library
+## Build the marker manager library
 add_library(marker_manager
 	src/marker_manager.cpp
 )
 target_link_libraries(marker_manager
+	${catkin_LIBRARIES}
+)
+
+## Build the marker manager test node (not a unit test)
+add_executable(marker_manager_test_node
+	test/marker_manager_test_node.cpp
+)
+target_link_libraries(marker_manager_test_node
+	marker_manager
 	${catkin_LIBRARIES}
 )
 

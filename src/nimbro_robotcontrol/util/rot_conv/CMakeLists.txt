@@ -44,6 +44,14 @@ target_link_libraries(rot_conv
 	${catkin_LIBRARIES}
 )
 
+## Build the sample executable
+add_executable(rot_conv_sample
+	test/rot_conv_sample.cpp
+)
+target_link_libraries(rot_conv_sample
+	rot_conv
+)
+
 ################
 ## Unit tests ##
 ################

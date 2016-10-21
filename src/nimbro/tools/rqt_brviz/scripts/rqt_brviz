@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+
+import sys
+
+from rqt_gui.main import Main
+
+import argparse
+
+
+def add_arguments(parser):
+    group = parser.add_argument_group('Options for rqt_brviz plugin')
+    group.add_argument(
+        '--hide-menu', '-m',
+        help='Hide BRViz menu bar in plugin',
+        action='store_true')
+    group.add_argument(
+        '--ogre-log', '-l',
+        help='Enable the rqt_brviz_ogre(N).log file',
+        action='store_true')
+
+main = Main()
+sys.exit(main.main(sys.argv, standalone='rqt_brviz/BRViz', plugin_argument_provider=add_arguments))

@@ -5,183 +5,236 @@
 
 using namespace cv;
 using namespace std;
-#define SVAE_PICTURES false
-#define NOT_BALLS_ERODE 6 //cm
-#define NOT_BALLS_DILATE 15 //cm
-#define RED_HSV Scalar(5, 255, 255)
-#define MIN_Y_TO_HEAD_CONTROLLER 1
-
-double MIN_LINE_CIRCLE_LENGHT = 0.4;
-double MAX_LINE_CIRCLE_LENGHT = 1.5;
-double MIN_LINE_LENGHT_FOR_LOC = 1.5;
-
-enum LineType
-{
-	HorUndef,
-	HorCenter,
-	HorGoal,
-	HorGoalNear,
-	VerUndef,
-	VerLeft,
-	VerRight,
-	VerLeftNear,
-	VerRightNear,
-	VerLeftT,
-	VerRightT
-};
-
-/**
- *
- */
-class LineContainer
-{
-
-public:
-	inline LineContainer(LineSegment _line, LineType _type) :
-			line(_line), type(_type)
-	{
-
-	}
-	LineSegment line;
-	LineType type;
-};
 
 bool Vision::update()
 {
-	ros::Time now = ros::Time::now();
+	if (!cam->IsReady() || cam->TakeCapture() < 0.75)
+	{
+		HAF_ERROR_THROTTLE(1, "Camera is not ready!");
+		return false;
+	}
+
+	ros::Time capTime = cam->rawImageTime;
 	visionCounter++;
+	updateGuiImg = false;
+	bool publishWebImg = false;
+	bool publishGuiImg = false;
+	if (cam->ShouldPublish() && webImg_pub.thereAreListeners(true))
+	{
+		updateGuiImg = true;
+		publishWebImg = true;
+	}
+	if ((visionCounter % params.debug->publishTime.get() == 0)
+			&& guiImg_pub.thereAreListeners(visionCounter % 30))
+	{
+		updateGuiImg = true;
+		publishGuiImg = true;
+	}
 
-	_cameraProjections.Calibrate();
-
-	if (!_cameraProjections.Update() && !cam->IsReady())
+	ProjectionObj.Calibrate();
+	if (!ProjectionObj.Update(capTime))
 	{
 		return false;
 	}
-
-	confidence = cam->TakeCapture();
-
-	if (confidence < 0.75 && !cam->IsReady())
+	if (!loc.Update(ProjectionObj))
 	{
+		HAF_ERROR_THROTTLE(1, "Cannot update localization!");
 		return false;
 	}
 
-	rawHSV = Mat(cam->rawImage.size(), CV_8UC3);
-	cvtColor(cam->rawImage, rawHSV, CV_BGR2HSV);
+	RawHSVImg = Mat(cam->rawImage.size(), CV_8UC3);
+	cvtColor(cam->rawImage, RawHSVImg, CV_BGR2HSV);
+	cvtColor(cam->rawImage, GrayImg, CV_BGR2GRAY);
+	guiManager.Update(RawHSVImg, cam->rawImage);
 
-	if (guiRawImg_pub.thereAreListeners())
+	if (updateGuiImg)
 	{
-		guiRawImg = cam->rawImage.clone();
+		guiImg = cam->rawImage.clone();
 	}
 
-	if (_cameraProjections.CalculateProjection())
+	if (ProjectionObj.CalculateProjection())
 	{
-		Process(now);
+		Process(capTime);
 	}
-
-	if (!ballTargetUpdated)
+	else
 	{
-		ballTarget.header.stamp = ros::Time::now();
-		ballTarget.point.z -= 0.01;
-		if (ballTarget.point.z < 0)
-			ballTarget.point.z = 0;
+		HAF_ERROR_THROTTLE(1, "Cannot CalculateProjection!");
 	}
-	ballTarget_pub.publish(ballTarget);
-	ballTargetUpdated = false;
-	geometry_msgs::PointStamped robotPos;
-	robotPos.header.stamp = ros::Time::now();
-	robotPos.point.x = Localization.x;
-	robotPos.point.y = Localization.y;
-	robotPos.point.z = Localization.z;
-	robotPos_pub.publish(robotPos);
+	Point3d locLast = loc.GetLocalization();
 
-	if (_hsvPresenter.Update()
-			&& (visionCounter % params.debug.publishTime->get() == 0))
+	outputs.location.position.x = locLast.x;
+	outputs.location.position.y = locLast.y;
+	outputs.location.position.z = locLast.z;
+	outputs.location.probability = 1;
+	plotM.plotScalar(ProjectionObj.headingOffset, PM_HEADING_OFFSET);
+	plotM.plotScalar(ProjectionObj.lastAvalibleTF, PM_LAST_AVALIBLE_TF);
+	hsvPresenter.Update();
+
+	if (updateGuiImg)
 	{
-		for (size_t i = 0; i < params.camCalibrator.clicked.size(); i++)
+		hsvPresenter.DrawOnInputMat(guiImg, updateGuiImg);
+		ProjectionObj.Publish(guiImg, updateGuiImg);
+		guiManager.Publish(GrayImg, guiImg, updateGuiImg);
+		edgeImg_pub.publish(cannyImgInField, MatPublisher::gray);
+		if (publishWebImg)
 		{
-			circle(guiRawImg, params.camCalibrator.clicked[i], 3, blueColor(),
-					2);
+			Mat tmpGuiImg;
+			pyrDown(guiImg, tmpGuiImg);
+			webImg_pub.publish(tmpGuiImg, MatPublisher::bgr);
 		}
-		topViewCircle.update();
-		topViewCircleLR.update();
-		topViewGoalPostLeft.update();
-		topViewGoalPostRight.update();
-		topViewGoalPostLeftLR.update();
-		topViewGoalPostRightLR.update();
-		LocPhiMarker.update();
-		topViewLines.update();
-		topViewLinesLR.update();
-		topViewMarker.publish();
-		topViewMarkerLR.publish();
-		localizationMarker.publish();
-		_hsvPresenter.Publish();
-		filedConvecxImg_pub.publish(fieldConvectHull, MatPublisher::gray);
-		fieldImg_pub.publish(fieldBinary, MatPublisher::gray);
-		lineImg_pub.publish(lineBinary, MatPublisher::gray);
-		goalImg_pub.publish(goalBinary, MatPublisher::gray);
-		ballImg_pub.publish(ballBinary, MatPublisher::gray);
-		_cameraProjections.Publish(guiRawImg,
-				guiRawImg_pub.thereAreListeners());
-		guiRawImg_pub.publish(guiRawImg, MatPublisher::bgr);
-		ballMarker.marker.points.clear();
-		LocMarker.marker.points.clear();
-		topViewLines.marker.points.clear();
-		topViewLinesLR.marker.points.clear();
-		topViewCircle.marker.points.clear();
-		topViewCircle.marker.pose.position.x = -100;
-		topViewCircle.marker.pose.position.y = -100;
-		topViewCircle.marker.pose.position.z = -100;
-		topViewCircleLR.marker.points.clear();
-		topViewCircleLR.marker.pose.position.x = -100;
-		topViewCircleLR.marker.pose.position.y = -100;
-		topViewCircleLR.marker.pose.position.z = -100;
-		topViewGoalPostLeft.marker.points.clear();
-		topViewGoalPostLeft.marker.pose.position.z = -100;
-		topViewGoalPostRight.marker.points.clear();
-		topViewGoalPostRight.marker.pose.position.z = -100;
-		topViewGoalPostLeftLR.marker.points.clear();
-		topViewGoalPostLeftLR.marker.pose.position.z = -100;
-		topViewGoalPostRightLR.marker.points.clear();
-		topViewGoalPostRightLR.marker.pose.position.z = -100;
-		LocPhiMarker.marker.points.clear();
-		LocPhiMarker.marker.pose.position.z = -100;
-		topViewMarker.clear();
-		topViewMarkerLR.clear();
-		localizationMarker.clear();
+		if (publishGuiImg)
+		{
+			guiImg_pub.publish(guiImg, MatPublisher::bgr);
+		}
 	}
 
+	loc.SendTransform(capTime);
+	locM.update(0, 0, 0);
+	locPhiM.marker.pose.position.x = 0.3;
+	locPhiM.marker.pose.position.y = 0;
+	locPhiM.marker.pose.position.z = 0;
+	tf::Quaternion q = tf::createQuaternionFromRPY(M_PI / 2, 0, 0 + M_PI / 2);
+	locPhiM.marker.pose.orientation.w = q.getW();
+	locPhiM.marker.pose.orientation.x = q.getX();
+	locPhiM.marker.pose.orientation.y = q.getY();
+	locPhiM.marker.pose.orientation.z = q.getZ();
+	egoCircleM.updateAdd();
+	egoGoalPostLM.updateAdd();
+	egoGoalPostRM.updateAdd();
+	locPhiM.updateAdd();
+	egoFieldM.updateAdd();
+	egoLinesM.updateAdd();
+	egoDetectionMarker.publish();
+	localizationMarker.publish();
+	egoBallM.marker.points.clear();
+	locM.marker.points.clear();
+	egoFieldM.marker.points.clear();
+	egoLinesM.marker.points.clear();
+	egoLinesM.marker.colors.clear();
+	egoCircleM.marker.points.clear();
+	egoCircleM.marker.pose.position.x = -100;
+	egoCircleM.marker.pose.position.y = -100;
+	egoCircleM.marker.pose.position.z = -100;
+	egoGoalPostLM.marker.points.clear();
+	egoGoalPostLM.marker.pose.position.z = -100;
+	egoGoalPostRM.marker.points.clear();
+	egoGoalPostRM.marker.pose.position.z = -100;
+	locPhiM.marker.points.clear();
+	locPhiM.marker.pose.position.z = -100;
+	egoDetectionMarker.clear();
+	egoDetectionMarker.reset();
+	localizationMarker.clear();
+	visionOutputs_pub.publish(outputs);
+	if (params.ball->printBallDetection())
+	{
+		guiManager.writeGuiConsoleFormat(
+				outputs.ball.detected ? pinkColor() : yellowColor(),
+				" Ball = [X=%.2f, Y=%.2f] -> %.2f", outputs.ball.position.x,
+				outputs.ball.position.y,
+				GetDistance(
+						Point2f(outputs.ball.position.x,
+								outputs.ball.position.y)));
+	}
+	plotM.publish();
+	plotM.clear();
 	return true;
 }
 
-void Vision::Process(ros::Time now)
+void Vision::Process(ros::Time capTime)
 {
-
-	if (!params.ball.track->get())
+	int markerIdx = 0;
+	outputs.obstacles.clear();
+	//Update Obstacle
 	{
-		head_control::LookAtTarget t;
-		t.enabled = true;
-		t.pitchEffort = -1;
-		t.yawEffort = -1;
-		head_pub.publish(t);
+		for (vector<ObstacleC>::iterator it = obstacles.begin();
+				it != obstacles.end();)
+		{
+
+			if (!it->decayConfidence())
+			{
+				it = obstacles.erase(it);
+			}
+			else
+			{
+				++it;
+			}
+		}
+
+		outputs.obstacles.resize(obstacles.size());
+		vis_utils::CylinderMarker tmpMarker(&egoDetectionMarker, "/ego_floor",
+				0.6, 0.1, "obstacle", true);
+
+		for (size_t obsIdx = 0; obsIdx < obstacles.size(); obsIdx++)
+		{
+
+			outputs.obstacles[obsIdx].position.x = obstacles[obsIdx].Position.x;
+			outputs.obstacles[obsIdx].position.y = obstacles[obsIdx].Position.y;
+			outputs.obstacles[obsIdx].position.z = 0;
+			outputs.obstacles[obsIdx].probability =
+					obstacles[obsIdx].getConfidence();
+			outputs.obstacles[obsIdx].id = obstacles[obsIdx].id;
+
+			tmpMarker.setColor(0, 0, 0, obstacles[obsIdx].getConfidence());
+			tmpMarker.setPosition(obstacles[obsIdx].Position.x,
+					obstacles[obsIdx].Position.y, 0.2);
+			egoDetectionMarker.updateDynamicMarker(markerIdx++, tmpMarker);
+		}
+	}
+	Point3d locLast = loc.GetLocalization();
+
+	fieldHullReal.clear();
+	fieldHullRealRotated.clear();
+	outputs.header.stamp = capTime;
+	outputs.header.frame_id = "/ego_floor";
+
+	Point2f lastBall = loc.getBall();
+	outputs.ball.position.x = lastBall.x;
+	outputs.ball.position.y = lastBall.y;
+	outputs.ball.position.z = 0;
+
+	outputs.ball.probability -= 0.01;
+	if (outputs.ball.probability < 0)
+	{
+		outputs.ball.probability = 0;
 	}
 
+	outputs.ball.detected = false;
+	outputs.goals.clear();
 
+	if (params.ball->loadCascadeFile())
+	{
+		if (ballDetector.LoadCascade())
+		{
+			ROS_INFO("Cascade reloaded from file for ballDetector");
+		}
+		else
+		{
+			ROS_ERROR("Cascade reload failed for ballDetector");
+		}
+		if (guiManager.LoadCascade())
+		{
+			ROS_INFO("Cascade reloaded from file for guiManager");
+		}
+		else
+		{
+			ROS_ERROR("Cascade reload failed for guiManager");
+		}
+		params.ball->loadCascadeFile.set(false);
+	}
 
-	FieldHullReal.clear();
-
-	fieldBinary = Mat::zeros(rawHSV.size(), CV_8UC1);
-	Mat fieldBinaryRaw = Mat::zeros(rawHSV.size(), CV_8UC1);
-	inRange(rawHSV,
-			Scalar(params.field.h0->get(), params.field.s0->get(),
-					params.field.v0->get()),
-			Scalar(params.field.h1->get(), params.field.s1->get(),
-					params.field.v1->get()), fieldBinaryRaw);
+	fieldBinary = Mat::zeros(RawHSVImg.size(), CV_8UC1);
+	Mat fieldBinaryRaw = Mat::zeros(RawHSVImg.size(), CV_8UC1);
+	inRange(RawHSVImg,
+			Scalar(params.field->h0.get(), params.field->s0.get(),
+					params.field->v0.get()),
+			Scalar(params.field->h1.get(), params.field->s1.get(),
+					params.field->v1.get()), fieldBinaryRaw);
 	fieldBinary = fieldBinaryRaw.clone();
 
-	if (params.debug.maskField->get() && guiRawImg_pub.thereAreListeners())
+	if (params.field->showMask.get() && updateGuiImg)
 	{
-		Mat darker = Mat::zeros(guiRawImg.size(), CV_8UC3);
-		darker.copyTo(guiRawImg, 255 - fieldBinaryRaw);
+		Mat darker = Mat::zeros(guiImg.size(), CV_8UC3);
+		darker.copyTo(guiImg, 255 - fieldBinaryRaw);
 	}
 
 	vector<Point> fieldPoints;
@@ -189,835 +242,721 @@ void Vision::Process(ros::Time now)
 	vector<vector<Point> > allFieldContours;
 
 
-	if (_fieldDetector.GetPoints(fieldBinary, fieldPoints, allFieldContours))
+	if (params.field->enable.get()
+			&& fieldDetector.GetPoints(fieldBinary, fieldPoints,
+					allFieldContours))
 	{
-		if (params.debug.showAllField->get()
-				&& guiRawImg_pub.thereAreListeners())
+		if (params.field->showDebug.get() && updateGuiImg)
 		{
-			drawContours(guiRawImg, allFieldContours, -1, Scalar(70, 220, 70),
-					2, 8);
+			drawContours(guiImg, allFieldContours, -1, Scalar(70, 220, 70), 2,
+					8);
 		}
 
-		if (_cameraProjections._distorionModel.UndistortP(fieldPoints,
+		if (ProjectionObj.distorionModel.UndistortP(fieldPoints,
 				fieldContourUndistort))
 		{
 			vector<Point> hullUndistort, hullUndistortMidP, hullField;
 			convexHull(fieldContourUndistort, hullUndistort, false);
 
+			const int NUM_MID_P = 3;
+			const int COUNT_MID_P = pow(2, NUM_MID_P) + 1; //17
+			hullUndistortMidP.reserve(COUNT_MID_P * hullUndistort.size());
+			vector<Point2f> undistortedPointPool, realPointPool;
+			undistortedPointPool.resize(COUNT_MID_P * hullUndistort.size());
 			for (size_t i = 0; i < hullUndistort.size(); i++)
 			{
 				size_t cur = i;
 				size_t next = (i >= hullUndistort.size() - 1) ? 0 : i + 1;
 				LineSegment ls(hullUndistort[cur], hullUndistort[next]);
-				vector<Point2d> resMP = ls.GetMidPoints(4);
-				for (size_t j = 0; j < resMP.size(); j++)
+				vector<Point2d> resMP = ls.GetMidPoints(NUM_MID_P, true);
+				for (size_t j = 0; j < COUNT_MID_P; j++)
 				{
-					hullUndistortMidP.push_back(Point(resMP[j].x, resMP[j].y));
-
+					undistortedPointPool[i * COUNT_MID_P + j] = resMP[j];
 				}
 			}
 
-			if (_cameraProjections._distorionModel.DistortP(hullUndistortMidP,
-					hullField))
+			if (ProjectionObj.GetOnRealCordinate_FromUndistorted(
+					undistortedPointPool, realPointPool))
 			{
 
-				vector<vector<Point> > hulls = vector<vector<Point> >(1,
-						hullField);
-				fieldConvectHull = Mat::zeros(fieldBinary.size(), CV_8UC1);
-
-				vector<cv::Point> tmpBodyMaskContour =
-						_fieldDetector.getBodyMaskContourInRaw(
-								-Radian2Degree(0)); //todo
-				bool considerBodyMask = (tmpBodyMaskContour.size() >= 6);
-
-				//uchar *fieldMaskHullData = fieldMaskHull.data;
-				//for (size_t y = 0; y < RAW_HEIGHT; y++)
-				//{
-				//	for (size_t x = 0; x < RAW_WIDTH; x++)
-				//	{
-				//		cv::Point p(x, y);
-				//		if (cv::pointPolygonTest(FieldHull, p, false) >= 0)
-				//		{
-				//			if (considerBodyMask )
-				//			{
-				//				if (cv::pointPolygonTest(tmpBodyMaskContour, p, false) <= 0)
-				//				{
-				//					*fieldMaskHullData = 255;
-				//				}
-				//			}
-				//			else
-				//			{
-				//				*fieldMaskHullData = 255;
-				//			}
-
-				//		}
-				//		fieldMaskHullData++;
-				//	}
-				//}
-
-				drawContours(fieldConvectHull, hulls, -1, grayWhite(),
-				CV_FILLED, 8);
-
-				if (considerBodyMask)
+				for (size_t i = 0; i < realPointPool.size(); i++)
 				{
-
-					cv::Mat bodyMaskMat = cv::Mat::zeros(rawHSV.size(),
-					CV_8UC1);
-					vector<vector<cv::Point> > hullstmpBodyMaskContour = vector<
-							vector<cv::Point> >(1, tmpBodyMaskContour);
-					drawContours(bodyMaskMat, hullstmpBodyMaskContour, -1,
-							grayWhite(),
-							CV_FILLED, 8);
-					fieldConvectHull -= bodyMaskMat;
+					Point2d unroatedCameraYaw = ProjectionObj.unroateCameraYaw(
+							realPointPool[i]);
+					if (unroatedCameraYaw.x > params.field->minAcceptX()
+							&& GetDistance(realPointPool[i])
+									< params.field->maxAcceptDistance())
+					{
+						hullUndistortMidP.push_back(
+								Point(undistortedPointPool[i].x,
+										undistortedPointPool[i].y));
+					}
 				}
 
-				if (hullField.size() > 1)
+				if (ProjectionObj.distorionModel.DistortP(hullUndistortMidP,
+						hullField))
 				{
-					FieldHullRealCenter.x = 0;
-					FieldHullRealCenter.y = 0;
-					for (size_t fI = 0; fI < hullField.size(); fI++)
+					if (params.field->showDebug() && updateGuiImg)
 					{
-						cv::Point2f realHP;
-						if (!_cameraProjections.GetOnRealCordinate(
-								hullField[fI], realHP))
+						for (size_t i = 0; i < hullField.size(); i++)
+						{
+							circle(guiImg, hullField[i], 4, redColor(), 3);
+						}
+					}
+
+					vector<vector<Point> > hulls = vector<vector<Point> >(1,
+							hullField);
+					fieldConvectHull = Mat::zeros(fieldBinary.size(), CV_8UC1);
+
+					vector<cv::Point> tmpBodyMaskContour =
+							fieldDetector.getBodyMaskContourInRaw(
+									-Radian2Degree(0)); //todo
+					bool considerBodyMask = (tmpBodyMaskContour.size() >= 6);
+
+
+					drawContours(fieldConvectHull, hulls, -1, grayWhite(),
+					CV_FILLED, 8);
+
+					if (considerBodyMask)
+					{
+
+						cv::Mat bodyMaskMat = cv::Mat::zeros(RawHSVImg.size(),
+						CV_8UC1);
+						vector<vector<cv::Point> > hullstmpBodyMaskContour =
+								vector<vector<cv::Point> >(1,
+										tmpBodyMaskContour);
+						drawContours(bodyMaskMat, hullstmpBodyMaskContour, -1,
+								grayWhite(), CV_FILLED, 8);
+						fieldConvectHull -= bodyMaskMat;
+					}
+
+					if (hullField.size() > 1)
+					{
+
+						vector<Point2f> realHP;
+						if (!ProjectionObj.GetOnRealCordinate(hullField,
+								realHP))
 						{
 							ROS_ERROR("Error in programming!");
 						}
-						FieldHullReal.push_back(realHP);
-						FieldHullRealCenter.x += realHP.x;
-						FieldHullRealCenter.y += realHP.y;
+
+						fieldHullRealCenter.x = 0;
+						fieldHullRealCenter.y = 0;
+						fieldHullReal.resize(realHP.size());
+						for (size_t fI = 0; fI < realHP.size(); fI++)
+						{
+							fieldHullReal[fI] = realHP[fI];
+							fieldHullRealCenter.x += realHP[fI].x;
+							fieldHullRealCenter.y += realHP[fI].y;
+						}
+						fieldHullRealCenter.x /= fieldHullReal.size();
+						fieldHullRealCenter.y /= fieldHullReal.size();
 					}
 
-					FieldHullRealCenter.x /= FieldHullReal.size();
-					FieldHullRealCenter.y /= FieldHullReal.size();
-				}
-
-				Mat gray;
-				cvtColor(cam->rawImage, gray, CV_BGR2GRAY);
-				if (params.debug.showFieldHull->get()
-						&& guiRawImg_pub.thereAreListeners())
-				{
-					drawContours(guiRawImg, hulls, -1, yellowColor(), 2, 8);
-
-				}
-				const int OBJ_COUNT = 3;
-				Mat binaryImgs[OBJ_COUNT];
-				binaryImgs[0] = ballBinary = Mat::zeros(rawHSV.size(), CV_8UC1); //ball
-				binaryImgs[1] = goalBinary = Mat::zeros(rawHSV.size(), CV_8UC1); //goal
-				binaryImgs[2] = obstacleBinary = Mat::zeros(rawHSV.size(),
-				CV_8UC1); //obstacle
-				hsvRangeC ranges[OBJ_COUNT];
-				ranges[0] = params.ball;
-				ranges[1] = params.goal;
-				ranges[2] = params.obstacle;
-				bool inTemplate[OBJ_COUNT];
-				inTemplate[0] = true;
-				inTemplate[1] = false;
-				inTemplate[2] = true;
-
-				Mat channels[3], lineTmp, lineBinaryFull;
-				split(rawHSV, channels);
-				lineBinary = Mat::zeros(lineBinary.size(), CV_8UC1);
-				blur(channels[2], lineTmp, Size(3, 3));
-
-				Canny(lineTmp, lineTmp, params.cannyThreadshold->get(),
-						params.cannyThreadshold->get() * 3, 3);
-
-				lineTmp.copyTo(lineBinary, fieldConvectHull);
-				channels[2].copyTo(lineBinaryFull, fieldConvectHull);
-
-				_fieldDetector.FindInField(rawHSV, fieldConvectHull, binaryImgs,
-						ranges, inTemplate, OBJ_COUNT);
-
-				if (params.debug.maskBall->get()
-						&& guiRawImg_pub.thereAreListeners())
-				{
-
-					Mat darker = Mat::zeros(guiRawImg.size(), CV_8UC3);
-					darker.copyTo(guiRawImg, 255 - ballBinary);
-				}
-				if (params.debug.maskGoal->get()
-						&& guiRawImg_pub.thereAreListeners())
-				{
-
-					Mat darker = Mat::zeros(guiRawImg.size(), CV_8UC3);
-					darker.copyTo(guiRawImg, 255 - goalBinary);
-				}
-				if (params.debug.maskLine->get()
-						&& guiRawImg_pub.thereAreListeners())
-				{
-
-					Mat darker = Mat::zeros(guiRawImg.size(), CV_8UC3);
-					darker.copyTo(guiRawImg, 255 - lineBinary);
-				}
-
-
-				if (false)
-				{
-					Mat BigWhiteNotBall = ballBinary.clone();
-					erode(BigWhiteNotBall, BigWhiteNotBall, Mat(),
-							Point(-1, -1),
-							NOT_BALLS_ERODE / params.topView.scale->get());
-
-					dilate(BigWhiteNotBall, BigWhiteNotBall, Mat(),
-							Point(-1, -1),
-							NOT_BALLS_DILATE / params.topView.scale->get());
-
-					ballImg_debug_pub.publish(BigWhiteNotBall,
-							MatPublisher::gray, now);
-					ballBinary = ballBinary - BigWhiteNotBall;
-				}
-
-				erode(ballBinary, ballBinary, Mat(), Point(-1, -1),
-						params.ball.erode->get());
-
-				dilate(ballBinary, ballBinary, Mat(), Point(-1, -1),
-						params.ball.dilate->get());
-
-				erode(goalBinary, goalBinary, Mat(), Point(-1, -1),
-						params.goal.erode->get());
-
-				dilate(goalBinary, goalBinary, Mat(), Point(-1, -1),
-						params.goal.dilate->get());
-
-				{
-					vector<vector<cv::Point> > obstacleInRaw;
-					vector<cv::Point2f> obsInReal;
-					vector<cv::Point> obstaclePoint =
-							_obstacleDetector.GetObstacleContours(
-									obstacleBinary, obsInReal, obstacleInRaw,
-									_cameraProjections);
-				}
-
-				vector<LineSegment> clusteredLines;
-				Point2d resultCircle;
-
-				{
-					vector<LineSegment> resLines;
-
-					if (_lineDetector.GetLines(rawHSV, fieldBinaryRaw,
-							guiRawImg, guiRawImg_pub.thereAreListeners(),
-							lineBinary, resLines))
+					if (fieldHullReal.size() > 3)
 					{
-						vector<LineSegment> resLinesReal;
-
-						vector<LineSegment> clusteredLinesImg;
-						if (_cameraProjections.GetOnRealCordinate(resLines,
-								resLinesReal))
+						cv::approxPolyDP(fieldHullReal, fieldHullReal,
+								cv::arcLength(fieldHullReal, true)
+										* params.field->approxPoly.get(), true);
+						fieldHullRealRotated =
+								ProjectionObj.RotateTowardHeading(
+										fieldHullReal);
+						for (size_t i = 0; i < fieldHullRealRotated.size(); i++)
 						{
 
-							Rect rec;
-							rec.x = -1 * params.topView.width->get();
-							rec.y = -1 * params.topView.width->get();
-							rec.width = 2 * params.topView.width->get();
-							rec.height = 2 * params.topView.width->get();
+							geometry_msgs::Point ploc1;
+							ploc1.x = fieldHullReal[i].x;
+							ploc1.y = fieldHullReal[i].y;
+							ploc1.z = 0.0;
 
-							if (MergeLinesMax(resLinesReal,
-									params.line.AngleToMerge->get(),
-									params.line.DistanceToMerge->get(),
-									clusteredLines, rec))
+							int next = (
+									(i == fieldHullReal.size() - 1) ? 0 : i + 1);
+							geometry_msgs::Point ploc2;
+							ploc2.x = fieldHullReal[next].x;
+							ploc2.y = fieldHullReal[next].y;
+							ploc2.z = 0.0;
+
+							egoFieldM.marker.points.push_back(ploc1);
+							egoFieldM.marker.points.push_back(ploc2);
+
+						}
+					}
+
+					if (params.field->showResult.get() && updateGuiImg)
+					{
+						drawContours(guiImg, hulls, -1, yellowColor(), 2, 8);
+					}
+					const int OBJ_COUNT = 3;
+					Mat binaryImgs[OBJ_COUNT];
+					binaryImgs[0] = ballBinary = Mat::zeros(RawHSVImg.size(),
+					CV_8UC1); //ball
+					binaryImgs[1] = goalBinary = Mat::zeros(RawHSVImg.size(),
+					CV_8UC1); //goal
+					binaryImgs[2] = obstacleBinary = Mat::zeros(
+							RawHSVImg.size(),
+							CV_8UC1); //obstacle
+					hsvRangeC ranges[OBJ_COUNT];
+					ranges[0] = params.ball->GetHSVRange();
+					ranges[1] = params.goal->GetHSVRange();
+					ranges[2] = params.obstacle->GetHSVRange();
+					bool inTemplate[OBJ_COUNT];
+					inTemplate[0] = true;
+					inTemplate[1] = false;
+					inTemplate[2] = true;
+
+					fieldDetector.FindInField(RawHSVImg, fieldConvectHull,
+							binaryImgs, ranges, inTemplate, OBJ_COUNT);
+
+					if (params.ball->showMask.get() && updateGuiImg)
+					{
+						Mat darker = Mat::zeros(guiImg.size(), CV_8UC3);
+						darker.copyTo(guiImg, 255 - ballBinary);
+					}
+					if (params.goal->showMask.get() && updateGuiImg)
+					{
+						Mat darker = Mat::zeros(guiImg.size(), CV_8UC3);
+						darker.copyTo(guiImg, 255 - goalBinary);
+					}
+
+					if (params.obstacle->mask.get() && updateGuiImg)
+					{
+						Mat darker = Mat::zeros(guiImg.size(), CV_8UC3);
+						darker = whiteColor();
+						darker.copyTo(guiImg, 255 - obstacleBinary);
+					}
+
+					if (params.ball->erode.get() > 0)
+					{
+						erode(ballBinary, ballBinary, Mat(), Point(-1, -1),
+								params.ball->erode.get());
+					}
+					if (params.ball->dilate.get() > 0)
+					{
+						dilate(ballBinary, ballBinary, Mat(), Point(-1, -1),
+								params.ball->dilate.get());
+					}
+					if (params.ball->erode2.get() > 0)
+					{
+						erode(ballBinary, ballBinary, Mat(), Point(-1, -1),
+								params.ball->erode2.get());
+					}
+					if (params.ball->dilate2.get() > 0)
+					{
+						dilate(ballBinary, ballBinary, Mat(), Point(-1, -1),
+								params.ball->dilate2.get());
+					}
+
+					if (params.obstacle->erode.get() > 0)
+					{
+						erode(obstacleBinary, obstacleBinary, Mat(),
+								Point(-1, -1), params.obstacle->erode.get());
+					}
+					if (params.obstacle->dilate.get() > 0)
+					{
+						dilate(obstacleBinary, obstacleBinary, Mat(),
+								Point(-1, -1), params.obstacle->dilate.get());
+					}
+
+					Mat channels[3], cannyImg;
+					split(RawHSVImg, channels);
+					cannyImgInField = Mat::zeros(cannyImgInField.size(),
+					CV_8UC1);
+					blur(channels[2], cannyImg,
+							Size(params.line->blurSize.get(),
+									params.line->blurSize.get()));
+
+					Canny(cannyImg, cannyImg,
+							params.line->cannyThreadshold.get(),
+							params.line->cannyThreadshold.get() * 3,
+							params.line->cannyaperture.get());
+					//Obstacle
+					if (params.obstacle->enable.get())
+					{
+						cpu_timer timer_obst;
+						vector<cv::Point2f> obsInReal;
+						if (obstacleDetector.GetObstacleContours(obstacleBinary,
+								obsInReal, guiImg, ProjectionObj, updateGuiImg))
+						{
+							for (size_t i = 0; i < obsInReal.size(); i++)
 							{
-
-								vector<Point2d> circlePoint;
-								for (size_t lineI = 0;
-										lineI < clusteredLines.size(); lineI++)
+								bool registered = false;
+								for (size_t obsIdx = 0;
+										obsIdx < obstacles.size(); obsIdx++)
 								{
-									double lLength =
-											clusteredLines[lineI].GetLength();
-									if (lLength > 1.5 || lLength < 0.2)
+									if (obstacles[obsIdx].update(obsInReal[i],
+											1))
 									{
-										continue;
-									}
-
-									LineSegment pls =
-											clusteredLines[lineI].PerpendicularLineSegment();
-									for (size_t lineJ = lineI + 1;
-											lineJ < clusteredLines.size();
-											lineJ++)
-									{
-
-										double lLength2 =
-												clusteredLines[lineJ].GetLength();
-										if (lLength2 > 1.5 || lLength2 < 0.2)
-										{
-											continue;
-										}
-										if (dist3D_Segment_to_Segment(
-												clusteredLines[lineJ],
-												clusteredLines[lineI]) > 0.3)
-											continue;
-										LineSegment pls2 =
-												clusteredLines[lineJ].PerpendicularLineSegment();
-										Point2d intersect;
+										registered = true;
+										break;
 									}
 								}
 
-
-
-								if (_cameraProjections.GetOnImageCordinate(
-										clusteredLines, clusteredLinesImg))
+								if (!registered)
 								{
-									for (size_t i = 0;
-											i < clusteredLines.size(); i++)
+									long unsigned int id = 1;
+									if (obstacles.size() > 0)
 									{
-										geometry_msgs::Point loc;
-										loc.x = loc.y = Localization.y;
-										loc.z = 0.0;
-
-										geometry_msgs::Point p1;
-										p1.x = clusteredLines[i].P1.x;
-										p1.y = clusteredLines[i].P1.y;
-										p1.z = 0.0;
-										geometry_msgs::Point p2;
-										p2.x = clusteredLines[i].P2.x;
-										p2.y = clusteredLines[i].P2.y;
-										p2.z = 0.0;
-
-										geometry_msgs::Point ploc1;
-										ploc1.x = clusteredLines[i].P1.x
-												+ Localization.x;
-										ploc1.y = clusteredLines[i].P1.y
-												+ Localization.y;
-										ploc1.z = 0.0;
-
-										geometry_msgs::Point ploc2;
-										ploc2.x = clusteredLines[i].P2.x
-												+ Localization.x;
-										ploc2.y = clusteredLines[i].P2.y
-												+ Localization.y;
-										ploc2.z = 0.0;
-
-										topViewLines.marker.points.push_back(
-												p1);
-										topViewLines.marker.points.push_back(
-												p2);
-										topViewLinesLR.marker.points.push_back(
-												ploc1);
-										topViewLinesLR.marker.points.push_back(
-												ploc2);
-
-										if (params.debug.showCombinedLine->get()
-												&& guiRawImg_pub.thereAreListeners())
-										{
-											line(guiRawImg,
-													clusteredLinesImg[i].P1,
-													clusteredLinesImg[i].P2,
-													greenColor(), 3, 8);
-											circle(guiRawImg,
-													clusteredLinesImg[i].P1, 2,
-													blueColor(), 2, 8);
-											circle(guiRawImg,
-													clusteredLinesImg[i].P2, 2,
-													blueColor(), 2, 8);
-										}
-
+										id = obstacles[obstacles.size() - 1].id
+												+ 1;
 									}
-								}
-							}
-							else
-							{
-								cout << "PPFEROOR" << endl;
-							}
-							for (size_t i = 0; i < resLines.size(); i++)
-							{
-								if (params.debug.showAllLine->get()
-										&& guiRawImg_pub.thereAreListeners())
-								{
-									line(guiRawImg, resLines[i].P1,
-											resLines[i].P2, redColor(), 1, 8);
-								}
-							}
-
-						}
-						else
-						{
-							cout << "EERRORR1" << endl;
-						}
-					}
-				}
-
-				vector<Point2f> goalPositionOnReal;
-				{
-					vector<LineSegment> resLines, alllL;
-
-					bool goalRes = _goalDetector.GetPosts(gray,
-							goalBinary.clone(), _cameraProjections, hullField,
-							resLines, alllL, goalPositionOnReal,
-							guiRawImg_pub.thereAreListeners(), guiRawImg);
-
-					if (params.debug.showAllGoal->get()
-							&& guiRawImg_pub.thereAreListeners())
-					{
-						for (size_t i = 0; i < alllL.size(); i++)
-						{
-							line(guiRawImg, alllL[i].P1, alllL[i].P2,
-									Scalar(255, 0, 0), 2, 8);
-						}
-					}
-					if (goalRes)
-					{
-
-						if (params.debug.showGoalVer->get()
-								&& guiRawImg_pub.thereAreListeners())
-						{
-							for (size_t i = 0; i < resLines.size(); i++)
-							{
-								line(guiRawImg, resLines[i].P1, resLines[i].P2,
-										yellowColor(), 3, 8);
-							}
-						}
-
-						if (goalPositionOnReal.size() > 1)
-						{
-
-							topViewGoalPostRight.marker.pose.position.x =
-									goalPositionOnReal[0].x;
-							topViewGoalPostRight.marker.pose.position.y =
-									goalPositionOnReal[0].y;
-							topViewGoalPostRight.marker.pose.position.z = 0.6;
-
-							topViewGoalPostLeft.marker.pose.position.x =
-									goalPositionOnReal[1].x;
-							topViewGoalPostLeft.marker.pose.position.y =
-									goalPositionOnReal[1].y;
-							topViewGoalPostLeft.marker.pose.position.z = 0.6;
-
-							topViewGoalPostRightLR.marker.pose.position.x =
-									goalPositionOnReal[0].x + Localization.x;
-							topViewGoalPostRightLR.marker.pose.position.y =
-									goalPositionOnReal[0].y + Localization.y;
-							topViewGoalPostRightLR.marker.pose.position.z = 0.6;
-
-							topViewGoalPostLeftLR.marker.pose.position.x =
-									goalPositionOnReal[1].x + Localization.x;
-							topViewGoalPostLeftLR.marker.pose.position.y =
-									goalPositionOnReal[1].y + Localization.y;
-							topViewGoalPostLeftLR.marker.pose.position.z = 0.6;
-
-						}
-						else if (goalPositionOnReal.size() > 0)
-						{
-
-							topViewGoalPostRight.marker.pose.position.x =
-									goalPositionOnReal[0].x;
-							topViewGoalPostRight.marker.pose.position.y =
-									goalPositionOnReal[0].y;
-							topViewGoalPostRight.marker.pose.position.z = 0.6;
-
-							topViewGoalPostRightLR.marker.pose.position.x =
-									goalPositionOnReal[0].x + Localization.x;
-							topViewGoalPostRightLR.marker.pose.position.y =
-									goalPositionOnReal[0].y + Localization.y;
-							topViewGoalPostRightLR.marker.pose.position.z = 0.6;
-						}
-
-					}
-
-				}
-
-
-				{
-
-					vector<cv::Rect> ballResult = _ballDetector.GetBallRect(
-							rawHSV, hullField, fieldBinaryRaw, gray, ballBinary,
-							_cameraProjections, guiRawImg,
-							guiRawImg_pub.thereAreListeners());
-
-					for (size_t bI = 0; bI < ballResult.size(); bI++)
-					{
-						Point2d b = RectToMyCircle(ballResult[bI]).Center;
-						vector<Point> in;
-						vector<Point2f> out;
-						in.push_back(b);
-						if (_cameraProjections.GetOnRealCordinate(in, out))
-						{
-							ballTarget.header.stamp = ros::Time::now();
-
-							ballTarget.point.x = out[0].x;
-							ballTarget.point.y = out[0].y;
-							ballTarget.point.z = 1;
-							if (ballTarget.point.z > 1)
-								ballTarget.point.z = 1;
-							ballTargetUpdated = true;
-
-							ballMarker.update(out[0].x, out[0].y, 0);
-							if (params.debug.showBall->get()
-									&& guiRawImg_pub.thereAreListeners())
-							{
-								circle(guiRawImg, b,
-										RectToMyCircle(ballResult[0]).radius,
-										pinkColor(), 3);
-							}
-
-							if (params.ball.track->get())
-							{
-								if (abs(out[0].y) > 0.24)
-								{
-									head_control::LookAtTarget t;
-									t.enabled = true;
-									t.is_angular_data = true;
-									t.is_relative = true;
-									t.pitchEffort = 1;
-									t.yawEffort = 1;
-									t.vec.z = atan2(-out[0].y, out[0].x) / 3.5; //sign(bR.y) * 0.1; //Head_Control_Pos.z;
-									t.vec.y = 0;
-									t.vec.x = 0;
-									head_pub.publish(t);
+									obstacles.push_back(
+											ObstacleC(obsInReal[i], 1, id));
 								}
 							}
 						}
+						plotM.plotScalar(timer_obst.elapsed().wall / 1000000.0,
+								PM_OBSTACLE_TIME);
 					}
-					if (ballResult.size() > 0)
-					{
 
-					}
-					else
+					if (params.ball->enable.get())
 					{
-						Head_Control_Pos.z = 0;
-						head_control::LookAtTarget t;
-						t.enabled = true;
-						t.is_angular_data = true;
-						t.is_relative = true;
-						t.vec.z = 0;
-						t.vec.y = 0;
-						t.vec.x = 0;
-						head_pub.publish(t);
-					}
-				}
-				
-				{
-				  bool circleDetected=false;
-				  const double A2 = A / 2.;
-				  const double B2 = B / 2.;
-				  double compassOffsetLoc=0;
-					vector<LineContainer> AllLines;
-			
-					if (true)
-					{
-
-						LineSegment HorLine(cv::Point(0, -10),
-								cv::Point(0, 10));
-						LineSegment VerLine(cv::Point(10, 0),
-								cv::Point(-10, 0));
-
-						for (size_t i = 0; i < clusteredLines.size(); i++)
+						cpu_timer timer_ball;
+						vector<BallCircleC> ballResults = ballDetector.GetBall(
+								RawHSVImg, hullField, fieldBinaryRaw, GrayImg,
+								ballBinary, fieldConvectHull, ProjectionObj,
+								cannyImg, &guiManager, guiImg, updateGuiImg);
+						if (ballResults.size() > 0)
 						{
-							LineSegment lineSeg = clusteredLines[i];
+							loc.setBall(ballResults[0].RealPos);
+							egoBallM.update(ballResults[0].RealPos.x,
+									ballResults[0].RealPos.y, 0);
+							outputs.ball.position.x = ballResults[0].RealPos.x;
+							outputs.ball.position.y = ballResults[0].RealPos.y;
+							outputs.ball.position.z = 0;
+							outputs.ball.probability = 1;
+							outputs.ball.detected = true;
+						}
+						plotM.plotScalar(timer_ball.elapsed().wall / 1000000.0,
+								PM_BALL_TIME);
+					}
+					cannyImg.copyTo(cannyImgInField, fieldConvectHull);
 
-							if (lineSeg.GetLength() > MIN_LINE_LENGHT_FOR_LOC)
+					vector<LineSegment> clusteredLines;
+					vector<LineSegment> clusteredLinesRotated;
+					bool LinedetectionOK = false;
+
+					if (params.line->enable.get())
+					{
+						cpu_timer timer_line;
+						Rect topViewBox;
+						topViewBox.x = -1 * params.topView->width.get();
+						topViewBox.y = -1 * params.topView->width.get();
+						topViewBox.width = 2 * params.topView->width.get();
+						topViewBox.height = 2 * params.topView->width.get();
+						vector<LineSegment> resLines;
+						if (lineDetector.GetLines(RawHSVImg, fieldBinaryRaw,
+								guiImg, ProjectionObj, updateGuiImg,
+								cannyImgInField,
+								IMGBOX, resLines))
+						{
+							vector<LineSegment> resLinesReal;
+							if (ProjectionObj.GetOnRealCordinate(resLines,
+							resLinesReal))
 							{
-								cv::Point2d mid = lineSeg.GetMiddle();
-
-								if (lineSeg.GetAbsMinAngleDegree(VerLine) < 45)
+								if (MergeLinesMax(resLinesReal,
+								params.line->AngleToMerge.get(),
+								params.line->DistanceToMerge.get(),
+								clusteredLines, topViewBox))
 								{
-									LineType thisType = VerUndef;
-									double angleDiffVer =
-											lineSeg.GetExteriorAngleDegree(
-													VerLine);
-									if (angleDiffVer < -90)
-										angleDiffVer += 180;
-									if (angleDiffVer > 90)
-										angleDiffVer += -180;
-
-									lowPass(angleDiffVer, compassOffsetLoc,
-											getUpdateCoef(0.05, lineSeg));
-
-									if (lineSeg.DistanceFromLine(
-											cv::Point(0, 0)) > 0.7)
+									clusteredLinesRotated =
+									ProjectionObj.RotateTowardHeading(
+									clusteredLines);
+									LinedetectionOK = true;
+									egoLinesM.marker.colors.resize(
+									clusteredLines.size() * 2);
+									egoLinesM.marker.points.resize(
+									clusteredLines.size() * 2);
+									for (size_t i = 0; i < clusteredLines.size();
+									i++)
 									{
-										double estimatedY = 0;
-										if (mid.y > 0) 
-										{
+										egoLinesM.marker.points[i * 2].x =
+										clusteredLines[i].P1.x;
+										egoLinesM.marker.points[i * 2].y =
+										clusteredLines[i].P1.y;
+										egoLinesM.marker.points[i * 2].z = 0.0;
 
-											thisType = VerLeft;
-											estimatedY = B2 - mid.y;
-										}
-										else 
-										{
-											thisType = VerRight;
-											estimatedY = -B2 + abs(mid.y);
-										}
-										lowPass(estimatedY, Localization.y,
-												getUpdateCoef(LOWPASSNORMAL,
-														lineSeg));
-									}
-									else if (lineSeg.DistanceFromLine(
-											FieldHullRealCenter) > 0.6
-											&& cv::contourArea(FieldHullReal)
-													> 4)
-									{
-										LineSegment l2Test = lineSeg;
-										if (lineSeg.P1.x > lineSeg.P2.x)
-										{
-											l2Test.P1 = lineSeg.P2;
-											l2Test.P2 = lineSeg.P1;
-										}
+										egoLinesM.marker.points[i * 2 + 1].x =
+										clusteredLines[i].P2.x;
+										egoLinesM.marker.points[i * 2 + 1].y =
+										clusteredLines[i].P2.y;
+										egoLinesM.marker.points[i * 2 + 1].z =
+										0.0;
 
-										double estimatedY = 0;
-										if (l2Test.GetSide(FieldHullRealCenter)
-												< 0) 
-										{
-											thisType = VerLeftNear;
-											estimatedY = B2 - mid.y;
-										}
-										else 
-										{
-											thisType = VerRightNear;
-											estimatedY = -B2 + abs(mid.y);
-										}
-										lowPass(estimatedY, Localization.y,
-												getUpdateCoef(LOWPASSNORMAL,
-														lineSeg));
-									}
-									AllLines.push_back(
-											LineContainer(lineSeg, thisType));
-								}
-								else
-								{
-									LineType thisType = HorUndef;
-									double angleDiffHor =
-											lineSeg.GetExteriorAngleDegree(
-													HorLine);
-									if (angleDiffHor < -90)
-										angleDiffHor += 180;
-									if (angleDiffHor > 90)
-										angleDiffHor += -180;
-									lowPass(angleDiffHor, compassOffsetLoc,
-											getUpdateCoef(0.05, lineSeg));
-								
-									if (circleDetected
-											&& DistanceFromLineSegment(lineSeg,
-													resultCircle) < 1)
-									{
-										thisType = HorCenter;
-										double estimatedX = -mid.x;
+										double lenLine =
+										clusteredLinesRotated[i].GetLength();
+										std_msgs::ColorRGBA colLine;
 
-										lowPass(estimatedX, Localization.x,
-												getUpdateCoef(LOWPASSNORMAL,
-														lineSeg));
-										
-									}
-
-									if (goalPositionOnReal.size() >= 2 
-											&& lineSeg.DistanceFromLine(
-													goalPositionOnReal[0]) < 0.5
-											&& lineSeg.DistanceFromLine(
-													goalPositionOnReal[1])
-													< 0.5)
-									{
-
-										double estimatedX = 0;
-										if (mid.x > 0) 
+										if (lenLine > params.loc->minLineLen.get())
 										{
-											estimatedX = A2 - mid.x;
+											colLine.a =
+											clusteredLinesRotated[i].getProbability();
+											colLine.r = 0.1;
+											colLine.g = 0.9;
+											colLine.b = 0.2;
 										}
-										else 
+										else if (lenLine
+										> params.circle->maxLineLen.get()
+										|| lenLine
+										< params.circle->minLineLen.get())
 										{
-											estimatedX = -A2 + abs(mid.x);
-										}
-										lowPass(estimatedX, Localization.x,
-												getUpdateCoef(LOWPASSSTRONG,
-														lineSeg));
-									}
-									else if (goalPositionOnReal.size() == 1 
-											&& lineSeg.DistanceFromLine(
-													goalPositionOnReal[0])
-													< 0.5)
-									{
-
-										double estimatedX = 0;
-										if (mid.x > 0) 
-										{
-											estimatedX = A2 - mid.x;
+											colLine.a = 0.2;
+											colLine.r = 0.1;
+											colLine.g = 0.2;
+											colLine.b = 0.9;
 										}
 										else
 										{
-											estimatedX = -A2 + abs(mid.x);
+											colLine.a =
+											clusteredLinesRotated[i].getProbability();
+											colLine.r = 0.1;
+											colLine.g = 0.2;
+											colLine.b = 0.9;
 										}
-										lowPass(estimatedX, Localization.x,
-												getUpdateCoef(LOWPASSNORMAL,
-														lineSeg));
+										egoLinesM.marker.colors[i * 2] =
+										egoLinesM.marker.colors[i * 2
+										+ 1] = colLine;
 									}
 
-									AllLines.push_back(
-											LineContainer(lineSeg, thisType));
-								}
-							}
-						}
-
-						for (size_t i = 0; i < AllLines.size(); i++) 
-						{
-							LineContainer hI = AllLines[i];
-							if (hI.type != HorUndef && hI.type != HorCenter)
-								continue;
-							for (size_t j = i; j < AllLines.size(); j++)
-							{
-								LineContainer vJ = AllLines[j];
-								if (vJ.type < VerUndef)
-									continue;
-								int pNear = 0;
-								if (pNear > 0)
-								{
-									cv::Point2d intersectP;
-									if (vJ.line.IntersectLineForm(hI.line,
-											intersectP))
+									if (params.line->showResult.get()
+									&& updateGuiImg)
 									{
-										if (GetDistance(intersectP, vJ.line.P1)
-												> 0.8
-												&& GetDistance(intersectP,
-														vJ.line.P2) > 0.8) 
+										vector<LineSegment> clusteredLinesImg;
+										if (ProjectionObj.GetOnImageCordinate(
+										clusteredLines, clusteredLinesImg))
 										{
-											double estimatedX =
-													-hI.line.GetMiddle().x;
-
-											lowPass(estimatedX, Localization.x,
-													getUpdateCoef(LOWPASSNORMAL,
-															hI.line));
-											AllLines[i].type = HorCenter;
-
+											for (size_t i = 0;
+											i < clusteredLinesImg.size();
+											i++)
+											{
+												line(guiImg,
+												clusteredLinesImg[i].P1,
+												clusteredLinesImg[i].P2,
+												greenColor(), 3, 8);
+												circle(guiImg,
+												clusteredLinesImg[i].P1, 2,
+												blueColor(), 2, 8);
+												circle(guiImg,
+												clusteredLinesImg[i].P2, 2,
+												blueColor(), 2, 8);
+											}
 										}
+									}
+								}
+								if (params.line->showAllLine.get() && updateGuiImg)
+								{
+									for (size_t i = 0; i < resLines.size(); i++)
+									{
+										line(guiImg, resLines[i].P1, resLines[i].P2,
+										blueMeloColor(), 1, 8);
 									}
 								}
 							}
 						}
-
+						plotM.plotScalar(timer_line.elapsed().wall / 1000000.0,
+								PM_LINE_TIME);
 					}
 
-				}
+					Point2d resultCircleRotated;
+					bool confiused = false;
+					Point2d resultCircle;
+					bool circleDetected = false;
 
+					if (LinedetectionOK && params.circle->enable.get())
+					{
+						cpu_timer timer_circle;
+						if (circleDetector.GetCircle(loc.H2, clusteredLines,
+								confiused, resultCircle, resultCircleRotated,
+								ProjectionObj))
+						{
+							circleDetected = true;
+
+							if (confiused)
+							{
+								egoCircleM.setColor(1, 1, 0, 0.7);
+							}
+							else
+							{
+								egoCircleM.setColor(1, 1, 1, 0.7);
+							}
+							egoCircleM.marker.pose.position.x = resultCircle.x;
+							egoCircleM.marker.pose.position.y = resultCircle.y;
+							egoCircleM.marker.pose.position.z = 0.01;
+						}
+						plotM.plotScalar(
+								timer_circle.elapsed().wall / 1000000.0,
+								PM_CIRCLE_TIME);
+					}
+
+					if (params.line->showMask.get() && updateGuiImg)
+					{
+						Mat lineBinary = Mat::zeros(RawHSVImg.size(), CV_8UC1);
+						inRange(RawHSVImg,
+								Scalar(params.line->h0.get(),
+										params.line->s0.get(),
+										params.line->v0.get()),
+								Scalar(params.line->h1.get(),
+										params.line->s1.get(),
+										params.line->v1.get()), lineBinary);
+						Mat darker = Mat::zeros(guiImg.size(), CV_8UC3);
+						darker.copyTo(guiImg, 255 - lineBinary);
+					}
+					else if (params.line->showCanny.get() && updateGuiImg)
+					{
+						Mat darker = Mat::zeros(guiImg.size(), CV_8UC3);
+						darker.copyTo(guiImg, 255 - cannyImg);
+					}
+
+					vector<Point2f> goalPositionOnReal;
+					vector<Point2f> goalPositionOnRealRotated;
+
+					if (params.goal->enable.get())
+					{
+						cpu_timer timer_goal;
+						vector<LineSegment> resLines, alllL;
+
+						bool goalRes = goalDetector.GetPosts(cannyImg,
+								RawHSVImg, GrayImg, goalBinary.clone(),
+								ProjectionObj, hullField, resLines, alllL,
+								goalPositionOnReal, updateGuiImg, guiImg);
+
+						if (params.goal->showAllLines.get() && updateGuiImg)
+						{
+							for (size_t i = 0; i < alllL.size(); i++)
+							{
+								line(guiImg, alllL[i].P1, alllL[i].P2,
+										Scalar(255, 0, 0), 2, 8);
+							}
+						}
+						if (goalRes)
+						{
+							if (params.goal->showResLine.get() && updateGuiImg)
+							{
+								for (size_t i = 0; i < resLines.size(); i++)
+								{
+									line(guiImg, resLines[i].P1, resLines[i].P2,
+											yellowColor(), 3, 8);
+								}
+							}
+							goalPositionOnRealRotated =
+									ProjectionObj.RotateTowardHeading(
+											goalPositionOnReal);
+							outputs.goals.resize(goalPositionOnReal.size());
+							for (size_t i = 0; i < goalPositionOnReal.size();
+									i++)
+							{
+								outputs.goals[i].position.x =
+										goalPositionOnReal[i].x;
+								outputs.goals[i].position.y =
+										goalPositionOnReal[i].y;
+								outputs.goals[i].position.z = 0;
+								outputs.goals[i].probability = 1;
+							}
+
+							if (goalPositionOnReal.size() > 1)
+							{
+
+								egoGoalPostRM.marker.pose.position.x =
+										goalPositionOnReal[0].x;
+								egoGoalPostRM.marker.pose.position.y =
+										goalPositionOnReal[0].y;
+								egoGoalPostRM.marker.pose.position.z = 0.6;
+
+								egoGoalPostLM.marker.pose.position.x =
+										goalPositionOnReal[1].x;
+								egoGoalPostLM.marker.pose.position.y =
+										goalPositionOnReal[1].y;
+								egoGoalPostLM.marker.pose.position.z = 0.6;
+
+							}
+							else if (goalPositionOnReal.size() > 0)
+							{
+								egoGoalPostRM.marker.pose.position.x =
+										goalPositionOnReal[0].x;
+								egoGoalPostRM.marker.pose.position.y =
+										goalPositionOnReal[0].y;
+								egoGoalPostRM.marker.pose.position.z = 0.6;
+							}
+						}
+						plotM.plotScalar(timer_goal.elapsed().wall / 1000000.0,
+								PM_GOAL_TIME);
+					}
+
+
+					if (params.loc->enable.get())
+					{
+						cpu_timer timer_loc;
+						vector<LineContainer> AllLines;
+						vector<FeatureContainer> AllFeature;
+						if (loc.Calculate(clusteredLinesRotated, circleDetected,
+								fieldHullRealCenter, fieldHullReal,
+								resultCircleRotated, goalPositionOnRealRotated,
+								confiused, AllLines, AllFeature))
+						{
+
+							vis_utils::TextMarker tmpMarker(&egoDetectionMarker,
+									"/loc_field", 0.2, "lineLabel", true);
+							for (size_t i = 0; i < AllLines.size(); i++)
+							{
+
+								tmpMarker.setColor(
+										1.
+												* (AllLines[i].type
+														/ (double) LTRES),
+										1.
+												* (1
+														- (AllLines[i].type
+																/ (double) LTRES)),
+										0 ? AllLines[i].type >= VerUndef : 1,
+										1);
+								tmpMarker.setText(
+										LineTypeName[AllLines[i].type]);
+								Point2f mid =
+										AllLines[i].lineTransformed.GetMiddle();
+								tmpMarker.setPosition(mid.x + locLast.x,
+										mid.y + locLast.y, 0.2);
+								egoDetectionMarker.updateDynamicMarker(
+										markerIdx++, tmpMarker);
+							}
+							for (size_t i = 0; i < AllFeature.size(); i++)
+							{
+								tmpMarker.setColor(1, 0, 1, 1);
+								tmpMarker.setText(AllFeature[i].type);
+								tmpMarker.setPosition(
+										locLast.x + AllFeature[i].position.x,
+										locLast.y + AllFeature[i].position.y,
+										0.2);
+								egoDetectionMarker.updateDynamicMarker(
+										markerIdx++, tmpMarker);
+							}
+
+						}
+						plotM.plotScalar(timer_loc.elapsed().wall / 1000000.0,
+								PM_LOCALIZATION_TIME);
+					}
+				}
 			}
 		}
 	}
-}
 
+}
 
 bool Vision::Init()
 {
-	topViewLines.setType(visualization_msgs::Marker::LINE_LIST);
+	ROS_INFO("vision_module Started!");
 
-	topViewLines.setOrientation(1, 0, 0, 0);
+	egoFieldM.setType(visualization_msgs::Marker::LINE_LIST);
 
-	topViewLines.setScale(0.15);
+	egoFieldM.setOrientation(1, 0, 0, 0);
 
-	topViewLines.setColor(0, 1, 0);
+	egoFieldM.setScale(0.05);
 
-	topViewGoalPostLeft.setType(visualization_msgs::Marker::CYLINDER);
+	egoFieldM.setColor(0, 0, 0);
 
-	topViewGoalPostLeft.setOrientation(1, 0, 0, 0);
+	egoLinesM.setType(visualization_msgs::Marker::LINE_LIST);
 
-	topViewGoalPostLeft.setScale(0.1, 0.1, 1.1);
+	egoLinesM.setOrientation(1, 0, 0, 0);
 
-	topViewGoalPostLeft.setColor(1, 1, 0);
+	egoLinesM.setScale(0.15);
 
-	topViewGoalPostRight.setType(visualization_msgs::Marker::CYLINDER);
+	egoLinesM.setColor(0, 1, 0);
 
-	topViewGoalPostRight.setOrientation(1, 0, 0, 0);
+	egoGoalPostLM.setType(visualization_msgs::Marker::CYLINDER);
 
-	topViewGoalPostRight.setScale(0.1, 0.1, 1.1);
+	egoGoalPostLM.setOrientation(1, 0, 0, 0);
 
-	topViewGoalPostRight.setColor(1, 1, 0);
+	egoGoalPostLM.setScale(0.1, 0.1, 1.1);
 
-	topViewCircle.setType(visualization_msgs::Marker::CYLINDER);
+	egoGoalPostLM.setColor(0, 0, 1);
 
-	topViewCircle.setOrientation(1, 0, 0, 0);
+	egoGoalPostRM.setType(visualization_msgs::Marker::CYLINDER);
 
-	topViewCircle.setScale(1.3, 1.3, 0.1);
+	egoGoalPostRM.setOrientation(1, 0, 0, 0);
 
-	topViewCircle.setColor(1, 1, 1);
+	egoGoalPostRM.setScale(0.1, 0.1, 1.1);
 
-	topViewLinesLR.setType(visualization_msgs::Marker::LINE_LIST);
+	egoGoalPostRM.setColor(0, 0, 1);
 
-	topViewLinesLR.setOrientation(1, 0, 0, 0);
+	egoCircleM.setType(visualization_msgs::Marker::CYLINDER);
 
-	topViewLinesLR.setScale(0.15);
+	egoCircleM.setOrientation(1, 0, 0, 0);
 
-	topViewLinesLR.setColor(0, 1, 0);
+	egoCircleM.setScale(1.3, 1.3, 0.1);
 
-	topViewGoalPostLeftLR.setType(visualization_msgs::Marker::CYLINDER);
+	egoCircleM.setColor(1, 1, 1);
 
-	topViewGoalPostLeftLR.setOrientation(1, 0, 0, 0);
+	egoBallM.setOrientation(1, 0, 0, 0);
 
-	topViewGoalPostLeftLR.setScale(0.1, 0.1, 1.1);
+	egoBallM.setScale(0.3);
 
-	topViewGoalPostLeftLR.setColor(0, 0, 1);
+	egoBallM.setColor(1, 0, 0);
 
-	topViewGoalPostRightLR.setType(visualization_msgs::Marker::CYLINDER);
+	locM.setOrientation(1, 0, 0, 0);
 
-	topViewGoalPostRightLR.setOrientation(1, 0, 0, 0);
+	locM.setScale(0.5);
 
-	topViewGoalPostRightLR.setScale(0.1, 0.1, 1.1);
+	locM.setColor(1, 1, 0);
 
-	topViewGoalPostRightLR.setColor(0, 0, 1);
+	locPhiM.setType(visualization_msgs::Marker::CYLINDER);
 
-	topViewCircleLR.setType(visualization_msgs::Marker::CYLINDER);
+	locPhiM.setOrientation(1, 1, 0, 0);
 
-	topViewCircleLR.setOrientation(1, 0, 0, 0);
+	locPhiM.setScale(0.1, 0.1, 0.6);
 
-	topViewCircleLR.setScale(1.3, 1.3, 0.1);
+	locPhiM.setColor(1, 0, 0);
 
-	topViewCircleLR.setColor(1, 1, 1);
-
-	ballMarker.setOrientation(1, 0, 0, 0);
-
-	ballMarker.setScale(0.3);
-
-	ballMarker.setColor(1, 0, 0);
-
-	LocMarker.setOrientation(1, 0, 0, 0);
-
-	LocMarker.setScale(0.5);
-
-	LocMarker.setColor(1, 1, 0);
-
-	LocPhiMarker.setType(visualization_msgs::Marker::CYLINDER);
-
-	LocPhiMarker.setOrientation(1, 1, 0, 0);
-
-	LocPhiMarker.setScale(0.1, 0.1, 0.6);
-
-	LocPhiMarker.setColor(1, 0, 0);
-
-	if (false == cam->InitCameraDevice(true))
+	if (!cam->InitCameraDevice(true))
 	{
 		ROS_ERROR("vision_module Failed to initialize Camera!");
 		return false;
 	}
-	ROS_INFO("vision_module Started");
-
-//namedWindow("CameraCapture", CV_WINDOW_AUTOSIZE | CV_GUI_EXPANDED);
-
-	head_control::LookAtTarget t;
-	t.enabled = true;
-	t.is_angular_data = true;
-	t.is_relative = false;
-	t.vec.z = 0;
-	t.vec.y = 0.5;
-	t.vec.x = 0;
-	head_pub.publish(t);
-	if (!_ballDetector.Init())
+	if (!ballDetector.Init())
 	{
 		ROS_ERROR("Can't Initialize ball detector");
+		return false;
 	}
-	if (!_goalDetector.Init())
+	if (!goalDetector.Init())
 	{
 		ROS_ERROR("Can't Initialize goal detector");
+		return false;
 	}
-	if (!_lineDetector.Init())
+	if (!lineDetector.Init())
 	{
 		ROS_ERROR("Can't Initialize line detector");
+		return false;
 	}
-	if (!_fieldDetector.Init())
+	if (!circleDetector.Init())
+	{
+		ROS_ERROR("Can't Initialize circle detector");
+		return false;
+	}
+	if (!fieldDetector.Init())
 	{
 		ROS_ERROR("Can't Initialize field detector");
+		return false;
 	}
-	if (!_obstacleDetector.Init())
+	if (!obstacleDetector.Init())
 	{
 		ROS_ERROR("Can't Initialize obstacle detector");
+		return false;
 	}
-	if (!_cameraProjections.Init(cam->IsDummy()))
+	if (!ProjectionObj.Init(cam->IsDummy()))
 	{
 		ROS_ERROR("Can't Initialize camera Projection model");
+		return false;
 	}
+	if (!guiManager.Init())
+	{
+		ROS_ERROR("Can't Initialize guimanager");
+		return false;
+	}
+	if (!loc.Init(rName))
+	{
+		ROS_ERROR("Can't Initialize localization");
+		return false;
+	}
+
+	ROS_INFO("Init Finished Successfully");
+
 	return true;
 }
 

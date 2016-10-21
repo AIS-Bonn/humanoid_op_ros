@@ -4,11 +4,10 @@
 #ifndef JOINT_H
 #define JOINT_H
 
+#include <string>
 #include <ros/time.h>
 #include <urdf/model.h>
-#include <string>
-
-#include "golay.h"
+#include <rc_utils/golay.h>
 
 namespace robotcontrol
 {
@@ -24,6 +23,17 @@ struct Joint
 	class Command
 	{
 	public:
+		// SetFromPos type enumeration
+		enum SetFromType
+		{
+			SFT_NONE,
+			SFT_POS,
+			SFT_POSUNSMOOTHED,
+			SFT_POSVEL,
+			SFT_POSVELACC,
+			SFT_COUNT
+		};
+
 		// Constructor
 		Command();
 
@@ -42,14 +52,20 @@ struct Joint
 		//! Reset the internal filters used to differentiate positions and velocities
 		void resetDerivs();
 
+		//! Start an update phase
+		void startUpdatePhase();
+
+		//! Stop an update phase and actually perform the last seen update
+		void stopUpdatePhase(double deltaT);
+
 		//! Position command (Golay derivatives)
-		void setFromPos(double deltaT, double newPos);
+		void setFromPos(double newPos);
 
 		//! Position command (direct difference equations)
-		void setFromPosUnsmoothed(double deltaT, double newPos);
+		void setFromPosUnsmoothed(double newPos);
 
 		//! Position and velocity command
-		void setFromPosVel(double deltaT, double newPos, double newVel);
+		void setFromPosVel(double newPos, double newVel);
 
 		//! Position, velocity and acceleration command
 		void setFromPosVelAcc(double newPos, double newVel, double newAcc);
@@ -72,10 +88,23 @@ struct Joint
 		static double accLimit; // NOTE: Not currently used!
 		
 	private:
+		// Internal setFromPos functions that actually do the work
+		void actuallySetFromPos(double deltaT, double newPos);
+		void actuallySetFromPosUnsmoothed(double deltaT, double newPos);
+		void actuallySetFromPosVel(double deltaT, double newPos, double newVel);
+		void actuallySetFromPosVelAcc(double newPos, double newVel, double newAcc);
+
+		// Update phase variables
+		SetFromType m_updateType;
+		double m_newPos;
+		double m_newVel;
+		double m_newAcc;
+		int m_updateCount;
+
 		// Golay derivatives
-		GolayDerivative<double, 1, 5> m_dev_posToVel;
-		GolayDerivative<double, 2, 5> m_dev_posToAcc;
-		GolayDerivative<double, 1, 5> m_dev_velToAcc;
+		rc_utils::GolayDerivative<double, 1, 5> m_dev_posToVel;
+		rc_utils::GolayDerivative<double, 2, 5> m_dev_posToAcc;
+		rc_utils::GolayDerivative<double, 1, 5> m_dev_velToAcc;
 	};
 
 	//! Joint-level feedback

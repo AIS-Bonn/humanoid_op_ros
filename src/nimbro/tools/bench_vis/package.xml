@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<package>
+  <name>bench_vis</name>
+  <version>0.0.0</version>
+  <description>The bench_vis package</description>
+
+  <!-- One maintainer tag required, multiple allowed, one person per tag --> 
+  <!-- Example:  -->
+  <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
+  <maintainer email="pallgeuer@ais.uni-bonn.de">Philipp Allgeuer</maintainer>
+
+
+  <!-- One license tag required, multiple allowed, one license per tag -->
+  <!-- Commonly used license strings: -->
+  <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>timer</build_depend>
+  <build_depend>config_server</build_depend>
+  <build_depend>plot_msgs</build_depend>
+  <build_depend>rc_utils</build_depend>
+  <build_depend>rrlogger</build_depend>
+  <build_depend>vis_utils</build_depend>
+  <build_depend>walk_and_kick</build_depend>
+  <build_depend>rot_conv</build_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>timer</run_depend>
+  <run_depend>config_server</run_depend>
+  <run_depend>plots_msgs</run_depend>
+  <run_depend>rc_utils</run_depend>
+  <run_depend>rrlogger</run_depend>
+  <run_depend>vis_utils</run_depend>
+  <run_depend>walk_and_kick</run_depend>
+  <run_depend>rot_conv</run_depend>
+
+</package>

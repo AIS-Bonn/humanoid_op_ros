@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(head_control)
 
-find_package(catkin REQUIRED COMPONENTS roscpp robotcontrol genmsg config_server nimbro_utils)
+find_package(catkin REQUIRED COMPONENTS roscpp robotcontrol genmsg config_server rc_utils plot_msgs)
 
 add_message_files(
 	FILES

@@ -30,7 +30,7 @@ namespace robotcontrol
 		virtual ~MotionModule() {}
 
 		/**
-		* @brief Initialisation function of the motion module
+		* @brief Initialisation function
 		*
 		* This function is intended for overriding by derived motion module classes, to allow these subclasses to
 		* perform their required initialisation. Note however that the base implementation must be explicitly called
@@ -53,6 +53,14 @@ namespace robotcontrol
 		* @return `true` if initialisation is successful, `false` otherwise.
 		**/
 		virtual bool init(RobotModel* model);
+
+		/**
+		* @brief Deinitialisation function
+		*
+		* This function is intended for overriding by derived motion module classes, to allow these subclasses to
+		* handle the case when the motion module is no longer going to be used. The default implementation does nothing.
+		**/
+		virtual void deinit() {}
 
 		/**
 		* @brief Trigger function

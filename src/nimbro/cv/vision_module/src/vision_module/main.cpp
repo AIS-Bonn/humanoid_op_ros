@@ -1,13 +1,18 @@
 // Main Loop for the Vision Module
 // Author: Hafez Farazi <farazi@ais.uni-bonn.de>
 
-/** @addtogroup VisionModule */
-/*@{*/
-
 #include <vision_module/main.hpp>
+#include <iostream>
+
 using namespace cv;
 using namespace std;
 using namespace boost::timer;
+
+
+#define NANO 1000000000.0
+
+VisionTimer walTimer(5);
+
 
 /**
  * Main function of this module
@@ -19,6 +24,7 @@ int main(int argc, char **argv)
 {
 	ros::init(argc, argv, "vision_module_node");
 	ros::NodeHandle nodeHandle;
+
 	bool dummy = false;
 	for (int i = 0; i < argc; i++)
 	{
@@ -29,45 +35,59 @@ int main(int argc, char **argv)
 	}
 	ros::Publisher fps_pub = nodeHandle.advertise<std_msgs::Int64>(
 			"/vision/fps", 10);
-	params.Init();
 
-	const int RATE = 30;
-	double fpsData = RATE;
-	VisionRate loop_rate(RATE, true);
+	params.Init(nodeHandle);
+
+	VisionRate loop_rate(params.maxrate.get(), true);
+
 	Vision visionObj(dummy);
-	visionObj.Init();
-	int counter = 0;
+	if (!visionObj.Init())
+	{
+		ROS_ERROR("There was a problem initing vision object!");
+		loop_rate.Destroy();
+		visionObj.DeInit();
+		params.Destroy();
+		return 0;
+	}
 
+	LinearInterpolator fpsCoefInterpolator(Point2d(params.maxrate.get(),0.9),Point2d(1,0.6));
 	while (ros::ok())
 	{
-		cpu_timer timer;
-
-		visionObj.update();
-		loop_rate.sleep();
-
-		std_msgs::Int64 msg;
-
-		msg.data = fpsData;
-		if (!dummy)
+		if (params.counter.get() != 0)
 		{
-			ROS_INFO_THROTTLE(1, "fps = %"PRId64, msg.data);
+			cpu_timer timer;
+			visionObj.plot_fps(params.fps.get());
+			visionObj.update();
+
+			loop_rate.sleep();
+
+			float wallT = NANO / timer.elapsed().wall;
+			float tmpWT = wallT;
+			boundry_n(tmpWT, 1, params.maxrate.get());
+			float coef = fpsCoefInterpolator.Interpolate(tmpWT);
+			float coefP = 1 - coef;
+			params.fps.set((coef * params.fps.get()) + (coefP * (wallT)));
+
+			std_msgs::Int64 msg;
+			msg.data = params.fps.get();
+			if (params.fps.get() < 15)
+			{
+				HAF_WARN_THROTTLE(1, "Low FPS Vision %.1f %s", params.fps.get(),
+						 "");
+			}
+			else
+			{
+				HAF_INFO_THROTTLE(1, "FPS = %.1f %s", params.fps.get(),
+						 "");
+			}
+			fps_pub.publish(msg);
+			params.update();
 		}
-		else if (counter % (int) (1000. / RATE) == 0)
-		{
-			printf("[ INFO][/vision_module_node->main]: fps = %"PRId64"\r\n",
-					msg.data);
-		}
-		if (fpsData < 15)
-		{
-			ROS_WARN_THROTTLE(10, "Low FPS Vision %d", (int )fpsData);
-		}
-		fps_pub.publish(msg);
 		ros::spinOnce();
-		fpsData = (0.9 * fpsData)
-				+ (0.1 * (1000000000l / timer.elapsed().wall));
-
-		counter++;
+		params.counter.set(params.counter.get() + 1);
 	}
+	loop_rate.Destroy();
+	visionObj.DeInit();
+	params.Destroy();
 	return 0;
 }
-/** @}*/

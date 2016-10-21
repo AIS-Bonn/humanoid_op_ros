@@ -1,0 +1,4 @@
+<launch>
+    <remap from="/diagnostics" to="/joy/diagnostics" />
+    <node name="joy" pkg="joy" type="joy_node" />
+</launch>

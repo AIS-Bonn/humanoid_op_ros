@@ -5,7 +5,6 @@
 // Includes
 #include <sitting_demo/sitting_demo_actions.h>
 #include <sitting_demo/sitting_demo.h>
-#include <face_tracker/face_tracker.h> // TODO: Where do we want this?
 #include <motion_player/PlayMotion.h>
 #include <ros/node_handle.h>
 #include <ros/this_node.h>
@@ -179,21 +178,23 @@ void SittingDemo::publishAction(const demo_msgs::DemoFSMState& action)
 // Send a LED command based on the current sitting demo state
 void SittingDemo::publishLEDCommand()
 {
-	// Construct the required LED command (LED6 only)
-	m_LED.mask = nimbro_op_interface::LEDCommand::LED6;
+	// Construct the required LED command (LED5 only)
+	m_LED.mask = nimbro_op_interface::LEDCommand::LED5;
 	if(m_enabled)
 	{
-		m_LED.rgb6.r = 1.0;
-		m_LED.rgb6.g = 0.0;
-		m_LED.rgb6.b = 1.0;
-		m_LED.rgb6.a = 1.0;
+		m_LED.rgb5.r = 1.0;
+		m_LED.rgb5.g = 0.0;
+		m_LED.rgb5.b = 1.0;
+		m_LED.rgb5.a = 1.0;
+		m_LED.rgb5Blink = false;
 	}
 	else
 	{
-		m_LED.rgb6.r = 1.0;
-		m_LED.rgb6.g = 0.0;
-		m_LED.rgb6.b = 0.0;
-		m_LED.rgb6.a = 1.0;
+		m_LED.rgb5.r = 1.0;
+		m_LED.rgb5.g = 0.0;
+		m_LED.rgb5.b = 0.0;
+		m_LED.rgb5.a = 1.0;
+		m_LED.rgb5Blink = false;
 	}
 
 	// Publish the LED command to the required ROS topic
@@ -212,7 +213,7 @@ void SittingDemo::handleRobotState(const robotcontrol::StateConstPtr& msg)
 void SittingDemo::handleButton(const nimbro_op_interface::ButtonConstPtr& msg)
 {
 	// Check if the middle button was pressed (button 1 as zero-indexed)
-	if(msg->button == 1)
+	if(msg->button == 1 && msg->longPress == 0)
 	{
 		m_buttonPressed = true;
 		m_enabled = !m_enabled;
@@ -264,11 +265,6 @@ int main(int argc, char* argv[])
 		ROS_ERROR("Exiting sitting demo as no demo motions are available!");
 		return 1;
 	}
-
-	// TODO: Move this to the state controller? Or inside the SittingDemo class?
-// 	// Construct an instance of the FaceTracker class
-// 	FaceTracker FT(nh);
-// 	FT.startTracking();
 
 	// Set up the main loop 
 	ros::Rate rate(LOOP_FREQ);

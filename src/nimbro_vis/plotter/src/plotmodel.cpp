@@ -21,6 +21,7 @@ PlotModel::PlotModel(QObject* parent)
 	connect(&m_topLevelPlot, SIGNAL(childAdded(Plot*)), SLOT(doEndAddChild(Plot*)));
 
 	m_topLevelPlot.setEnabled(true);
+	m_topLevelPlot.setPaused(false);
 
 	m_valueFont = QFont("monospace");
 }

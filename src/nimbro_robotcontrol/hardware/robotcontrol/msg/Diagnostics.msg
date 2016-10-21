@@ -17,5 +17,6 @@
 Header header
 float32 batteryVoltage
 float32 servoTemperature
+bool commsOk
 string state
 ServoDiag[] servos

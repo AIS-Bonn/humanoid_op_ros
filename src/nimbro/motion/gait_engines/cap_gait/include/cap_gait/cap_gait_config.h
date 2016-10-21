@@ -61,7 +61,7 @@ namespace cap_gait
 		 , leftLegFirst           (CONFIG_PARAM_PATH + "general/leftLegFirst", true)
 		 , stanceAdjustGcvMax     (CONFIG_PARAM_PATH + "general/stanceAdjustGcvMax", 0.0, 0.01, 1.0, 0.4)
 		 , stanceAdjustRate       (CONFIG_PARAM_PATH + "general/stanceAdjustRate", 0.1, 0.05, 5.0, 1.0)
-		 , stoppingGcvMag         (CONFIG_PARAM_PATH + "general/stoppingGcvMag", 0.001, 0.001, 0.15, 0.001)
+		 , stoppingGcvMag         (CONFIG_PARAM_PATH + "general/stoppingGcvMag", 0.005, 0.005, 0.5, 0.05)
 		 , stoppingPhaseTolLB     (CONFIG_PARAM_PATH + "general/stoppingPhaseTolLB", 2.0, 0.1, 20.0, 5.0)
 		 , stoppingPhaseTolUB     (CONFIG_PARAM_PATH + "general/stoppingPhaseTolUB", 2.0, 0.1, 20.0, 5.0)
 		 , supportCoeffRange      (CONFIG_PARAM_PATH + "general/supportCoeffRange", 0.0, 0.01, 1.0, 1.0)
@@ -106,6 +106,9 @@ namespace cap_gait
 		 , limLegAngleYMax        (CONFIG_PARAM_PATH + "poseLimits/legAngleYMax", 0.0, 0.01, 1.0, 0.6)
 		 , limLegAngleYMin        (CONFIG_PARAM_PATH + "poseLimits/legAngleYMin", -1.0, 0.01, 0.0, -0.5)
 		 , limLegAngleYUseLimits  (CONFIG_PARAM_PATH + "poseLimits/legAngleYUseLimits", true)
+		 , limLegExtBuf           (CONFIG_PARAM_PATH + "poseLimits/legExtBuf", 0.0, 0.001, 0.05, 0.0)
+		 , limLegExtMin           (CONFIG_PARAM_PATH + "poseLimits/legExtMin", 0.0, 0.001, 0.05, 0.0)
+		 , limLegExtUseLimits     (CONFIG_PARAM_PATH + "poseLimits/legExtUseLimits", true)
 		 
 		 , startBlendPhaseLen     (CONFIG_PARAM_PATH + "OL/phase/startBlendPhaseLen", 0.0, 0.05, 4.0*M_PI, 2.0*M_PI)
 		 , stopBlendPhaseLen      (CONFIG_PARAM_PATH + "OL/phase/stopBlendPhaseLen", 0.0, 0.05, 2.0*M_PI, M_PI)
@@ -183,13 +186,7 @@ namespace cap_gait
 		 , tuningNoLegFeedback    (CONFIG_PARAM_PATH + "tuning/noLegBasicFeedback", false)
 		 , tuningNoLegSuppCoeff   (CONFIG_PARAM_PATH + "tuning/noLegSupportCoeff", false)
 		 
-		 , virtualSlopeEnabled    (CONFIG_PARAM_PATH + "CL/virtualSlope/virtualSlopeEnabled", false)
-		 , virtualSlopeOffset     (CONFIG_PARAM_PATH + "CL/virtualSlope/virtualSlopeOffset", -0.2, 0.005, 0.2, 0.0)
-		 , virtualSlopeGainAsc    (CONFIG_PARAM_PATH + "CL/virtualSlope/virtualSlopeGainAsc", 0.0, 0.02, 2.0, 0.0)
-		 , virtualSlopeGainDsc    (CONFIG_PARAM_PATH + "CL/virtualSlope/virtualSlopeGainDsc", 0.0, 0.02, 2.0, 0.0)
-		 , virtualSlopeMidAngle   (CONFIG_PARAM_PATH + "CL/virtualSlope/virtualSlopeMidAngle", -0.5, 0.01, 0.5, 0.0)
-		 , virtualSlopeMinAngle   (CONFIG_PARAM_PATH + "CL/virtualSlope/virtualSlopeMinAngle", 0.0, 0.01, 1.0, 0.1)
-		 
+		 , basicGlobalEnable      (CONFIG_PARAM_PATH + "CL/basicFeedback/enable/globalEnable", false)
 		 , basicEnableArmAngleX   (CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableArmAngleX", false)
 		 , basicEnableArmAngleY   (CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableArmAngleY", false)
 		 , basicEnableComShiftX   (CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableComShiftX", false)
@@ -200,6 +197,8 @@ namespace cap_gait
 		 , basicEnableFootAngleY  (CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableFootAngleY", false)
 		 , basicEnableHipAngleX   (CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableHipAngleX", false)
 		 , basicEnableHipAngleY   (CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableHipAngleY", false)
+		 , basicEnableTiming      (CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableTiming", false)
+		 , basicEnableVirtualSlope(CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableVirtualSlope", false)
 		 
 		 , basicFeedBiasArmAngleX (CONFIG_PARAM_PATH + "CL/basicFeedback/feedbackBias/biasArmAngleX", -0.5, 0.01, 0.5, 0.0)
 		 , basicFeedBiasArmAngleY (CONFIG_PARAM_PATH + "CL/basicFeedback/feedbackBias/biasArmAngleY", -0.5, 0.01, 0.5, 0.0)
@@ -287,7 +286,6 @@ namespace cap_gait
 		 , basicGyroHipAngleX     (CONFIG_PARAM_PATH + "CL/basicFeedback/gyro/lat/gainHipAngleX", 0.0, 0.01, 1.0, 0.0)
 		 , basicGyroHipAngleY     (CONFIG_PARAM_PATH + "CL/basicFeedback/gyro/sag/gainHipAngleY", 0.0, 0.01, 1.0, 0.0)
 		 
-		 , basicTimingEnabled     (CONFIG_PARAM_PATH + "CL/basicFeedback/timing/enabled", false)
 		 , basicTimingFeedDeadRad (CONFIG_PARAM_PATH + "CL/basicFeedback/timing/feedDeadRadius", 0.0, 0.01, 1.0, 0.0)
 		 , basicTimingGainSlowDown(CONFIG_PARAM_PATH + "CL/basicFeedback/timing/gainSlowDown", 0.0, 0.1, 20.0, 5.0)
 		 , basicTimingGainSpeedUp (CONFIG_PARAM_PATH + "CL/basicFeedback/timing/gainSpeedUp", 0.0, 0.1, 20.0, 3.0)
@@ -303,6 +301,13 @@ namespace cap_gait
 		 , basicComShiftYUseLimits(CONFIG_PARAM_PATH + "CL/basicFeedback/comShift/comShiftYUseLimits", true)
 		 , basicFootAnglePhaseLen (CONFIG_PARAM_PATH + "CL/basicFeedback/footAngle/transitionPhaseLen", 0.3, 0.01, 1.5, 0.5)
 		 
+		 , virtualSlopeOffset     (CONFIG_PARAM_PATH + "CL/basicFeedback/virtualSlope/virtualSlopeOffset", -0.2, 0.005, 0.2, 0.0)
+		 , virtualSlopeGainAsc    (CONFIG_PARAM_PATH + "CL/basicFeedback/virtualSlope/virtualSlopeGainAsc", 0.0, 0.02, 2.0, 0.0)
+		 , virtualSlopeGainDsc    (CONFIG_PARAM_PATH + "CL/basicFeedback/virtualSlope/virtualSlopeGainDsc", 0.0, 0.02, 2.0, 0.0)
+		 , virtualSlopeMidAngle   (CONFIG_PARAM_PATH + "CL/basicFeedback/virtualSlope/virtualSlopeMidAngle", -0.5, 0.01, 0.5, 0.0)
+		 , virtualSlopeMinAngle   (CONFIG_PARAM_PATH + "CL/basicFeedback/virtualSlope/virtualSlopeMinAngle", 0.0, 0.01, 1.0, 0.1)
+		 
+		 , cmdAllowCLStepSizeX    (CONFIG_PARAM_PATH + "CL/cmd/allowCLStepSizeX", false)
 		 , cmdUseCLStepSize       (CONFIG_PARAM_PATH + "CL/cmd/useCLStepSize", false)
 		 , cmdUseCLTiming         (CONFIG_PARAM_PATH + "CL/cmd/useCLTiming", false)
 		 , cmdUseNonZeroZMP       (CONFIG_PARAM_PATH + "CL/cmd/useNonZeroZMP", false)
@@ -322,6 +327,7 @@ namespace cap_gait
 		 , mgZmpYMax              (CONFIG_PARAM_PATH + "CL/mg/zmpYMax", -1.0, 0.01, 1.0, 0.0)
 		 , mgComOffsetX           (CONFIG_PARAM_PATH + "CL/mg/comOffsetX", -1.0, 0.01, 1.0, 0.0)
 		 , mgComOffsetY           (CONFIG_PARAM_PATH + "CL/mg/comOffsetY", -1.0, 0.01, 1.0, 0.0)
+		 , mgComOffsetYBias       (CONFIG_PARAM_PATH + "CL/mg/comOffsetYBias", -0.2, 0.005, 0.2, 0.0)
 		 , mgFusedOffsetX         (CONFIG_PARAM_PATH + "CL/mg/fusedOffsetX", -0.5, 0.005, 0.5, 0.0)
 		 , mgFusedOffsetY         (CONFIG_PARAM_PATH + "CL/mg/fusedOffsetY", -0.5, 0.005, 0.5, 0.0)
 		 , mgMaxStepRadiusX       (CONFIG_PARAM_PATH + "CL/mg/maxStepRadiusX", 0.0, 0.01, 2.0, 0.4)
@@ -363,7 +369,7 @@ namespace cap_gait
 		///@{
 		const std::string CONFIG_PARAM_PATH;                    //!< @brief Path for the capture step gait configuration parameters on the config server
 		///@}
-		
+
 		//! @name Robot specifications
 		///@{
 		config_server::Parameter<float> armLinkLength;          //!< @brief Length of each/both the upper and lower arm links
@@ -435,35 +441,38 @@ namespace cap_gait
 		config_server::Parameter<float> gcvPrescalerLinVelY;    //!< @brief Prescaler for the gcv linear velocity Y that is then used by the open loop gait (allows easy scaling of the dynamic range of the gait)
 		config_server::Parameter<float> gcvPrescalerAngVelZ;    //!< @brief Prescaler for the gcv angular velocity Z that is then used by the open loop gait (allows easy scaling of the dynamic range of the gait)
 		///@}
-		
+
 		//! @name Limb limit parameters
 		///@{
-		config_server::Parameter<float> limArmAngleXBuf;        //!< @brief Angle buffer for soft limiting of the arm angle X to be commanded by the gait (see `nimbro_utils::softCoerce`)
+		config_server::Parameter<float> limArmAngleXBuf;        //!< @brief Angle buffer for soft limiting of the arm angle X to be commanded by the gait (see `rc_utils::coerceSoft`)
 		config_server::Parameter<float> limArmAngleXMax;        //!< @brief Maximum allowed arm angle X to be commanded by the gait (for left arm)
 		config_server::Parameter<float> limArmAngleXMin;        //!< @brief Minimum allowed arm angle X to be commanded by the gait (for left arm)
 		config_server::Parameter<bool>  limArmAngleXUseLimits;  //!< @brief Boolean flag whether to use the specified arm angle X min/max limits
-		config_server::Parameter<float> limArmAngleYBuf;        //!< @brief Angle buffer for soft limiting of the arm angle Y to be commanded by the gait (see `nimbro_utils::softCoerce`)
+		config_server::Parameter<float> limArmAngleYBuf;        //!< @brief Angle buffer for soft limiting of the arm angle Y to be commanded by the gait (see `rc_utils::coerceSoft`)
 		config_server::Parameter<float> limArmAngleYMax;        //!< @brief Maximum allowed arm angle Y to be commanded by the gait
 		config_server::Parameter<float> limArmAngleYMin;        //!< @brief Minimum allowed arm angle Y to be commanded by the gait
 		config_server::Parameter<bool>  limArmAngleYUseLimits;  //!< @brief Boolean flag whether to use the specified arm angle Y min/max limits
-		config_server::Parameter<float> limFootAngleXBuf;       //!< @brief Angle buffer for soft limiting of the foot angle X to be commanded by the gait (see `nimbro_utils::softCoerce`)
+		config_server::Parameter<float> limFootAngleXBuf;       //!< @brief Angle buffer for soft limiting of the foot angle X to be commanded by the gait (see `rc_utils::coerceSoft`)
 		config_server::Parameter<float> limFootAngleXMax;       //!< @brief Maximum allowed foot angle X to be commanded by the gait (for left foot)
 		config_server::Parameter<float> limFootAngleXMin;       //!< @brief Minimum allowed foot angle X to be commanded by the gait (for left foot)
 		config_server::Parameter<bool>  limFootAngleXUseLimits; //!< @brief Boolean flag whether to use the specified foot angle X min/max limits
-		config_server::Parameter<float> limFootAngleYBuf;       //!< @brief Angle buffer for soft limiting of the foot angle Y to be commanded by the gait (see `nimbro_utils::softCoerce`)
+		config_server::Parameter<float> limFootAngleYBuf;       //!< @brief Angle buffer for soft limiting of the foot angle Y to be commanded by the gait (see `rc_utils::coerceSoft`)
 		config_server::Parameter<float> limFootAngleYMax;       //!< @brief Maximum allowed foot angle Y to be commanded by the gait
 		config_server::Parameter<float> limFootAngleYMin;       //!< @brief Minimum allowed foot angle Y to be commanded by the gait
 		config_server::Parameter<bool>  limFootAngleYUseLimits; //!< @brief Boolean flag whether to use the specified foot angle Y min/max limits
-		config_server::Parameter<float> limLegAngleXBuf;        //!< @brief Angle buffer for soft limiting of the leg angle X to be commanded by the gait (see `nimbro_utils::softCoerce`)
+		config_server::Parameter<float> limLegAngleXBuf;        //!< @brief Angle buffer for soft limiting of the leg angle X to be commanded by the gait (see `rc_utils::coerceSoft`)
 		config_server::Parameter<float> limLegAngleXMax;        //!< @brief Maximum allowed leg angle X to be commanded by the gait (for left leg)
 		config_server::Parameter<float> limLegAngleXMin;        //!< @brief Minimum allowed leg angle X to be commanded by the gait (for left leg)
 		config_server::Parameter<bool>  limLegAngleXUseLimits;  //!< @brief Boolean flag whether to use the specified leg angle X min/max limits
-		config_server::Parameter<float> limLegAngleYBuf;        //!< @brief Angle buffer for soft limiting of the leg angle Y to be commanded by the gait (see `nimbro_utils::softCoerce`)
+		config_server::Parameter<float> limLegAngleYBuf;        //!< @brief Angle buffer for soft limiting of the leg angle Y to be commanded by the gait (see `rc_utils::coerceSoft`)
 		config_server::Parameter<float> limLegAngleYMax;        //!< @brief Maximum allowed leg angle Y to be commanded by the gait
 		config_server::Parameter<float> limLegAngleYMin;        //!< @brief Minimum allowed leg angle Y to be commanded by the gait
 		config_server::Parameter<bool>  limLegAngleYUseLimits;  //!< @brief Boolean flag whether to use the specified leg angle Y min/max limits
+		config_server::Parameter<float> limLegExtBuf;           //!< @brief Buffer for soft limiting of the leg extension to be commanded by the gait (see `rc_utils::coerceSoftMin`)
+		config_server::Parameter<float> limLegExtMin;           //!< @brief Minimum allowed leg extension to be commanded by the gait
+		config_server::Parameter<bool>  limLegExtUseLimits;     //!< @brief Boolean flag whether to use the specified leg extension min limit
 		///@}
-		
+
 		//! @name Gait phase parameters
 		///@{
 		config_server::Parameter<float> startBlendPhaseLen;     //!< @brief The amount of time, in terms of gait phase, to take to blend from the halt pose to the moving calculated gait pose during start of walking
@@ -555,18 +564,9 @@ namespace cap_gait
 		config_server::Parameter<bool> tuningNoLegSuppCoeff;    //!< @brief Disable all variations in the leg support coefficients (makes them equal by default instead)
 		///@}
 
-		//! @name Virtual slope parameters
-		///@{
-		config_server::Parameter<bool>  virtualSlopeEnabled;    //!< @brief Boolean flag whether use of the virtual slope method is enabled
-		config_server::Parameter<float> virtualSlopeOffset;     //!< @brief A constant offset to the virtual slope to continuously apply while walking
-		config_server::Parameter<float> virtualSlopeGainAsc;    //!< @brief Gradient of the virtual slope with respect to the fused pitch angle (after deadband has been applied) when walking up a virtual slope
-		config_server::Parameter<float> virtualSlopeGainDsc;    //!< @brief Gradient of the virtual slope with respect to the fused pitch angle (after deadband has been applied) when walking down a virtual slope
-		config_server::Parameter<float> virtualSlopeMidAngle;   //!< @brief Fused pitch angle for which the (offset-less) virtual slope should be zero
-		config_server::Parameter<float> virtualSlopeMinAngle;   //!< @brief Minimum radius of the fused pitch angle from virtualSlopeMidAngle before virtual slope starts being applied with a certain gradient (i.e. radius of deadband)
-		///@}
-		
 		//! @name Basic feedback parameters
 		///@{
+		config_server::Parameter<bool>  basicGlobalEnable;
 		config_server::Parameter<bool>  basicEnableArmAngleX;
 		config_server::Parameter<bool>  basicEnableArmAngleY;
 		config_server::Parameter<bool>  basicEnableComShiftX;
@@ -577,7 +577,9 @@ namespace cap_gait
 		config_server::Parameter<bool>  basicEnableFootAngleY;
 		config_server::Parameter<bool>  basicEnableHipAngleX;
 		config_server::Parameter<bool>  basicEnableHipAngleY;
-		
+		config_server::Parameter<bool>  basicEnableTiming; // Note: To enable basic timing feedback, cmdUseCLTiming must also be true!
+		config_server::Parameter<bool>  basicEnableVirtualSlope;
+
 		config_server::Parameter<float> basicFeedBiasArmAngleX;
 		config_server::Parameter<float> basicFeedBiasArmAngleY;
 		config_server::Parameter<float> basicFeedBiasComShiftX;
@@ -588,7 +590,7 @@ namespace cap_gait
 		config_server::Parameter<float> basicFeedBiasFootAngCY;
 		config_server::Parameter<float> basicFeedBiasHipAngleX;
 		config_server::Parameter<float> basicFeedBiasHipAngleY;
-		
+
 		config_server::Parameter<bool>  basicFusedEnabledLat;
 		config_server::Parameter<bool>  basicFusedEnabledSag;
 		config_server::Parameter<int>   basicFusedFilterN;
@@ -645,7 +647,7 @@ namespace cap_gait
 		config_server::Parameter<float> basicIFusedFootAngleY;
 		config_server::Parameter<float> basicIFusedHipAngleX;
 		config_server::Parameter<float> basicIFusedHipAngleY;
-		
+
 		config_server::Parameter<bool>  basicGyroEnabledLat;
 		config_server::Parameter<bool>  basicGyroEnabledSag;
 		config_server::Parameter<int>   basicGyroFilterN;
@@ -663,8 +665,7 @@ namespace cap_gait
 		config_server::Parameter<float> basicGyroFootAngleY;
 		config_server::Parameter<float> basicGyroHipAngleX;
 		config_server::Parameter<float> basicGyroHipAngleY;
-		
-		config_server::Parameter<bool>  basicTimingEnabled; // Note: To enable basic timing feedback, cmdUseCLTiming must also be true
+
 		config_server::Parameter<float> basicTimingFeedDeadRad;
 		config_server::Parameter<float> basicTimingGainSlowDown;
 		config_server::Parameter<float> basicTimingGainSpeedUp;
@@ -679,10 +680,17 @@ namespace cap_gait
 		config_server::Parameter<float> basicComShiftYMin;
 		config_server::Parameter<bool>  basicComShiftYUseLimits;
 		config_server::Parameter<float> basicFootAnglePhaseLen; // Determines how quickly the foot angle feedback fades in (and out) after a foot becomes the support foot
+
+		config_server::Parameter<float> virtualSlopeOffset;     //!< @brief A constant offset to the virtual slope to continuously apply while walking
+		config_server::Parameter<float> virtualSlopeGainAsc;    //!< @brief Gradient of the virtual slope with respect to the fused pitch angle (after deadband has been applied) when walking up a virtual slope
+		config_server::Parameter<float> virtualSlopeGainDsc;    //!< @brief Gradient of the virtual slope with respect to the fused pitch angle (after deadband has been applied) when walking down a virtual slope
+		config_server::Parameter<float> virtualSlopeMidAngle;   //!< @brief Fused pitch angle for which the (offset-less) virtual slope should be zero
+		config_server::Parameter<float> virtualSlopeMinAngle;   //!< @brief Minimum radius of the fused pitch angle from virtualSlopeMidAngle before virtual slope starts being applied with a certain gradient (i.e. radius of deadband)
 		///@}
-		
+
 		//! @name Capture step parameters
 		///@{
+		config_server::Parameter<bool>  cmdAllowCLStepSizeX;
 		config_server::Parameter<bool>  cmdUseCLStepSize;       //!< @brief Boolean flag whether computed closed loop step sizes should be used to control the gait, or whether the internal gcv should just be controlled directly from the external gcv input (via maximum gcv acceleration rates)
 		config_server::Parameter<bool>  cmdUseCLTiming;         //!< @brief Boolean flag whether computed closed loop step timing should be used to control the gait, or whether the timing should just remain fixed at the nominal OL frequency
 		config_server::Parameter<bool>  cmdUseNonZeroZMP;       //!< @brief Boolean flag whether the target ZMPs calculated in the LimpModel should be used during walking (i.e. not artificially zeroed right after they are calculated)
@@ -702,6 +710,7 @@ namespace cap_gait
 		config_server::Parameter<float> mgZmpYMax;
 		config_server::Parameter<float> mgComOffsetX;
 		config_server::Parameter<float> mgComOffsetY;
+		config_server::Parameter<float> mgComOffsetYBias;
 		config_server::Parameter<float> mgFusedOffsetX;
 		config_server::Parameter<float> mgFusedOffsetY;
 		config_server::Parameter<float> mgMaxStepRadiusX;
@@ -717,17 +726,17 @@ namespace cap_gait
 		config_server::Parameter<float> nsAdaptationGain;
 		config_server::Parameter<float> nsStepNoiseTime;
 		///@}
-		
+
 		// Manage callbacks for robot specifications
 		void resetRobotSpecCallbacks() { m_robotSpecCallbacks.clear(); }
 		void addRobotSpecCallback(const boost::function<void ()>& callback) { m_robotSpecCallbacks.push_back(callback); callback(); }
 		void callRobotSpecCallbacks() { for(std::vector<boost::function<void ()> >::iterator it = m_robotSpecCallbacks.begin(); it != m_robotSpecCallbacks.end(); it++) (*it)(); }
-		
+
 	private:
 		// Callback list for robot specifications
 		std::vector<boost::function<void ()> > m_robotSpecCallbacks;
 	};
 }
 
-#endif /* CAP_GAIT_CONFIG_H */
+#endif
 // EOF

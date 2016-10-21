@@ -1,7 +1,0 @@
-<library path="lib/libcalibration">
-	<class name="openplatform/calibration" type="CalibrationNodelet" base_class_type="nodelet::Nodelet">
-		<description>
-			Calibration GUI
-		</description>
-	</class>
-</library>

@@ -32,6 +32,12 @@ public:
 	inline ros::Time selectionStart() const { return m_selectionStart; }
 	inline ros::Time selectionEnd() const { return m_selectionEnd; }
 
+	void clearSelection();
+
+	void blockPainting() { m_paintBlocked = true; }
+	void unblockPainting() { m_paintBlocked = false; }
+	bool paintingBlocked() const { return m_paintBlocked; }
+
 	void refresh();
 
 public Q_SLOTS:
@@ -61,6 +67,7 @@ private:
 	double m_screenScale_y;
 	double m_screenScale_y_orig;
 	QPointF m_screenOffset;
+	bool m_screenOffsetSetup;
 	QTransform m_screenTransform;
 	bool m_mousePresent; // Is the mouse on the widget or not.
 	QPointF m_mouse; // current mouse location in pixel coordinates
@@ -94,6 +101,8 @@ private:
 	QTimer m_playingTimer;
 	QElapsedTimer m_playingTimerElapsed;
 
+	bool m_paintBlocked;
+
 	void updateMouse(QPointF mousePos);
 	void updateScreenTransform();
 	void drawLegend(QPainter* painter, const Plot* plot);
@@ -105,6 +114,7 @@ private:
 	config_server::Parameter<float> m_wheelScaleFactor;
 	config_server::Parameter<float> m_vertScaleFactor;
 	config_server::Parameter<float> m_playbackSpeedExp;
+	config_server::Parameter<bool> m_showEventsInLegend;
 };
 
 }

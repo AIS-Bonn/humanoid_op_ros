@@ -3,6 +3,7 @@
 
 // #define MONITOR
 
+#include <cmath>
 #include <time.h>
 #include <monitor/timermonitor.h>
 
@@ -14,9 +15,11 @@ public:
 
 	long unsigned int sleep();
 
-private:
-    int m_timerfd;
+	int cyclesForTime(double interval) const;
 
+private:
+	int m_timerfd;
+	double m_rate;
 
 #ifdef MONITOR
 	TimerMonitor m_monitor;

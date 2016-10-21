@@ -1,0 +1,7 @@
+<launch>
+
+	<arg name="base_ip"/>
+	<arg name="base_port" />
+	<arg name="enable_xs0_sender" />
+
+</launch>

@@ -13,7 +13,7 @@ namespace plotter
 {
 
 // Class constructor
-JointStatePlot::JointStatePlot(ros::NodeHandle& nh, Plot* parent) : Plot("Joint states", parent)
+JointStatePlot::JointStatePlot(ros::NodeHandle& nh, Plot* parent) : Plot(JS_PLOT_TOPIC, parent)
 {
 	// Create plot groups to hold all the joint-specific plots
 	m_group.positionPlot        = new Plot("Positions", this);
@@ -27,34 +27,80 @@ JointStatePlot::JointStatePlot(ros::NodeHandle& nh, Plot* parent) : Plot("Joint 
 	m_group.cmdEffortPlot       = new Plot("Cmd Efforts", this);
 
 	// Subscribe to the required joint data topics
-	m_sub_js = nh.subscribe("/joint_states", 50, &JointStatePlot::gotData, this);
-	m_sub_cmd_js = nh.subscribe("/joint_commands", 50, &JointStatePlot::gotCmdData, this);
+	boost::function<void(const sensor_msgs::JointStateConstPtr&)> gotDataCb = boost::bind(&JointStatePlot::gotData, this, _1, false);
+	boost::function<void(const plot_msgs::JointCommandConstPtr&)> gotCmdDataCb = boost::bind(&JointStatePlot::gotCmdData, this, _1, false);
+	m_sub_js = nh.subscribe<sensor_msgs::JointStateConstPtr>("/joint_states", 50, gotDataCb);
+	m_sub_cmd_js = nh.subscribe<plot_msgs::JointCommandConstPtr>("/joint_commands", 50, gotCmdDataCb);
 
 	// Register the plot message types with Qt
 	qRegisterMetaType<sensor_msgs::JointStateConstPtr>("sensor_msgs::JointStateConstPtr");
 	qRegisterMetaType<plot_msgs::JointCommandConstPtr>("plot_msgs::JointCommandConstPtr");
 
 	// Connect the required Qt signals and slots
-	connect(this, SIGNAL(gotData(sensor_msgs::JointStateConstPtr)),    SLOT(handleData(sensor_msgs::JointStateConstPtr)),    Qt::QueuedConnection);
-	connect(this, SIGNAL(gotCmdData(plot_msgs::JointCommandConstPtr)), SLOT(handleCmdData(plot_msgs::JointCommandConstPtr)), Qt::QueuedConnection);
+	connect(this, SIGNAL(gotData(sensor_msgs::JointStateConstPtr, bool)),    SLOT(handleData(sensor_msgs::JointStateConstPtr, bool)),    Qt::QueuedConnection);
+	connect(this, SIGNAL(gotCmdData(plot_msgs::JointCommandConstPtr, bool)), SLOT(handleCmdData(plot_msgs::JointCommandConstPtr, bool)), Qt::QueuedConnection);
 }
 
 // Class destructor
 JointStatePlot::~JointStatePlot()
 {
+	// Shut down the required subscribers
+	shutdownNode();
 }
 
-void JointStatePlot::shutdown()
+void JointStatePlot::shutdownNode()
 {
+	// Shut down the subscribers that we own
 	m_sub_js.shutdown();
 	m_sub_cmd_js.shutdown();
 }
 
+void JointStatePlot::shutdown()
+{
+	// Shut down this node
+	shutdownNode();
+
+	// Shut down whatever the base implementation needs to
+	Plot::shutdown();
+}
+
+// Find or create a plot by path
+Plot* JointStatePlot::findOrCreatePlotByPath(const QString& path)
+{
+	// Get the local path component
+	QString local = path.section('/', 0, 0, QString::SectionSkipEmpty);
+	QString subPath = path.section('/', 1, -1, QString::SectionSkipEmpty);
+
+	// See whether the local path component is special
+	bool isSpecialLocal = (local == m_group.positionPlot->name()       || local == m_group.velocityPlot->name()    || local == m_group.torquePlot->name()          ||
+	                       local == m_group.cmdPositionPlot->name()    || local == m_group.cmdVelocityPlot->name() || local == m_group.cmdAccelerationPlot->name() ||
+	                       local == m_group.cmdRawPositionPlot->name() || local == m_group.cmdTorquePlot->name()   || local == m_group.cmdEffortPlot->name());
+
+	// If not special then just proceed as normal
+	if(!isSpecialLocal)
+		return plotter::Plot::findOrCreatePlotByPath(path);
+
+	// See whether the subpath is special
+	QString subLocal = path.section('/', 1, 1, QString::SectionSkipEmpty);
+	bool isSpecialSubPath = (subPath == subLocal);
+
+	// If not special then just proceed as normal
+	if(!isSpecialSubPath)
+		return plotter::Plot::findOrCreatePlotByPath(path);
+
+	// Create plotters for the entry if we don't already have one
+	if(m_plotters.find(subLocal) == m_plotters.end())
+		createPlottersFor(subLocal);
+
+	// Now that we have created the required plotter we proceed as normal, and this should just retrieve the already created plot
+	return plotter::Plot::findOrCreatePlotByPath(path);
+}
+
 // Handle received joint state data
-void JointStatePlot::handleData(const sensor_msgs::JointStateConstPtr& data)
+void JointStatePlot::handleData(const sensor_msgs::JointStateConstPtr& data, bool overridePause)
 {
 	// Don't accept any data if paused
-	if(paused()) return;
+	if(paused() && !overridePause) return;
 
 	// Handle the received data
 	for(std::size_t i = 0; i < data->position.size(); i++)
@@ -69,17 +115,17 @@ void JointStatePlot::handleData(const sensor_msgs::JointStateConstPtr& data)
 
 		// Update the joint state plots for the joint
 		JointPlotters* plotters = &(*it);
-		plotters->positionPlot->put(data->header.stamp, data->position[i]);
-		if(i < data->velocity.size()) plotters->velocityPlot->put(data->header.stamp, data->velocity[i]);
-		if(i < data->effort.size()) plotters->torquePlot->put(data->header.stamp, data->effort[i]);
+		plotters->positionPlot->put(data->header.stamp, data->position[i], NULL, true, overridePause);
+		if(i < data->velocity.size()) plotters->velocityPlot->put(data->header.stamp, data->velocity[i], NULL, true, overridePause);
+		if(i < data->effort.size()) plotters->torquePlot->put(data->header.stamp, data->effort[i], NULL, true, overridePause);
 	}
 }
 
 // Handle received joint command data
-void JointStatePlot::handleCmdData(const plot_msgs::JointCommandConstPtr& data)
+void JointStatePlot::handleCmdData(const plot_msgs::JointCommandConstPtr& data, bool overridePause)
 {
 	// Don't accept any data if paused
-	if(paused()) return;
+	if(paused() && !overridePause) return;
 
 	// Handle the received data
 	for(std::size_t i = 0; i < data->position.size(); i++)
@@ -94,12 +140,12 @@ void JointStatePlot::handleCmdData(const plot_msgs::JointCommandConstPtr& data)
 
 		// Update the joint state plots for the joint
 		JointPlotters* plotters = &(*it);
-		plotters->cmdPositionPlot->put(data->header.stamp, data->position[i]);
-		if(i < data->velocity.size()) plotters->cmdVelocityPlot->put(data->header.stamp, data->velocity[i]);
-		if(i < data->acceleration.size()) plotters->cmdAccelerationPlot->put(data->header.stamp, data->acceleration[i]);
-		if(i < data->rawPosition.size()) plotters->cmdRawPositionPlot->put(data->header.stamp, data->rawPosition[i]);
-		if(i < data->torque.size()) plotters->cmdTorquePlot->put(data->header.stamp, data->torque[i]);
-		if(i < data->effort.size()) plotters->cmdEffortPlot->put(data->header.stamp, data->effort[i]);
+		plotters->cmdPositionPlot->put(data->header.stamp, data->position[i], NULL, true, overridePause);
+		if(i < data->velocity.size()) plotters->cmdVelocityPlot->put(data->header.stamp, data->velocity[i], NULL, true, overridePause);
+		if(i < data->acceleration.size()) plotters->cmdAccelerationPlot->put(data->header.stamp, data->acceleration[i], NULL, true, overridePause);
+		if(i < data->rawPosition.size()) plotters->cmdRawPositionPlot->put(data->header.stamp, data->rawPosition[i], NULL, true, overridePause);
+		if(i < data->torque.size()) plotters->cmdTorquePlot->put(data->header.stamp, data->torque[i], NULL, true, overridePause);
+		if(i < data->effort.size()) plotters->cmdEffortPlot->put(data->header.stamp, data->effort[i], NULL, true, overridePause);
 	}
 }
 

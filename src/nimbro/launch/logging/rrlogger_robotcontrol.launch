@@ -1,0 +1,27 @@
+<launch>
+	<node name="rclogger" pkg="rrlogger" type="rrlogger" output="screen">
+<rosparam>
+heartbeatEnabled: true
+heartbeatOptional: false
+heartbeatTimeout: 1
+maxNumBags: 40
+maxTotalMB: 12800
+plotTopics:
+  - /Joint states
+  - /RobotModel
+  - /gait
+  - /cap_gait
+  - /nimbro_op_interface
+  - /MotionPlayer
+tfFrames:
+  - /
+topics:
+  - /tf
+  - /plot
+  - /joint_states
+  - /joint_commands
+  - /robotcontrol/vis_marker_array
+  - /robotcontrol/cap_gait/robot_model
+</rosparam>
+	</node>
+</launch>

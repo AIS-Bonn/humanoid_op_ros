@@ -88,8 +88,9 @@ namespace vis_utils
 		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
 		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
 		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
 		**/
-		explicit GenMarker(MarkerManager* MM, const std::string& frameID = "", const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE);
+		explicit GenMarker(MarkerManager* MM, const std::string& frameID = "", const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false);
 
 		/**
 		* @name Set Functions for Marker Properties
@@ -104,6 +105,42 @@ namespace vis_utils
 		void setType(int type)
 		{
 			marker.type = type;
+		}
+		//! @brief Sets the marker action (add/modify or delete).
+		void setAction(int action)
+		{
+			marker.action = action;
+		}
+		//! @brief Sets the marker action to add/modify or delete depending on whether the marker should be visible or not.
+		void setVisible(bool visible)
+		{
+			marker.action = (visible ? (int32_t)visualization_msgs::Marker::ADD : (int32_t)visualization_msgs::Marker::DELETE);
+		}
+		//! @brief Sets the marker action to add/modify.
+		void show()
+		{
+			marker.action = visualization_msgs::Marker::ADD;
+		}
+		//! @brief Sets the marker action to delete.
+		void hide()
+		{
+			marker.action = visualization_msgs::Marker::DELETE;
+		}
+		//! @brief Gets whether the marker action is to add/modify.
+		bool shown() const
+		{
+			return (marker.action == visualization_msgs::Marker::ADD);
+		}
+		//! @brief Gets whether the marker action is to delete.
+		bool hidden() const
+		{
+			return (marker.action != visualization_msgs::Marker::ADD);
+		}
+		//! @brief Sets the marker's desired position relative to the coordinate frame that is specified (this overload is 2D only).
+		void setPosition(double x, double y)
+		{
+			marker.pose.position.x = x;
+			marker.pose.position.y = y;
 		}
 		//! @brief Sets the marker's desired position relative to the coordinate frame that is specified.
 		void setPosition(double x, double y, double z)
@@ -134,13 +171,81 @@ namespace vis_utils
 			marker.scale.y = scaleY;
 			marker.scale.z = scaleZ;
 		}
-		//! @brief Sets the color of the marker in RGB using floating point numbers on the unit interval
-		void setColor(float R, float G, float B, float A = 1.0)
+		//! @brief Sets the scale (i.e. size) of the marker in the X axis
+		void setScaleX(double scaleX)
 		{
-			marker.color.r = R;
-			marker.color.g = G;
-			marker.color.b = B;
-			marker.color.a = A;
+			marker.scale.x = scaleX;
+		}
+		//! @brief Sets the scale (i.e. size) of the marker in the Y axis
+		void setScaleY(double scaleY)
+		{
+			marker.scale.y = scaleY;
+		}
+		//! @brief Sets the scale (i.e. size) of the marker in the Z axis
+		void setScaleZ(double scaleZ)
+		{
+			marker.scale.z = scaleZ;
+		}
+		//! @brief Sets the text of the marker
+		void setText(const std::string& text)
+		{
+			marker.text = text;
+		}
+		//! @brief Set the size of the points member
+		void setNumPoints(size_t num)
+		{
+			geometry_msgs::Point defPoint;
+			defPoint.x = defPoint.y = defPoint.z = 0.0;
+			marker.points.resize(num, defPoint);
+		}
+		//! @brief Sets a value in the points member of the marker
+		void setPoint(size_t i, double x, double y)
+		{
+			if(i < marker.points.size())
+			{
+				geometry_msgs::Point& p = marker.points[i];
+				p.x = x;
+				p.y = y;
+			}
+		}
+		//! @brief Sets a value in the points member of the marker
+		void setPoint(size_t i, double x, double y, double z)
+		{
+			if(i < marker.points.size())
+			{
+				geometry_msgs::Point& p = marker.points[i];
+				p.x = x;
+				p.y = y;
+				p.z = z;
+			}
+		}
+		//! @brief Sets the color of the marker in RGB using floating point numbers on the unit interval
+		void setColor(float r, float g, float b, float a = 1.0)
+		{
+			marker.color.r = r;
+			marker.color.g = g;
+			marker.color.b = b;
+			marker.color.a = a;
+		}
+		//! @brief Set the size of the colors member
+		void setNumPtColors(size_t num)
+		{
+			std_msgs::ColorRGBA defCol;
+			defCol.r = defCol.a = 1.0;
+			defCol.g = defCol.b = 0.0;
+			marker.colors.resize(num, defCol);
+		}
+		//! @brief Set a color of the marker in RGB using floating point numbers on the unit interval
+		void setPtColor(size_t i, float r, float g, float b, float a = 1.0)
+		{
+			if(i < marker.colors.size())
+			{
+				std_msgs::ColorRGBA& c = marker.colors[i];
+				c.r = r;
+				c.g = g;
+				c.b = b;
+				c.a = a;
+			}
 		}
 		//! @brief Sets the lifetime of the marker, that is, how long the marker is displayed before it automatically disappears.
 		void setLifetime(double lifetime)
@@ -155,13 +260,16 @@ namespace vis_utils
 		///@}
 
 		// Update function
-		void update(); //!< @brief Signals to the owning MarkerManager that this marker wishes to be published in this step. This function adds the marker to the marker array embedded inside the MarkerManager.
+		void updateAdd(); //!< @brief Signals to the owning MarkerManager that this marker wishes to be published in this step. This function adds the marker to the marker array embedded inside the MarkerManager.
 
 		// Pointer to the parent MarkerManager
 		MarkerManager* const MM; //!< @brief A pointer to the owning MarkerManager object of the marker.
 
 		// Visualisation marker object
 		visualization_msgs::Marker marker; //!< @brief The internal `visualization_msgs::Marker` object that is used for publishing and storing of the marker properties.
+
+		// Flag whether the marker is dynamic
+		const bool dynamic;
 	};
 	
 	/**
@@ -257,9 +365,42 @@ namespace vis_utils
 			, enabled(enabled)
 			, IDCount(0)
 		{
+			// Construct the class
+			ros::NodeHandle nh("~");
+			construct(nh, topicName);
+		}
+
+		/**
+		* @brief Constructor with explicit node handle
+		*
+		* @param nh The `ros::NodeHandle` to use for the marker manager.
+		* @param topicName A `std::string` specifying the topic to publish the markers to (Default:
+		* `DEFAULT_TOPICNAME`). If the first character is @c ~ then it is explicitly replaced by the
+		* node name (e.g. @c ~foo becomes @c /node_name/foo) so as to ensure conformance.
+		* @param publishInterval Specifies the rate at which to publish the markers (Default: `1`).
+		* If this parameter is @c n then the markers are only published every `n`-th time.
+		* @param enabled This controls the intial enabled state of the MarkerManager (Default: `true)`.
+		* The enabled state can later be changed using the enable() and disable() functions, and
+		* controls whether the MarkerManager actually publishes anything.
+		**/
+		explicit MarkerManager(ros::NodeHandle& nh, const std::string& topicName = DEFAULT_TOPICNAME, int publishInterval = 1, bool enabled = true)
+			: publishInterval(publishInterval)
+			, publishCount(1)
+			, m_stamp()
+			, enabled(enabled)
+			, IDCount(0)
+		{
+			// Construct the class
+			construct(nh, topicName);
+		}
+
+	private:
+		// Constructor function
+		void construct(ros::NodeHandle& nh, const std::string& topicName)
+		{
 			// Save the topic name
 			itopicName = topicName;
-			
+
 			// Verify that the topic name is valid
 			std::string errStr;
 			if(!ros::names::validate(itopicName, errStr))
@@ -274,7 +415,6 @@ namespace vis_utils
 			if(itopicName.at(0) == '~') itopicName.replace(0, 1, ros::this_node::getName() + "/");
 
 			// Advertise on the plot topic
-			ros::NodeHandle nh("~");
 			m_pub_markers = nh.advertise<visualization_msgs::MarkerArray>(itopicName, 1);
 
 			// Error checking on the downsample rate
@@ -285,6 +425,7 @@ namespace vis_utils
 			}
 		}
 
+	public:
 		//! @brief Reset function. Invokes `clear()` and forces the next call to `publish()` to actually publish the required markers.
 		void reset()
 		{
@@ -306,6 +447,20 @@ namespace vis_utils
 			// Clear the markers list and set the timestamp
 			m_stamp = stamp;
 			m_markers.markers.clear();
+		}
+
+		//! @brief Function that allows you to set the current timestamp to @p stamp.
+		void setStamp(ros::Time stamp)
+		{
+			// Set the timestamp
+			m_stamp = stamp;
+		}
+
+		//! @brief Function that returns the current timestamp
+		ros::Time getStamp() const
+		{
+			// Return the current timestamp
+			return m_stamp;
 		}
 
 		//! @brief Returns whether the MarkerManager will actually publish the markers in this cycle
@@ -345,6 +500,39 @@ namespace vis_utils
 			}
 		}
 
+		//! @brief Create an entry for a new dynamic marker
+		void newDynamicMarker(int index) { m_dynamicMap[index] = getUniqueID(); }
+		//! @brief Delete the entry for a dynamic marker
+		void deleteDynamicMarker(int index) { m_dynamicMap.erase(index); }
+		//! @brief Reset all dynamic markers
+		void deleteAllDynamicMarkers() { m_dynamicMap.clear(); }
+		/**
+		* @brief Update a dynamic marker by index
+		* 
+		* The normal workflow for using dynamic markers in the main loop is something like:
+		* @code
+		* MM.clear();
+		* ...
+		* // <-- Plot normal static markers as usual
+		* ...
+		* vis_utils::TextMarker text(&MM, "trunk_link", 0.1, "mynamespace", true); // The last 'true' here is important, it makes the marker dynamic!
+		* for(int i = 0; i < DYNAMIC; i++)
+		* {
+		* 	// <-- Configure the dynamic text marker as required
+		* 	MM.updateDynamicMarker(i, text);
+		* }
+		* ...
+		* vis_utils::GenMarker gen(&MM, "trunk_link", "mynamespace", true); // The last 'true' here is important, it makes the marker dynamic!
+		* gen.setType(visualization_msgs::Marker::LINE_LIST);
+		* gen.setScaleX(0.05);
+		* // <-- Continue configuring the generic marker
+		* MM.updateDynamicMarker(20, gen); // The dynamic marker will be overwritten by any future dynamic markers updated with the index 20
+		* ...
+		* MM.publish();
+		* @endcode
+		**/
+		void updateDynamicMarker(int index, vis_utils::GenMarker& marker);
+
 		// Get functions
 		const std::string& getTopicName() const { return itopicName; } //!< @brief Returns the topic name in use by the MarkerManager for publishing of the visualization markers
 		int getPublishInterval() const { return publishInterval; } //!< @brief Returns the publishing interval in use by the MarkerManager. If this is 'n' then the markers are only published every `n`-th time.
@@ -355,13 +543,21 @@ namespace vis_utils
 		// Properties
 		void enable()  { enabled =  true; forcePublish(); } //!< @brief Enables the MarkerManager (see `publish()`)
 		void disable() { enabled = false; forcePublish(); } //!< @brief Disables the MarkerManager (see `publish()`)
+		void setEnabled(bool enabled) { this->enabled = enabled; forcePublish(); } //!< @brief Sets the enabled state of the MarkerManager (see `publish()`)
+
+	protected:
+		// ROS publisher
+		ros::Publisher m_pub_markers;
 
 	private:
+		// Internal typedefs
+		typedef std::map<int, int> IndexMap; // Maps indices to rviz IDs
+
 		// Internal variables
-		ros::Publisher m_pub_markers;
 		visualization_msgs::MarkerArray m_markers;
 		int publishInterval, publishCount;
 		std::string itopicName;
+		IndexMap m_dynamicMap;
 		ros::Time m_stamp;
 		bool enabled;
 		int IDCount;
@@ -393,11 +589,31 @@ namespace vis_utils
 		* @param frameID The name of the coordinate frame in which the marker should be published (e.g. "/odom").
 		* If it is desired for the marker to be continually retransformed into this coordinate frame for the
 		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
+		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
+		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
+		**/
+		explicit SphereMarker(MarkerManager* MM, const std::string& frameID = "", const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
+		{
+			// Set marker properties
+			setType(visualization_msgs::Marker::SPHERE);
+			setScale(0.025);
+		}
+
+		/**
+		* @brief Specialised constructor.
+		*
+		* @param MM A pointer to the MarkerManager that should own this marker. If this parameter is null
+		* then a segmentation fault will be of likely consequence.
+		* @param frameID The name of the coordinate frame in which the marker should be published (e.g. "/odom").
+		* If it is desired for the marker to be continually retransformed into this coordinate frame for the
+		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
 		* @param diameter The required diameter of the spherical marker (Default: 0.025).
 		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
 		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
 		**/
-		explicit SphereMarker(MarkerManager* MM, const std::string& frameID = "", double diameter = 0.025, const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE) : GenMarker(MM, frameID, markerNamespace)
+		explicit SphereMarker(MarkerManager* MM, const std::string& frameID, double diameter, const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
 		{
 			// Set marker properties
 			setType(visualization_msgs::Marker::SPHERE);
@@ -410,8 +626,9 @@ namespace vis_utils
 			// Update the marker
 			if(MM->willPublish())
 			{
-				setPosition(x, y, z); // <-- In update() overloads, set any additional marker properties here
-				MM->add(this);
+				setPosition(x, y, z);
+				if(!dynamic)
+					MM->add(this);
 			}
 		}
 	};
@@ -432,11 +649,31 @@ namespace vis_utils
 		* @param frameID The name of the coordinate frame in which the marker should be published (e.g. "/odom").
 		* If it is desired for the marker to be continually retransformed into this coordinate frame for the
 		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
+		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
+		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
+		**/
+		explicit CubeMarker(MarkerManager* MM, const std::string& frameID = "", const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
+		{
+			// Set marker properties
+			setType(visualization_msgs::Marker::CUBE);
+			setScale(0.025);
+		}
+
+		/**
+		* @brief Specialised constructor.
+		*
+		* @param MM A pointer to the MarkerManager that should own this marker. If this parameter is null
+		* then a segmentation fault will be of likely consequence.
+		* @param frameID The name of the coordinate frame in which the marker should be published (e.g. "/odom").
+		* If it is desired for the marker to be continually retransformed into this coordinate frame for the
+		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
 		* @param size The required edge length of the cube marker (Default: 0.025).
 		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
 		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
 		**/
-		explicit CubeMarker(MarkerManager* MM, const std::string& frameID = "", double size = 0.025, const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE) : GenMarker(MM, frameID, markerNamespace)
+		explicit CubeMarker(MarkerManager* MM, const std::string& frameID, double size, const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
 		{
 			// Set marker properties
 			setType(visualization_msgs::Marker::CUBE);
@@ -450,7 +687,8 @@ namespace vis_utils
 			if(MM->willPublish())
 			{
 				setPosition(x, y, z);
-				MM->add(this);
+				if(!dynamic)
+					MM->add(this);
 			}
 		}
 	};
@@ -459,6 +697,8 @@ namespace vis_utils
 	* @class BoxMarker
 	*
 	* @brief Encapsulates a rectangular box marker object. By default sets up a box marker where each dimension is 0.20.
+	*
+	* Avoid mixing use of the two `update()` overloads or the orientation of the BoxMarker may not end up as expected.
 	**/
 	class BoxMarker : public GenMarker
 	{
@@ -466,7 +706,24 @@ namespace vis_utils
 		/**
 		* @brief Default constructor.
 		*
-		* Avoid mixing use of the two `update()` overloads or the orientation of the BoxMarker may not end up as expected.
+		* @param MM A pointer to the MarkerManager that should own this marker. If this parameter is null
+		* then a segmentation fault will be of likely consequence.
+		* @param frameID The name of the coordinate frame in which the marker should be published (e.g. "/odom").
+		* If it is desired for the marker to be continually retransformed into this coordinate frame for the
+		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
+		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
+		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
+		**/
+		explicit BoxMarker(MarkerManager* MM, const std::string& frameID = "", const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
+		{
+			// Set marker properties
+			setType(visualization_msgs::Marker::CUBE);
+			setScale(0.20, 0.20, 0.20);
+		}
+
+		/**
+		* @brief Specialised constructor.
 		*
 		* @param MM A pointer to the MarkerManager that should own this marker. If this parameter is null
 		* then a segmentation fault will be of likely consequence.
@@ -478,8 +735,9 @@ namespace vis_utils
 		* @param sizeZ The required size of the box in the z direction (Default: 0.20).
 		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
 		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
 		**/
-		explicit BoxMarker(MarkerManager* MM, const std::string& frameID = "", double sizeX = 0.20, double sizeY = 0.20, double sizeZ = 0.20, const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE) : GenMarker(MM, frameID, markerNamespace)
+		explicit BoxMarker(MarkerManager* MM, const std::string& frameID, double sizeX, double sizeY, double sizeZ, const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
 		{
 			// Set marker properties
 			setType(visualization_msgs::Marker::CUBE);
@@ -504,8 +762,120 @@ namespace vis_utils
 			{
 				setPosition(x, y, z);
 				setOrientation(rw, rx, ry, rz);
-				MM->add(this);
+				if(!dynamic)
+					MM->add(this);
 			}
+		}
+	};
+
+	/**
+	* @class CylinderMarker
+	*
+	* @brief Encapsulates a cylinder marker object. By default sets up a cylinder marker where height and diameter is 0.20.
+	*
+	* Avoid mixing use of the two `update()` overloads or the orientation of the CylinderMarker may not end up as expected.
+	**/
+	class CylinderMarker : public GenMarker
+	{
+	public:
+		/**
+		* @brief Default constructor.
+		*
+		* @param MM A pointer to the MarkerManager that should own this marker. If this parameter is null
+		* then a segmentation fault will be of likely consequence.
+		* @param frameID The name of the coordinate frame in which the marker should be published (e.g. "/odom").
+		* If it is desired for the marker to be continually retransformed into this coordinate frame for the
+		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
+		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
+		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
+		**/
+		explicit CylinderMarker(MarkerManager* MM, const std::string& frameID = "", const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
+		{
+			// Set marker properties
+			setType(visualization_msgs::Marker::CYLINDER);
+			setScale(0.20, 0.20, 0.20);
+		}
+
+		/**
+		* @brief Specialised constructor.
+		*
+		* @param MM A pointer to the MarkerManager that should own this marker. If this parameter is null
+		* then a segmentation fault will be of likely consequence.
+		* @param frameID The name of the coordinate frame in which the marker should be published (e.g. "/odom").
+		* If it is desired for the marker to be continually retransformed into this coordinate frame for the
+		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
+		* @param height The required height of the cylinder (Default: 0.20).
+		* @param diameter The required diameter of the cylinder (Default: 0.20).
+		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
+		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
+		**/
+		explicit CylinderMarker(MarkerManager* MM, const std::string& frameID, double height, double diameter, const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
+		{
+			// Set marker properties
+			setType(visualization_msgs::Marker::CYLINDER);
+			setScale(diameter, diameter, height);
+		}
+
+		//! @brief Update function overload: Sets the position of the marker only (the orientation should have been set at some point using `setOrientation`, e.g. during construction)
+		void update(double x, double y, double z)
+		{
+			// Update the marker
+			if(MM->willPublish())
+			{
+				setPosition(x, y, z);
+				if(!dynamic)
+					MM->add(this);
+			}
+		}
+		//! @brief Update function overload: Sets the position and orientation of the marker
+		void update(double x, double y, double z, double rw, double rx, double ry, double rz)
+		{
+			// Update the marker
+			if(MM->willPublish())
+			{
+				setPosition(x, y, z);
+				setOrientation(rw, rx, ry, rz);
+				if(!dynamic)
+					MM->add(this);
+			}
+		}
+		//! @brief Update function overload: Sets the position and orientation of the marker so that it joins two points in space
+		void update(double fromX, double fromY, double fromZ, double toX, double toY, double toZ)
+		{
+			// Don't do anything if we're not going to publish
+			if(!MM->willPublish())
+				return;
+			
+			// Calculate the difference between the from and to points
+			double diffX = toX - fromX;
+			double diffY = toY - fromY;
+			double diffZ = toZ - fromZ;
+			double diffLen = sqrt(diffX*diffX + diffY*diffY + diffZ*diffZ);
+			double diffLenXY = sqrt(diffX*diffX + diffY*diffY);
+			
+			// Don't plot the marker if it is supposed to have zero length
+			if(diffLen <= 0.0)
+				return;
+			
+			// Calculate the angle of rotation
+			double ratio = diffZ / diffLen;
+			if(ratio > 1.0) ratio = 1.0;
+			else if(ratio < -1.0) ratio = -1.0;
+			double alpha = acos(ratio);
+			double chalpha = cos(0.5*alpha);
+			double shalpha = sin(0.5*alpha);
+			
+			// Set the orientation of the marker
+			setOrientation(chalpha, -shalpha*diffY/diffLenXY, shalpha*diffX/diffLenXY, 0.0);
+			
+			// Set the position of the marker
+			setPosition(0.5*(fromX + toX), 0.5*(fromY + toY), 0.5*(fromZ + toZ));
+			
+			// Update the marker
+			if(!dynamic)
+				MM->add(this);
 		}
 	};
 
@@ -525,13 +895,42 @@ namespace vis_utils
 		* @param frameID The name of the coordinate frame in which the marker should be published (e.g. "/odom").
 		* If it is desired for the marker to be continually retransformed into this coordinate frame for the
 		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
+		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
+		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
+		**/
+		explicit ArrowMarker(MarkerManager* MM, const std::string& frameID = "", const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
+		{
+			// Set marker properties
+			setType(visualization_msgs::Marker::ARROW);
+			setScale(0.025, 0.050, 0.0);
+
+			// Initialise the points array from/to pair
+			marker.points.resize(2);
+			marker.points[0].x = 0.0;
+			marker.points[0].y = 0.0;
+			marker.points[0].z = 0.0;
+			marker.points[1].x = 1.0;
+			marker.points[1].y = 0.0;
+			marker.points[1].z = 0.0;
+		}
+
+		/**
+		* @brief Specialised constructor.
+		*
+		* @param MM A pointer to the MarkerManager that should own this marker. If this parameter is null
+		* then a segmentation fault will be of likely consequence.
+		* @param frameID The name of the coordinate frame in which the marker should be published (e.g. "/odom").
+		* If it is desired for the marker to be continually retransformed into this coordinate frame for the
+		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
 		* @param shaft_diam The required shaft diameter of the arrow (Default: 0.025).
 		* @param head_diam The required arrow head diameter (Default: 0.050).
 		* @param head_length The required arrow head length, where a value 0.0 means 'automatically select' (Default: 0.0).
 		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
 		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
 		**/
-		explicit ArrowMarker(MarkerManager* MM, const std::string& frameID = "", double shaft_diam = 0.025, double head_diam = 0.050, double head_length = 0.0, const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE) : GenMarker(MM, frameID, markerNamespace)
+		explicit ArrowMarker(MarkerManager* MM, const std::string& frameID, double shaft_diam, double head_diam, double head_length = 0.0, const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
 		{
 			// Set marker properties
 			setType(visualization_msgs::Marker::ARROW);
@@ -559,26 +958,111 @@ namespace vis_utils
 				marker.points[1].x = x;
 				marker.points[1].y = y;
 				marker.points[1].z = z;
-				MM->add(this);
+				if(!dynamic)
+					MM->add(this);
 			}
 		}
 		//! @brief Update function overload: Sets the from (tail) and to (tip) coordinates of the arrow
-		void update(double fromx, double fromy, double fromz, double tox, double toy, double toz)
+		void update(double fromX, double fromY, double fromZ, double toX, double toY, double toZ)
 		{
 			// Update the marker
 			if(MM->willPublish())
 			{
-				marker.points[0].x = fromx;
-				marker.points[0].y = fromy;
-				marker.points[0].z = fromz;
-				marker.points[1].x = tox;
-				marker.points[1].y = toy;
-				marker.points[1].z = toz;
-				MM->add(this);
+				marker.points[0].x = fromX;
+				marker.points[0].y = fromY;
+				marker.points[0].z = fromZ;
+				marker.points[1].x = toX;
+				marker.points[1].y = toY;
+				marker.points[1].z = toZ;
+				if(!dynamic)
+					MM->add(this);
+			}
+		}
+	};
+	
+	/**
+	* @class TextMarker
+	*
+	* @brief Encapsulates a text marker object. By default sets up an empty text marker.
+	**/
+	class TextMarker : public GenMarker
+	{
+	public:
+		/**
+		* @brief Default constructor.
+		*
+		* @param MM A pointer to the MarkerManager that should own this marker. If this parameter is null
+		* then a segmentation fault will be of likely consequence.
+		* @param frameID The name of the coordinate frame in which the marker should be published (e.g. "/odom").
+		* If it is desired for the marker to be continually retransformed into this coordinate frame for the
+		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
+		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
+		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
+		**/
+		explicit TextMarker(MarkerManager* MM, const std::string& frameID = "", const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
+		{
+			// Set marker properties
+			setType(visualization_msgs::Marker::TEXT_VIEW_FACING);
+			setScale(0.05);
+		}
+
+		/**
+		* @brief Specialised constructor.
+		*
+		* @param MM A pointer to the MarkerManager that should own this marker. If this parameter is null
+		* then a segmentation fault will be of likely consequence.
+		* @param frameID The name of the coordinate frame in which the marker should be published (e.g. "/odom").
+		* If it is desired for the marker to be continually retransformed into this coordinate frame for the
+		* duration of its lifetime, then use the `setFrameLocked()` function with argument `true`.
+		* @param size The font size of the text, namely the height of an uppercase 'A' (Default: 0.05).
+		* @param markerNamespace The namespace to use for the marker (`ns` field). A leading '~' is automatically
+		* replaced by the node name (e.g. '~' turns into '/node_name', and '~foo' turns into '/node_name/foo').
+		* @param dynamic Set to true if constructing the marker as a dynamic marker (Default: false).
+		**/
+		explicit TextMarker(MarkerManager* MM, const std::string& frameID, double size, const std::string& markerNamespace = DEFAULT_MARKER_NAMESPACE, bool dynamic = false) : GenMarker(MM, frameID, markerNamespace, dynamic)
+		{
+			// Set marker properties
+			setType(visualization_msgs::Marker::TEXT_VIEW_FACING);
+			setScale(size);
+		}
+
+		//! @brief Update function overload: Sets the text of the marker
+		void update(const std::string& text)
+		{
+			// Update the marker
+			if(MM->willPublish())
+			{
+				setText(text);
+				if(!dynamic)
+					MM->add(this);
+			}
+		}
+		//! @brief Update function overload: Sets the position of the marker
+		void update(double x, double y, double z)
+		{
+			// Update the marker
+			if(MM->willPublish())
+			{
+				setPosition(x, y, z);
+				if(!dynamic)
+					MM->add(this);
+			}
+		}
+		//! @brief Update function overload: Sets the position and text of the marker
+		void update(const std::string& text, double x, double y, double z)
+		{
+			// Update the marker
+			if(MM->willPublish())
+			{
+				setText(text);
+				setPosition(x, y, z);
+				if(!dynamic)
+					MM->add(this);
 			}
 		}
 	};
 }
 
-#endif /* MARKER_MANAGER_H */
+#endif
 // EOF

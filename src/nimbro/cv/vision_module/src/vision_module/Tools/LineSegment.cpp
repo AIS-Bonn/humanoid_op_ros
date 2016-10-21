@@ -31,26 +31,29 @@ bool LineSegment::Within(float fl, float flLow, float flHi, float flEp)
 	return false;
 }
 
-LineSegment LineSegment::PerpendicularLineSegment(double len,cv::Point2d mid)
+LineSegment LineSegment::PerpendicularLineSegment(double len, cv::Point2d mid)
 {
 	double angle = GetRadianFromX();
 	angle += M_PI / 2;
-	double x1 = mid.x + cos(angle)*len;
-	double y1 = mid.y + sin(angle)*len;
-	double x2 = mid.x - cos(angle)*len;
-	double y2 = mid.y - sin(angle)*len;
+	double x1 = mid.x + cos(angle) * len;
+	double y1 = mid.y + sin(angle) * len;
+	double x2 = mid.x - cos(angle) * len;
+	double y2 = mid.y - sin(angle) * len;
 	return LineSegment(cv::Point2d(x1, y1), cv::Point2d(x2, y2));
 }
 
-
 void LineSegment::Clip(Rect boundry)
 {
-	P1.x = std::min((double) boundry.width-1, std::max((double) boundry.x, P1.x));
-	P1.y = std::min((double) boundry.height-1,
-			std::max((double) boundry.y, P1.y));
-	P2.x = std::min((double) boundry.width-1, std::max((double) boundry.x, P2.x));
-	P2.y = std::min((double) boundry.height-1,
-			std::max((double) boundry.y, P2.y));
+	double minXPossible = boundry.x;
+	double minYPossible = boundry.y;
+	double maxXPossible = boundry.x + boundry.width - 1;
+	double maxYPossible = boundry.y + boundry.height - 1;
+
+	P1.x = std::min(maxXPossible, std::max(minXPossible, P1.x));
+	P1.y = std::min(maxYPossible, std::max(minYPossible, P1.y));
+
+	P2.x = std::min(maxXPossible, std::max(minXPossible, P2.x));
+	P2.y = std::min(maxYPossible, std::max(minYPossible, P2.y));
 }
 
 bool LineSegment::IsOnThis(const Point2f& ptTest, float flEp)
@@ -183,18 +186,36 @@ LineSegment::LineSegment()
 {
 	P1 = Point2f(0, 0);
 	P2 = Point2f(0, 0);
+	probability = 0;
 }
 
-LineSegment::LineSegment(const Point2d p1, const Point2d p2)
+LineSegment::LineSegment(const Point2d p1, const Point2d p2,
+		double _probability)
 {
 	P1 = p1;
 	P2 = p2;
+	setProbability(_probability);
+}
+
+LineSegment::LineSegment(const Point2d center, double angle, double length,
+		double _probability)
+{
+	double len2 = length / 2.;
+	double x1 = center.x + cos(angle) * len2;
+	double y1 = center.y + sin(angle) * len2;
+	double x2 = center.x - cos(angle) * len2;
+	double y2 = center.y - sin(angle) * len2;
+
+	P1 = cv::Point2d(x1, y1);
+	P2 = cv::Point2d(x2, y2);
+	setProbability(_probability);
 }
 
 LineSegment::LineSegment(const LineSegment &l)
 {
 	P1 = l.P1;
 	P2 = l.P2;
+	probability = l.probability;
 }
 
 float LineSegment::DistanceFromLine(Point2f p)
@@ -258,14 +279,15 @@ bool LineSegment::Intersect(LineSegment L, Point2d &res)
 
 bool LineSegment::IntersectLineForm(LineSegment L, Point2d &res)
 {
-
 	Point2d x = L.P1 - P1;
 	Point2d d1 = P2 - P1;
 	Point2d d2 = L.P2 - L.P1;
 
-	float cross = d1.x * d2.y - d1.y * d2.x;
+	double cross = d1.x * d2.y - d1.y * d2.x;
 	if (abs(cross) < /*EPS*/1e-8)
-		return false;
+	{
+		return false; //Lines are parallel
+	}
 
 	double t1 = (x.x * d2.y - x.y * d2.x) / cross;
 	res = P1 + (d1 * t1);
@@ -274,16 +296,16 @@ bool LineSegment::IntersectLineForm(LineSegment L, Point2d &res)
 
 LineSegment LineSegment::PerpendicularLineSegment(double scale)
 {
-	double angle=GetRadianFromX();
-	angle+=M_PI/2;
-	Point2d mid=GetMiddle();
-	double len=GetLength()/2;
-	len*=scale;
-	double x1=mid.x+cos(angle)*len;
-	double y1=mid.y+sin(angle)*len;
-	double x2=mid.x-cos(angle)*len;
-	double y2=mid.y-sin(angle)*len;
-	return LineSegment(Point2d(x1,y1),Point2d(x2,y2));
+	double angle = GetRadianFromX();
+	angle += M_PI / 2;
+	Point2d mid = GetMiddle();
+	double len = GetLength() / 2;
+	len *= scale;
+	double x1 = mid.x + cos(angle) * len;
+	double y1 = mid.y + sin(angle) * len;
+	double x2 = mid.x - cos(angle) * len;
+	double y2 = mid.y - sin(angle) * len;
+	return LineSegment(Point2d(x1, y1), Point2d(x2, y2));
 }
 
 LineSegment::~LineSegment()

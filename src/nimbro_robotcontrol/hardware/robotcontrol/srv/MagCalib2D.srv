@@ -1,0 +1,14 @@
+---
+float32 hardOffsetX
+float32 hardOffsetY
+float32 hardOffsetZ
+float32 hardOffset2DZ
+float32 hardRadius
+float32 hardField
+float32 hardErr2D
+float32 hardErr3D
+float32 planeNormalX
+float32 planeNormalY
+float32 planeNormalZ
+float32 planeTiltAxisAngle
+float32 planeTiltAngle

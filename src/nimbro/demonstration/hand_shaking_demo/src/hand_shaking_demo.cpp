@@ -76,7 +76,7 @@ void HandShakingDemo::playMotion(const std::string& motionName)
 void HandShakingDemo::handleButton(const nimbro_op_interface::ButtonConstPtr& msg)
 {
 	// Check if the middle button was pressed (button 1 as zero-indexed)
-	if(msg->button == 1)
+	if(msg->button == 1 && msg->longPress == 0)
 		m_buttonPressed = true;
 }
 

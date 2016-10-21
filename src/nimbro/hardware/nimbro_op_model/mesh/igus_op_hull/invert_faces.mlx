@@ -1,0 +1,4 @@
+<!DOCTYPE FilterScript>
+<FilterScript>
+ <filter name="Invert Faces Orientation"/>
+</FilterScript>

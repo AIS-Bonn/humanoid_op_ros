@@ -2,9 +2,12 @@
 # -*- coding: utf-8 -*-
 __author__ = 'sebastian'
 
-import sys
+import sys, os
 import yaml
-
+import rospkg
+rospack = rospkg.RosPack()
+sys.path.append(os.path.join(rospack.get_path('launch'), 'config'))
+from cleanYaml import cleanYamlDump
 
 def mirror_data(motionfile):
     mf = file(motionfile, 'r')
@@ -59,8 +62,11 @@ def main(argv):
     for mf in argv:
         print 'Mirroring Motion %s' % mf
         out = mirror_data(mf)
-        ofile = file(mf[:-5] + '_mirrored' + mf[-5:], 'w')
+        filename = mf[:-5] + '_mirrored' + mf[-5:]
+        ofile = file(filename, 'w')
         yaml.dump(out, ofile, default_flow_style=False)
+        ofile.close()
+        cleanYamlDump(filename)
 
 
 if __name__ == '__main__':

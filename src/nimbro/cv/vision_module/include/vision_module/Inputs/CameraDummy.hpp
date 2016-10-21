@@ -18,26 +18,29 @@ using namespace cv;
 using namespace boost::timer;
 
 /**
- * @class CameraDummy
- * @brief This class is responsible for imitating image acquisition process as a dummy replacement for Camera Class \n  As an input this class listen the raw image in /vision/takenImg topic
- **/
-class CameraDummy:public ICamera
+* @ingroup VisionModule
+*
+* @brief This class is responsible for imitating image acquisition process as a dummy replacement for Camera Class \n  As an input this class listen the raw image in /vision/takenImg topic
+**/
+class CameraDummy: public ICamera
 {
 private:
 	ros::NodeHandle nodeHandle;
 	image_transport::Subscriber sub;
+	image_transport::Subscriber subVis;
 	image_transport::ImageTransport it_;
 	int capNumber;
 public:
 	inline CameraDummy() :
 			it_(nodeHandle), capNumber(0)
 	{
-		sub = it_.subscribe("/vision/takenImg", 1, &CameraDummy::imageCallback,
-				this);
+		sub = it_.subscribe("/vision/takenImg", 1, &CameraDummy::imageCallback, this);
+		subVis = it_.subscribe("/vis/vision/takenImg", 1, &CameraDummy::imageCallback, this);
+		rawImageTime = ros::Time::now();
 	}
 	/*! @fn virtual void ~CameraDummy()
-	*   @brief Destructor
-	*/
+	 *   @brief Destructor
+	 */
 	inline virtual ~CameraDummy()
 	{
 	}
@@ -45,21 +48,22 @@ public:
 	{
 		try
 		{
+			rawImageTime = ros::Time::now();
 			cv_bridge::CvImagePtr cv_ptr;
 			cv_ptr = cv_bridge::toCvCopy(msg,
 					sensor_msgs::image_encodings::BGR8);
 			rawImage = cv_ptr->image.clone();
-			if (params.camera.flipHor->get() && params.camera.flipVer->get())
+			if (params.camera->flipHor() && params.camera->flipVer())
 			{
 				flip(rawImage, rawImage, -1);
 			}
 			else
 			{
-				if (params.camera.flipVer->get())
+				if (params.camera->flipVer())
 				{
 					flip(rawImage, rawImage, 0);
 				}
-				else if (params.camera.flipHor->get())
+				else if (params.camera->flipHor())
 				{
 					flip(rawImage, rawImage, 1);
 				}
@@ -73,7 +77,7 @@ public:
 	}
 	inline bool IsReady()
 	{
-		return capNumber>1;
+		return capNumber >= 1;
 	}
 	inline bool IsDummy()
 	{
@@ -90,5 +94,10 @@ public:
 	 * @return How much this capture is reliable
 	 */
 	double TakeCapture();
+
+	inline bool ShouldPublish()
+	{
+		return false;
+	}
 };
 

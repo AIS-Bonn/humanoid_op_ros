@@ -1,0 +1,17 @@
+---
+float32 hardOffsetX
+float32 hardOffsetY
+float32 hardOffsetZ
+float32 hardField
+float32 hardError
+float32 softOffsetX
+float32 softOffsetY
+float32 softOffsetZ
+float32 softMatrixW1
+float32 softMatrixW2
+float32 softMatrixW3
+float32 softMatrixW4
+float32 softMatrixW5
+float32 softMatrixW6
+float32 softField
+float32 softError

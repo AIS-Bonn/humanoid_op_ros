@@ -10,6 +10,8 @@ catkin_package(
 	LIBRARIES rbdl_ros rbdl
 )
 
+include_directories(${catkin_INCLUDE_DIRS})
+
 add_subdirectory(source)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)

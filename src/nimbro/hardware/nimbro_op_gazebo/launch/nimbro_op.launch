@@ -6,6 +6,6 @@
 		<arg name="paused" value="true" />
 	</include>
 
-	<node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-param robot_description -urdf -model nimbro_op -z 0.62" />
+	<node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-param robot_description -urdf -model nimbro_op -x -1.0 -y 0.0 -z 0.6" />
 	<include file="$(find nimbro_op_gazebo)/launch/nimbro_op_controllers.launch" />
 </launch>

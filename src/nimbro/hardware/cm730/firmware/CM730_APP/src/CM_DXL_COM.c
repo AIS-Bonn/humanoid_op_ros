@@ -40,7 +40,7 @@
 #elif IS_CM740
 #define CM730_MODEL_NUMBER     0x7401 // Model number of the NimbRo-OP specific CM740
 #endif
-#define FIRMWARE_VERSION       0x87   // Version 0x87 as of modifications by Philipp Allgeuer (10/09/15 and later)
+#define FIRMWARE_VERSION       0x8C   // Version 0x8C as of modifications by Philipp Allgeuer (08/06/16 and later)
 #define DEFAULT_ID             200    // Default CM730 device ID on the Dynamixel bus
 #define BROADCASTING_ID        0xFE   // Device ID for broadcasting on the Dynamixel bus (every device listens)
 #define DEF_RETURN_DELAY_TIME  0      // Delay before returning status packet = DEF_RETURN_DELAY_TIME*2us = 0us
@@ -55,8 +55,6 @@
 // Misc defines
 #define SERVO_MAX_TORQUE       0x03FF // Value to initialise the servo max torque and torque limit registers to on firmware start
 #define BULK_READ_TIMEOUT      25     // Number of ms to wait for the next bulk read status packet before aborting
-#define TRUE                   1
-#define FALSE                  0
 
 // Macros
 #define SYSTEM_RESET           NVIC_GenerateSystemReset()
@@ -132,10 +130,10 @@ byte gbCTParamRange[CONTROL_TABLE_LEN][2] =
 	{1,0},     // UP_CALIBRATION_H       23  ^^^^   End ROM   ^^^^
 	{0,2},     // DYNAMIXEL_POWER        24  vvvv  Start RAM  vvvv
 	{0,7},     // LED_PANEL              25
-	{1,0},     // RGBLED5                26  Note: Write access to this has been disabled
-	{1,0},     //                        27  Note: Write access to this has been disabled
-	{0,255},   // RGBLED6                28
-	{0,127},   //                        29
+	{0,255},   // RGBLED5                26
+	{0,255},   //                        27
+	{1,0},     // RGBLED6                28  Note: Write access to this has been disabled
+	{1,0},     //                        29  Note: Write access to this has been disabled
 	{1,0},     // BUTTON                 30
 	{1,0},     // BATTERY_VOLTAGE        31
 	{1,0},     // GYRO_X                 32
@@ -156,42 +154,42 @@ byte gbCTParamRange[CONTROL_TABLE_LEN][2] =
 	{1,0},     //                        47
 	{1,0},     // MAG_Z                  48
 	{1,0},     //                        49
-	{1,0},     // ADC0_BATTERY           50
-	{1,0},     //                        51
-	{1,0},     // ADC1_MIC1              52
-	{1,0},     //                        53
-	{1,0},     // ADC2_MIC2              54
-	{1,0},     //                        55
-	{1,0},     // ADC3                   56
-	{1,0},     //                        57
-	{1,0},     // ADC4                   58
-	{1,0},     //                        59
-	{1,0},     // ADC5                   60
-	{1,0},     //                        61
-	{1,0},     // ADC6                   62
-	{1,0},     //                        63
-	{1,0},     // ADC7                   64
-	{1,0},     //                        65
-	{1,0},     // ADC8                   66
-	{1,0},     //                        67
-	{1,0},     // ADC9                   68
-	{1,0},     //                        69
-	{1,0},     // ADC10                  70
-	{1,0},     //                        71
-	{1,0},     // ADC11                  72
-	{1,0},     //                        73
-	{1,0},     // ADC12                  74
-	{1,0},     //                        75
-	{1,0},     // ADC13                  76
-	{1,0},     //                        77
-	{1,0},     // ADC14                  78
-	{1,0},     //                        79
-	{1,0},     // ADC15                  80
-	{1,0},     //                        81
-	{0,0xFF},  // BUZZER_DATA            82
+	{1,0},     // TEMPERATURE            50
+	{1,0},     // ADC0_BATTERY           51
+	{1,0},     //                        52
+	{1,0},     // ADC1_MIC1              53
+	{1,0},     //                        54
+	{1,0},     // ADC2_MIC2              55
+	{1,0},     //                        56
+	{1,0},     // ADC3                   57
+	{1,0},     //                        58
+	{1,0},     // ADC4                   59
+	{1,0},     //                        60
+	{1,0},     // ADC5                   61
+	{1,0},     //                        62
+	{1,0},     // ADC6                   63
+	{1,0},     //                        64
+	{1,0},     // ADC7                   65
+	{1,0},     //                        66
+	{1,0},     // ADC8                   67
+	{1,0},     //                        68
+	{1,0},     // ADC9                   69
+	{1,0},     //                        70
+	{1,0},     // ADC10                  71
+	{1,0},     //                        72
+	{1,0},     // ADC11                  73
+	{1,0},     //                        74
+	{1,0},     // ADC12                  75
+	{1,0},     //                        76
+	{1,0},     // ADC13                  77
+	{1,0},     //                        78
+	{1,0},     // ADC14                  79
+	{1,0},     //                        80
+	{1,0},     // ADC15                  81
+	{1,0},     //                        82
 	{0,0xFF},  // BUZZER_PLAY_LENGTH     83
-	{1,0},     // ZIGBEE_ID              84
-	{1,0},     //                        85
+	{0,0xFF},  // BUZZER_DATA            84
+	{1,0},     // ZIGBEE_ID              85
 	{0,0xFF},  // TX_REMOCON_DATA        86
 	{0,0xFF},  //                        87
 	{1,0},     // RX_REMOCON_DATA        88
@@ -288,42 +286,42 @@ byte gbCTDataSize[CONTROL_TABLE_LEN] =
   0, //                        47
   2, // MAG_Z                  48
   0, //                        49
-  2, // ADC0_BATTERY           50
-  0, //                        51
-  2, // ADC1_MIC1              52
-  0, //                        53
-  2, // ADC2_MIC2              54
-  0, //                        55
-  2, // ADC3                   56
-  0, //                        57
-  2, // ADC4                   58
-  0, //                        59
-  2, // ADC5                   60
-  0, //                        61
-  2, // ADC6                   62
-  0, //                        63
-  2, // ADC7                   64
-  0, //                        65
-  2, // ADC8                   66
-  0, //                        67
-  2, // ADC9                   68
-  0, //                        69
-  2, // ADC10                  70
-  0, //                        71
-  2, // ADC11                  72
-  0, //                        73
-  2, // ADC12                  74
-  0, //                        75
-  2, // ADC13                  76
-  0, //                        77
-  2, // ADC14                  78
-  0, //                        79
-  2, // ADC15                  80
-  0, //                        81
-  1, // BUZZER_DATA            82
+  1, // TEMPERATURE            50
+  2, // ADC0_BATTERY           51
+  0, //                        52
+  2, // ADC1_MIC1              53
+  0, //                        54
+  2, // ADC2_MIC2              55
+  0, //                        56
+  2, // ADC3                   57
+  0, //                        58
+  2, // ADC4                   59
+  0, //                        60
+  2, // ADC5                   61
+  0, //                        62
+  2, // ADC6                   63
+  0, //                        64
+  2, // ADC7                   65
+  0, //                        66
+  2, // ADC8                   67
+  0, //                        68
+  2, // ADC9                   69
+  0, //                        70
+  2, // ADC10                  71
+  0, //                        72
+  2, // ADC11                  73
+  0, //                        74
+  2, // ADC12                  75
+  0, //                        76
+  2, // ADC13                  77
+  0, //                        78
+  2, // ADC14                  79
+  0, //                        80
+  2, // ADC15                  81
+  0, //                        82
   1, // BUZZER_PLAY_LENGTH     83
-  2, // ZIGBEE_ID              84
-  0, //                        85
+  1, // BUZZER_DATA            84
+  1, // ZIGBEE_ID              85
   2, // TX_REMOCON_DATA        86
   0, //                        87
   2, // RX_REMOCON_DATA        88
@@ -382,8 +380,8 @@ void Process(void)
 	
 	// Initialise the LED control table parameters
 	GB_LED_PANEL = 0;
-	GW_RGBLED5 = (0>>3) | ((255>>3)<<5) | ((  0>>3)<<10); // RGBLED5 = RGB(0,255,0) = Green
-	GW_RGBLED6 = (0>>3) | ((  0>>3)<<5) | ((255>>3)<<10); // RGBLED6 = RGB(0,0,255) = Blue
+	GW_RGBLED5 = (0>>3) | ((  0>>3)<<5) | ((  0>>3)<<10); // RGBLED5 = RGB(0,0,0) = Off
+	GW_RGBLED6 = (0>>3) | ((255>>3)<<5) | ((  0>>3)<<10); // RGBLED6 = RGB(0,255,0) = Green
 
 	// Initialisation actions for the values in the control table
 	OnControlTableWrite(P_LED_PANEL);
@@ -403,10 +401,10 @@ void Process(void)
 		//   - Add backup register feature and implement INST_SYSTEM_WRITE
 
 		// Wait for an instruction packet from the PC
-		RGBLED_SetColour(RGBLED5, 0, 255, 0); // Green => Waiting for packet
+		RGBLED_SetColour(RGBLED6, 0, 255, 0, FALSE); // Green => Waiting for packet (this is overwritten by red in __ISR_LED_RGB_TIMER() if the USB is disconnected)
 		while(!RxDDataAvailable(USART_PC));
 		RxDDataDP(USART_PC, &DP);
-		RGBLED_SetColour(RGBLED5, 255, 0, 255); // Magenta => Processing packet
+		RGBLED_SetColour(RGBLED6, 255, 0, 255, FALSE); // Magenta => Processing packet (this is overwritten by red in __ISR_LED_RGB_TIMER() if the USB is disconnected)
 
 		// Update the USART control table registers
 		USARTUpdateControlTable();
@@ -717,15 +715,15 @@ void WriteData(const struct DxlPacket *DP) // Assumes that WriteDataCheck() on t
 	// Declare variables
 	u8 Address, i;
 
-	// Retrieve the base address that the instruction wishes to write to
-	Address = DP->Param[0];
-
 	// Write to each of the addresses in turn as required
+	Address = DP->Param[0];
 	for(i = 1; i < DP->NumParams; i++,Address++)
-	{
-		GB_CONTROL_TABLE(Address) = DP->Param[i];
+		GB_CONTROL_TABLE(Address) = DP->Param[i]; // Note: We cannot call OnControlTableWrite(Address) in this loop, or multi-byte registers get this function called when only their lowest byte has been updated so far!
+
+	// Perform the required actions after writing to the control table
+	Address = DP->Param[0];
+	for(i = 1; i < DP->NumParams; i++,Address++)
 		OnControlTableWrite(Address);
-	}
 }
 
 // Perform the required actions after a write to the control table
@@ -742,7 +740,7 @@ void OnControlTableWrite(u8 address)
 			lTemp = 2000000;
 			lTemp /= (GB_BAUD_RATE + 1); // Note: The value of the baud rate register is interpreted to mean a required baud rate of 2000000/(GB_BAUD_RATE + 1)!
 			USART_Configuration(USART_DXL, lTemp);
-			USART_Configuration(USART_PC , lTemp);
+			USART_Configuration(USART_PC, lTemp);
 			break;
 
 		// Dynamixel power register
@@ -772,15 +770,19 @@ void OnControlTableWrite(u8 address)
 
 		// RGB LED 5 register
 		case P_RGBLED5:
-			RGBLED_SetColour(RGBLED5, (GW_RGBLED5&0x1F)<<3, ((GW_RGBLED5>>5)&0x1F)<<3, ((GW_RGBLED5>>10)&0x1F)<<3);
+			RGBLED_SetColour(RGBLED5, (GW_RGBLED5&0x1F)<<3, ((GW_RGBLED5>>5)&0x1F)<<3, ((GW_RGBLED5>>10)&0x1F)<<3, (GW_RGBLED5>>15 != 0 ? TRUE : FALSE));
 			break;
 
 		// RGB LED 6 register
 		case P_RGBLED6:
-			RGBLED_SetColour(RGBLED6, (GW_RGBLED6&0x1F)<<3, ((GW_RGBLED6>>5)&0x1F)<<3, ((GW_RGBLED6>>10)&0x1F)<<3);
+			RGBLED_SetColour(RGBLED6, (GW_RGBLED6&0x1F)<<3, ((GW_RGBLED6>>5)&0x1F)<<3, ((GW_RGBLED6>>10)&0x1F)<<3, (GW_RGBLED6>>15 != 0 ? TRUE : FALSE));
 			break;
 
 		// Buzzer registers (write the play length into GB_BUZZER_PLAY_LENGTH [e.g. 255], then write the buzzer data into GB_BUZZER_DATA [e.g. 22], the second action triggers the sound)
+		case P_BUZZER_PLAY_LENGTH:
+			if(GB_BUZZER_PLAY_LENGTH == 0x00)
+				setBuzzerOff();
+			break;
 		case P_BUZZER_DATA:
 			setBuzzerPlayLength(GB_BUZZER_PLAY_LENGTH);
 			if((getBuzzerState() == 0) || (GB_BUZZER_PLAY_LENGTH == 0xFE))
@@ -788,10 +790,6 @@ void OnControlTableWrite(u8 address)
 				setBuzzerData(GB_BUZZER_DATA);
 				PlayBuzzer();
 			}
-			break;
-		case P_BUZZER_PLAY_LENGTH:
-			if(GB_BUZZER_PLAY_LENGTH == 0x00)
-				setBuzzerOff();
 			break;
 
 		// Zigbee remote control TX register

@@ -19,8 +19,8 @@
 
 // Includes - ROS packages
 #include <robotcontrol/model/joint.h>
-#include <robotcontrol/model/golay.h>
 #include <config_server/parameter.h>
+#include <rc_utils/golay.h>
 #include <plot_msgs/Plot.h>
 
 // Defines
@@ -95,6 +95,9 @@ public:
 
 	//! @brief Set the relaxation state of the robot
 	void setRelaxed(bool relax);
+
+	//! @brief Get whether the relaxation state of the robot was set since the last call to newCommands()
+	bool relaxedWasSet() const { return m_relaxedWasSet; }
 
 	//! @brief Get the relaxation state of the robot
 	inline bool isRelaxed() const { return m_relaxed; }
@@ -181,6 +184,9 @@ public:
 	//! @brief Get the robot's orientation z-hemisphere (hemisphere of `trunk_link` frame with respect to `trunk_global` frame, boolean flag where `true` implies `1` and `false` implies `-1`, derived from `robotOrientation`)
 	inline bool robotFHemi() const { return m_robotFHemi; }
 
+	//! @brief Get the robot's fused yaw angle (fused yaw of `trunk_link` frame with respect to `trunk_global` frame, units in rad, derived from `robotOrientationPR`)
+	inline double robotFYawPR() const { return m_robotFYawPR; }
+
 	//! @brief Get the robot's fused pitch angle (fused pitch of `trunk_link` frame with respect to `trunk_global` frame, units in rad, derived from `robotOrientationPR`)
 	inline double robotFPitchPR() const { return m_robotFPitchPR; }
 
@@ -205,6 +211,9 @@ public:
 	//! @brief Get the robot's fused roll velocity (derived from `robotOrientation`)
 	inline double robotDFRoll() const { return m_robotDFRoll; }
 
+	//! @brief Get the robot's fused yaw velocity (derived from `robotOrientationPR`)
+	inline double robotDFYawPR() const { return m_robotDFYawPR; }
+
 	//! @brief Get the robot's fused pitch velocity (derived from `robotOrientationPR`)
 	inline double robotDFPitchPR() const { return m_robotDFPitchPR; }
 
@@ -228,6 +237,18 @@ public:
 
 	//! @brief Get the measured magnetic field vector (`trunk_link` frame, units in gauss)
 	inline const Eigen::Vector3d& magneticFieldVector() const { return m_magneticFieldVector; }
+
+	//! @brief Set the measured temperature (unspecified units, but must be self-consistent)
+	inline void setTemperature(double temperature) { m_temperature = temperature; }
+
+	//! @brief Get the measured temperature (unspecified units, but must be self-consistent)
+	inline double temperature() const { return m_temperature; }
+
+	//! @brief Set the measured supply voltage (units in volts)
+	inline void setVoltage(double voltage) { m_voltage = voltage; }
+
+	//! @brief Get the measured supply voltage (units in volts)
+	inline double getVoltage() const { return m_voltage; }
 	//@}
 
 	//! @name Dynamics information
@@ -252,6 +273,7 @@ public:
 		State() : m_idx(-1) {} //!< @brief Default constructor
 		bool operator==(const State& other) const { return m_idx == other.m_idx; } //!< @brief Equals operator
 		bool operator!=(const State& other) const { return m_idx != other.m_idx; } //!< @brief Not-equals operator
+		int index() const { return m_idx; }
 	private:
 		explicit State(int idx) : m_idx(idx) {} //!< @brief Private constructor by index value
 		int m_idx; //!< @brief Internal state index
@@ -325,23 +347,29 @@ private:
 	double m_robotFRoll;                            //!< @brief Current estimated robot fused roll angle (derived from `m_robotOrientation`)
 	bool   m_robotFHemi;                            //!< @brief Current estimated robot orientation hemisphere (derived from `m_robotOrientation`)
 	double m_robotHeading;                          //!< @brief Current estimated robot heading (heading is one of ZYX yaw/fused yaw, derived from `m_robotOrientation`)
+	double m_robotFYawPR;                           //!< @brief Current estimated robot fused yaw angle (derived from `m_robotOrientationPR`)
 	double m_robotFPitchPR;                         //!< @brief Current estimated robot fused pitch angle (derived from `m_robotOrientationPR`)
 	double m_robotFRollPR;                          //!< @brief Current estimated robot fused roll angle (derived from `m_robotOrientationPR`)
 	double m_robotFHemiPR;                          //!< @brief Current estimated robot orientation hemisphere (derived from `m_robotOrientationPR`)
+	double m_temperature;                           //!< @brief Current measured temperature
+	double m_voltage;                               //!< @brief Current measured voltage
 
 	// Golay derivatives
-	robotcontrol::GolayDerivative<double,1,9> m_golayDFYaw;
-	robotcontrol::GolayDerivative<double,1,9> m_golayDFPitch;
-	robotcontrol::GolayDerivative<double,1,9> m_golayDFRoll;
-	robotcontrol::GolayDerivative<double,1,9> m_golayDFPitchPR;
-	robotcontrol::GolayDerivative<double,1,9> m_golayDFRollPR;
+	rc_utils::GolayDerivative<double,1,9> m_golayDFYaw;
+	rc_utils::GolayDerivative<double,1,9> m_golayDFPitch;
+	rc_utils::GolayDerivative<double,1,9> m_golayDFRoll;
+	rc_utils::GolayDerivative<double,1,9> m_golayDFYawPR;
+	rc_utils::GolayDerivative<double,1,9> m_golayDFPitchPR;
+	rc_utils::GolayDerivative<double,1,9> m_golayDFRollPR;
 	double m_robotDFYaw;
 	double m_robotDFPitch;
 	double m_robotDFRoll;
+	double m_robotDFYawPR;
 	double m_robotDFPitchPR;
 	double m_robotDFRollPR;
 
 	// Configuration server parameters
+	config_server::Parameter<bool> m_warnZeroTotalSuppCoeff;
 	config_server::Parameter<bool> m_useSupportInformation; // Parameter whether to use support information in the calculation of the inverse dynamics
 	config_server::Parameter<bool> m_useFeedbackPos;        // Parameter whether to use commanded or measured data for the inverse dynamics
 	config_server::Parameter<bool> m_plotRobotModelData;
@@ -377,12 +405,19 @@ private:
 		PM_FUSED_DYAW,
 		PM_FUSED_DPITCH,
 		PM_FUSED_DROLL,
+		PM_HEADING,
+		PM_FUSED_YAW_PR,
 		PM_FUSED_PITCH_PR,
 		PM_FUSED_ROLL_PR,
 		PM_FUSED_HEMI_PR,
+		PM_FUSED_DYAW_PR,
 		PM_FUSED_DPITCH_PR,
 		PM_FUSED_DROLL_PR,
-		PM_HEADING,
+		PM_TEMPERATURE,
+		PM_VOLTAGE,
+		PM_RELAXEDMODEL,
+		PM_RELAXEDWRITTEN,
+		PM_ROBOT_STATE,
 		PM_SUPPORT
 	};
 	plot_msgs::Plot m_plot;
@@ -403,6 +438,7 @@ private:
 	// Internal variables
 	double m_mass;
 	bool m_relaxed;
+	bool m_relaxedWasSet;
 	float m_timerDuration;
 };
 

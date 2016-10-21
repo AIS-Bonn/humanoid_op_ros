@@ -43,12 +43,13 @@
   <build_depend>roscpp</build_depend>
   <build_depend>robotcontrol</build_depend>
   <build_depend>config_server</build_depend>
-  <build_depend>nimbro_utils</build_depend>
+  <build_depend>rc_utils</build_depend>
+  <build_depend>plot_msgs</build_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>robotcontrol</run_depend>
   <run_depend>config_server</run_depend>
-  <run_depend>nimbro_utils</run_depend>
-
+  <run_depend>rc_utils</run_depend>
+  <run_depend>plot_msgs</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

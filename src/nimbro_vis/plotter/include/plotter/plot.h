@@ -11,6 +11,9 @@
 
 #include <boost/circular_buffer.hpp>
 
+#define JS_PLOT_TOPIC    "Joint states"
+#define JS_PLOT_TOPIC_S  ("/" JS_PLOT_TOPIC "/")
+
 class QPainter;
 class QRectF;
 class QSettings;
@@ -76,6 +79,8 @@ public:
 	virtual void draw(QPainter* painter, const ros::Time& base, const QRectF& rect, bool dots) const;
 	virtual QVariant displayData(int role) const;
 
+	virtual void shutdown();
+
 	//! @name Plot properties
 	//@{
 	void setUsedSettings(QSettings* settings);
@@ -103,19 +108,27 @@ public:
 	void setIsEventChannel(bool eventChannel);
 	inline bool isEventChannel() const
 	{ return m_isEventChannel; }
+
+	static const float colorList[32][3];
+
+	void assignColor(int colorIndex, bool notify = true);
+	void assignColorRec(int colorIndex, bool notify = true);
 	//@}
 
 	//! @name Plot data interface
 	//@{
 	double lastValue() const
-	{ return (*m_buf.rbegin()).value; }
+	{ return (m_buf.empty() ? 0.0 : (*m_buf.rbegin()).value); }
 
-	ros::Time lastTime() const;
+	ros::Time lastTime() const
+	{ return (m_buf.empty() ? ros::Time() : (*m_buf.rbegin()).time); }
 
 	inline bool hasData() const
 	{ return m_hasData; }
 
-	void put(const ros::Time& time, double value, unsigned int labelY = 0, bool notify = true);
+	void clearData(bool notify = true);
+	void clearDataRec(bool notify = true);
+	void put(const ros::Time& time, double value, unsigned int* labelY, bool notify, bool overridePause);
 
 	double value(const ros::Time& time) const;
 	//@}
@@ -148,7 +161,7 @@ public:
 	 **/
 	Plot* findPlotByPath(const QString& path) const;
 
-	Plot* findOrCreatePlotByPath(const QString& path);
+	virtual Plot* findOrCreatePlotByPath(const QString& path);
 
 	ros::Time recursiveLastTime() const;
 

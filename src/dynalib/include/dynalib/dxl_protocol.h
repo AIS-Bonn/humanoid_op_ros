@@ -55,6 +55,7 @@ public:
 	public:
 		bool ping();
 		bool reset();
+		bool reboot();
 
 		template<class Register>
 		bool readRegister(typename Register::Type* dest);
@@ -179,6 +180,7 @@ namespace
 		CMD_ACTION = 0x05,
 		CMD_RESET = 0x06,
 		CMD_DIGITAL_RESET = 0x07,
+		CMD_SYSTEM_WRITE = 0x0D,
 		CMD_SYNC_WRITE = 0x83,
 		CMD_BULK_READ = 0x92,
 	};
@@ -382,6 +384,24 @@ bool DXLProtocol<MyIO>::Device::reset()
 {
 	// Note: A digital reset is equivalent to a normal reset, only the device ID isn't lost in the case of servos, hence we use it here
 	DXLProtocol<MyIO>::DXLPacket<0> packet(m_id, CMD_DIGITAL_RESET);
+	packet.finalize();
+
+	if(!m_proto->write(packet))
+		return false;
+
+	return true;
+}
+
+template<class MyIO>
+bool DXLProtocol<MyIO>::Device::reboot()
+{
+	DXLProtocol<MyIO>::DXLPacket<6> packet(m_id, CMD_SYSTEM_WRITE);
+	packet[0] = 0x2D; // hidden reset register
+	packet[1] = 0xFE; // reset value (smaller values just trigger delays)
+	packet[2] = 0xF0; // |
+	packet[3] = 0x55; // |- SYSTEM_WRITE key
+	packet[4] = 0x0F; // |
+	packet[5] = 0xAA; // |
 	packet.finalize();
 
 	if(!m_proto->write(packet))

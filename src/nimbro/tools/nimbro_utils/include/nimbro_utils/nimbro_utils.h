@@ -15,16 +15,7 @@
 namespace nimbro_utils {}
 
 // Includes
-#include <nimbro_utils/ew_integrator.h>
-#include <nimbro_utils/lin_sin_fillet.h>
-#include <nimbro_utils/math_funcs.h>
-#include <nimbro_utils/math_spline.h>
-#include <nimbro_utils/math_vec_mat.h>
-#include <nimbro_utils/mean_filter.h>
 #include <nimbro_utils/ros_timing.h>
-#include <nimbro_utils/slope_limiter.h>
-#include <nimbro_utils/smooth_deadband.h>
-#include <nimbro_utils/wlbf_filter.h>
 
 #endif /* NIMBRO_UTILS_H */
 // EOF

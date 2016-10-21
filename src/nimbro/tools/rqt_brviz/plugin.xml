@@ -1,0 +1,17 @@
+<library path="lib/librqt_brviz">
+  <class name="rqt_brviz/BRViz" type="rqt_brviz::BRViz" base_class_type="rqt_gui_cpp::Plugin">
+    <description>
+      A GUI plugin version of brviz.
+    </description>
+    <qtgui>
+      <group>
+        <label>Visualization</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins related to visualization.</statustip>
+      </group>
+      <label>BRViz</label>
+      <icon type="theme">image-x-generic</icon>
+      <statustip>A GUI plugin version of brviz</statustip>
+    </qtgui>
+  </class>
+</library>

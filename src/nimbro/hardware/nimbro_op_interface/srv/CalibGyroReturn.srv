@@ -1,0 +1,4 @@
+---
+float32 middleYaw  # Middle yaw of the yaw-estimating attitude estimator
+float32 middleTemp # Middle temperature
+int8 middleLoops   # Number of loops detected from the initial yaw to the middle yaw

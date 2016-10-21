@@ -7,7 +7,7 @@
 #define CAP_COM_FILTER_H
 
 // Includes
-#include <robotcontrol/model/golayfilter.h>
+#include <rc_utils/golayfilter.h>
 
 // Capture step gait namespace
 namespace cap_gait
@@ -77,8 +77,8 @@ namespace cap_gait
 
 	private:
 		// Internal golay filters
-		robotcontrol::GolayFilter<WindowSize> m_filter_x;
-		robotcontrol::GolayFilter<WindowSize> m_filter_y;
+		rc_utils::GolayFilter<WindowSize> m_filter_x;
+		rc_utils::GolayFilter<WindowSize> m_filter_y;
 	};
 }
 

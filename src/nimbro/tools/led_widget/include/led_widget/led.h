@@ -14,19 +14,26 @@ class LED : public QWidget
 Q_OBJECT
 public:
 	LED(int width_, int height_, QWidget *parent = 0);
-	~LED();
-	
-	void turn(bool on);
-	void setColor(QColor color);
-	
+	virtual ~LED();
+
+	bool turn(bool on);
+	bool turned() const { return state; }
+
+	void setBlinking(bool blink) { this->blink = blink; }
+	bool isBlinking() const { return blink; }
+
+	bool setColor(QColor color);
 	void setOnColor(QColor color);
-	
+
 private:
 	void paintEvent(QPaintEvent *event);
-	
+
 	int width;
 	int height;
-	
+
+	bool state;
+	bool blink;
+
 	QColor onColor;
 	QColor offColor;
 	QColor currentColor;

@@ -32,6 +32,11 @@
 
 using namespace cv;
 using namespace std;
+/**
+* @ingroup VisionModule
+*
+* @brief A class for publish mat objects
+**/
 class MatPublisher
 {
 private:
@@ -42,13 +47,14 @@ private:
 	static int number;
 	const int currentNumber;
 	bool enable;
+	bool hasListener;
 public:
 	enum imgColorType
 	{
 		gray, hsv, bgr
 	};
 	inline MatPublisher(string name = "", bool _enable = true) :
-			it(nodeHandle), currentNumber(number++), enable(_enable)
+			it(nodeHandle), currentNumber(number++), enable(_enable),hasListener(false)
 	{
 		if (!enable)
 			return;
@@ -62,13 +68,14 @@ public:
 			sprintf(cName, "%s", name.c_str());
 		}
 		img_pub = it.advertise(cName, 1);
-		msg.header.frame_id = "/ego_floor";
+		msg.header.frame_id = "/picture";
 
 	}
 	inline void publish(Mat img, imgColorType t, ros::Time now =
 			ros::Time::now())
 	{
-		if (!enable || img_pub.getNumSubscribers() < 1)
+		hasListener=(img_pub.getNumSubscribers() > 0);
+		if (!enable || !hasListener)
 			return;
 		Mat res;
 		switch (t)
@@ -92,9 +99,13 @@ public:
 		img_pub.publish(msg.toImageMsg());
 	}
 
-	inline bool thereAreListeners()
+	inline bool thereAreListeners(bool loadNow=true) //This will be zero if we close rqt
 	{
-		return (img_pub.getNumSubscribers() > 0);
+		if(loadNow)
+		{
+			hasListener=(img_pub.getNumSubscribers() > 0);
+		}
+		return hasListener;
 	}
 };
 

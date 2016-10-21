@@ -1,0 +1,5 @@
+<launch rosmon-name="rosmon_trajectory_editor">
+	<include file="$(find nimbro_op_model)/launch/model.launch" />
+
+	<node name="editor" pkg="trajectory_editor" type="trajectory_editor" required="true" output="screen" />
+</launch>

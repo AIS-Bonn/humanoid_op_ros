@@ -31,7 +31,15 @@ namespace gait
 	{
 	public:
 		//! Default constructor
-		GaitEngine() : model(NULL), haltJointCmd(), haltJointEffort(), haltUseRawJointCmds(false), m_gait(NULL), m_posX(0.0), m_posY(0.0), m_rotZ(0.0)
+		GaitEngine()
+		 : model(NULL)
+		 , haltJointCmd()
+		 , haltJointEffort()
+		 , haltUseRawJointCmds(false)
+		 , m_gait(NULL)
+		 , m_posX(0.0)
+		 , m_posY(0.0)
+		 , m_rotZ(0.0)
 		{
 			in.reset();
 			out.reset();
@@ -103,6 +111,15 @@ namespace gait
 		* The default implementation simply writes the last set odometry (`setOdometry`) into the fields.
 		**/
 		virtual void updateOdometry();
+
+		/**
+		* @brief Notify the gait engine that a particular joystick button has been pressed and released by the user.
+		* 
+		* This function should not attempt to access or write to the @c in and @c out members. @p button is the index
+		* of the button that was pressed, generally in the range 5 to 12. The buttons that are reserved for use by the
+		* gait (buttons 1-4) are not ever passed to this function.
+		**/
+		virtual void handleJoystickButton(int button) {}
 
 		// Gait engine data interface structs
 		GaitEngineInput in;   //!< Gait engine input data struct.

@@ -7,22 +7,25 @@
 #include <ros/ros.h>
 #include <vision_module/Tools/Parameters.hpp>
 #include <vision_module/Tools/General.hpp>
-using namespace cv;
 
+using namespace cv;
+/**
+* @ingroup VisionModule
+*
+* @brief For undistortion
+**/
 class DistortionModel
 {
 private:
-	void undistortP_slow(const vector<Point> contour, vector<Point> &resCountour);
-	void ModifoedOpenCVUndistortPoint( const CvMat* _src, CvMat* _dst, const CvMat* _cameraMatrix,
-	                   const CvMat* _distCoeffs,
-	                   const CvMat* matR, const CvMat* matP );
+	void undistortP_slow(const vector<Point> contour,
+			vector<Point> &resCountour);
+	void ModifoedOpenCVUndistortPoint(const CvMat* _src, CvMat* _dst,
+			const CvMat* _cameraMatrix, const CvMat* _distCoeffs,
+			const CvMat* matR, const CvMat* matP);
 
-	void ModifoedOpenCVUndistortPoint( InputArray _src, OutputArray _dst,
-	                          InputArray _cameraMatrix,
-	                          InputArray _distCoeffs,
-	                          InputArray _Rmat,
-	                          InputArray _Pmat );
-	Mat distortionModel;
+	void ModifoedOpenCVUndistortPoint(InputArray _src, OutputArray _dst,
+			InputArray _cameraMatrix, InputArray _distCoeffs, InputArray _Rmat,
+			InputArray _Pmat);
 
 	bool undistortP_normalized_slow(const vector<Point> contour,
 			vector<Point2f> &resCountour);
@@ -30,17 +33,18 @@ private:
 			vector<Point2f> &resCountour);
 
 public:
-	 float getDiagonalAngleView();
+	vector<Point2f> distortionVector;
+	float getDiagonalAngleView();
 	Mat cameraMatrix, distCoeffs;
 	bool Init();
-	void CreateUndistort(const Mat &rawImg,Mat &res);
-	void CreateUndistortFull(const Mat &rawImg,Mat &res,Scalar bg);
-	bool UndistortP(const vector<Point> contour, vector<Point> &resCountour);
+	void CreateUndistort(const Mat &rawImg, Mat &res);
+	void CreateUndistortFull(const Mat &rawImg, Mat &res, Scalar bg);
+	bool UndistortP(const vector<Point> &contour, vector<Point> &resCountour);
+	bool UndistortP(const vector<Point> &contour, vector<Point2f> &resCountour);
+	bool UndistortP(const Point &inPoint, Point2f &resPoint);
 
-	bool DistortP(const vector<Point> contour,
-			vector<Point> &resCountour);
-	bool DistortPFull(const vector<Point> contour,
-			vector<Point> &resCountour);
+	bool DistortP(const vector<Point> contour, vector<Point> &resCountour);
+
+	bool DistortPFull(const vector<Point> contour, vector<Point> &resCountour);
 };
-
 

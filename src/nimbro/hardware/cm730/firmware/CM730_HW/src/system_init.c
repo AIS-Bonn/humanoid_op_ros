@@ -53,14 +53,9 @@ void System_Configuration(void)
 	FLASH_Unlock();
 
 	// Configure USART (Universal Synchronous Asynchronous Receiver Transmitter)
-	USART_Configuration(USART_PC, Baudrate_PC);   // Note: Usually USART_Configuration() writes into the Baudrate_* variables, but in this special initial case we know they already have the value we need, so we just feed them in.
-	USART_Configuration(USART_DXL, Baudrate_DXL);
+	USART_Configuration(USART_PC, Baudrate_PC);   // Note: Usually USART_Configuration() writes into the Baudrate_* variables, but in this special initial case we know they already have the value we need, so we just feed them in
+	USART_Configuration(USART_DXL, Baudrate_DXL); // Note: The USART port buffers and variables are initialised using USARTInit(), called from inside these functions
 	zgb_initialize(0);                            // Note: Internally calls USART_Configuration(USART_ZIG, 57600), which just makes sure even if !ALLOW_ZIGBEE that all the interrupts are disabled etc...
-
-	// Initialise the USART port buffers and variables
-	USARTInit(USART_ZIG);
-	USARTInit(USART_DXL);
-	USARTInit(USART_PC);
 
 	// Disable automatic PC to DXL packet forwarding, and disable DXL Rx local buffering
 	disableDXLForwarding();
@@ -300,6 +295,9 @@ void USART_Configuration(u8 PORT, u32 baudrate)
 		USART_ITConfig(USART1, USART_IT_LBD, DISABLE);  // Resets LBDIE
 		USART_ITConfig(USART1, USART_IT_ERR, DISABLE);  // Resets EIE (noise error, overrun error, frame error)
 
+		// Initialise the buffers and variables corresponding to the port
+		USARTInit(USART_DXL);
+
 		// Enable the USART1 peripheral
 		USART_Cmd(USART1, ENABLE);
 	}
@@ -327,6 +325,9 @@ void USART_Configuration(u8 PORT, u32 baudrate)
 		USART_ITConfig(UART5, USART_IT_LBD, DISABLE);  // Resets LBDIE
 		USART_ITConfig(UART5, USART_IT_ERR, DISABLE);  // Resets EIE (noise error, overrun error, frame error)
 
+		// Initialise the buffers and variables corresponding to the port
+		USARTInit(USART_ZIG);
+
 		// Enable the UART5 peripheral
 #if ALLOW_ZIGBEE
 		USART_Cmd(UART5, ENABLE);
@@ -352,6 +353,9 @@ void USART_Configuration(u8 PORT, u32 baudrate)
 		USART_ITConfig(USART3, USART_IT_PE, DISABLE);   // Resets PEIE
 		USART_ITConfig(USART3, USART_IT_LBD, DISABLE);  // Resets LBDIE
 		USART_ITConfig(USART3, USART_IT_ERR, DISABLE);  // Resets EIE (noise error, overrun error, frame error)
+
+		// Initialise the buffers and variables corresponding to the port
+		USARTInit(USART_PC);
 
 		// Enable the USART3 peripheral
 		USART_Cmd(USART3, ENABLE);
@@ -456,7 +460,7 @@ void GPIO_Configuration(void)
 	// Port A
 	//
 
-	// LED6 pins
+	// RGBLED6 pins
 	GPIO_InitStructure.GPIO_Pin = PIN_LED6_R | PIN_LED6_G | PIN_LED6_B;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;

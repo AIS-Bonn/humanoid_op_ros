@@ -9,7 +9,7 @@
 // Includes
 #include <robotcontrol/motionmodule.h>
 #include <robotcontrol/model/robotmodel.h>
-#include <nimbro_utils/math_spline.h>
+#include <rc_utils/math_spline.h>
 #include <config_server/parameter.h>
 #include <plot_msgs/plot_manager.h>
 #include <pluginlib/class_loader.h>
@@ -27,6 +27,7 @@
 #include <gait_msgs/GaitOdom.h>
 #include <gait_msgs/SetOdom.h>
 #include <sensor_msgs/Joy.h>
+#include <diagnostic_msgs/DiagnosticArray.h>
 #include <std_srvs/Empty.h>
 
 // Includes - ROS
@@ -83,8 +84,10 @@ namespace gait
 		config_server::Parameter<bool> m_plotData;                       // Flag whether to plot gait data to the plotter visualisation.
 		config_server::Parameter<bool> m_publishOdometry;                // Flag whether to publish the gait odometry.
 		config_server::Parameter<bool> m_publishTransforms;              // Flag whether to publish the ego_floor and gait odometry TF transforms.
-		config_server::Parameter<float> m_gaitCmdVecNormP;               // The p parameter with which to calculate the gait command vector norm (i.e. using the p-norm).
-		config_server::Parameter<float> m_gaitCmdVecNormMax;             // The maximum allowed gait command vector norm, beyond which normalisation to this maximum value is performed.
+		config_server::Parameter<float> m_gcvNormP;                      // The p parameter with which to calculate the gait command vector norm (i.e. using the p-norm).
+		config_server::Parameter<float> m_gcvNormMax;                    // The maximum allowed gait command vector norm, beyond which normalisation to this maximum value is performed.
+		config_server::Parameter<float> m_gcvZeroTime;                   // The minimum time after which the robot has just started walking where a zero gcv is enforced for stability reasons.
+		config_server::Parameter<float> m_minWalkingTime;                // The minimum time after which a robot is allowed to be told to stop walking again after it just started walking
 
 		// Robot model
 		robotcontrol::RobotModel* m_model;                   // Pointer to the RobotModel object to work with
@@ -105,6 +108,9 @@ namespace gait
 		// Gait name (valid after init() has been called)
 		std::string m_gaitName;
 
+		// Finalise a step of the gait motion module
+		void finaliseStep();
+
 		// Transforms
 		void updateTransforms();
 
@@ -122,6 +128,7 @@ namespace gait
 
 		// Gait command
 		GaitCommand m_gaitCmd;
+		GaitCommand m_gaitCmdToUse;
 		ros::Subscriber m_sub_gaitCommand;
 		void handleGaitCommand(const gait_msgs::GaitCommandConstPtr& cmd);
 		void plotRawGaitCommand();
@@ -136,9 +143,10 @@ namespace gait
 		bool m_motionAdjustRightFoot; // Flag whether the right foot should be adjusted to attain the required foot separation (how the required foot separation for various motions is defined is up to the gait engine)
 
 		// Halt pose
-		nimbro_utils::TrapVelSpline m_jointSpline[NUM_JOINTS];
-		nimbro_utils::LinearSpline m_jointEffortSpline[NUM_JOINTS];
+		rc_utils::TrapVelSpline m_jointSpline[NUM_JOINTS];
+		rc_utils::LinearSpline m_jointEffortSpline[NUM_JOINTS];
 		ros::Time m_reachStartTime;
+		ros::Time m_lastHaltTime;
 		double m_reachDuration;
 		bool m_reachedHalt;
 		bool m_updatedHalt;
@@ -147,14 +155,19 @@ namespace gait
 		void stopReachHaltPose();
 
 		// Joystick data
+		static const int GAIT_BUTTONS = 4; // Four fixed buttons are required to start/stop the gait and kick
+		static const int MISC_BUTTONS = 8; // Eight additional buttons are available for miscellaneous use
+		static const int JOY_BUTTONS = GAIT_BUTTONS + MISC_BUTTONS;
 		bool m_joystickEnabled;
+		bool m_joystickConnected;
 		bool m_joystickGaitCmdLock;
-		bool m_joystickButton0Pressed;
-		bool m_joystickButton1Pressed;
-		bool m_joystickButton2Pressed;
-		bool m_joystickButton3Pressed;
+		bool m_joystickButtonPressed[JOY_BUTTONS];
+		bool m_joystickButtonTriggered[MISC_BUTTONS];
 		ros::Subscriber m_sub_joystickData;
+		ros::Subscriber m_sub_joystickStatus;
+		void handleJoystickButtons();
 		void handleJoystickData(const sensor_msgs::JoyConstPtr& joy);
+		void handleJoystickStatus(const diagnostic_msgs::DiagnosticArrayConstPtr& array);
 		void setJoystickGaitCmdLock(bool lock);
 		void callbackEnableJoystick();
 

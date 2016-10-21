@@ -36,15 +36,14 @@ bool HSVPresenter::Update()
 	return true;
 }
 
-void HSVPresenter::Publish()
+void HSVPresenter::DrawOnInputMat(Mat &guiImg,bool SHOWGUI)
 {
-	if (activeIndex < 0 || !rangeImg_pub.thereAreListeners())
+	if (!SHOWGUI||activeIndex < 0)
 	{
 		return;
 	}
-	rangeImg = Mat::zeros(rangeImgHeight, rangeImgWidth, CV_8UC3);
-	for (int j = 0; j < rangeImgHeight; j++)
 
+	for (int j = 0; j < rangeImgHeight; j++)
 	{
 		uchar* rows = rangeImg.ptr(j);
 		for (int i = 0; i < rangeImgWidth; i++)
@@ -102,5 +101,8 @@ void HSVPresenter::Publish()
 		}
 
 	}
-	rangeImg_pub.publish(rangeImg, MatPublisher::hsv);
+
+	cvtColor(rangeImg,rangeImg,CV_HSV2BGR);
+	rangeImg.copyTo(guiImg.rowRange(0, rangeImgHeight).colRange(0,rangeImgWidth ));
 }
+

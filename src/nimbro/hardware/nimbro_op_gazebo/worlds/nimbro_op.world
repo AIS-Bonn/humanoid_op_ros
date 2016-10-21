@@ -4,7 +4,7 @@
 		<scene>
 			<shadows>false</shadows>
 		</scene>
-		<gui>
+		<gui fullscreen='0'>
 			<camera name="camera">
 				<pose>3.0 0.0 1.0 0.0 0.3 3.14</pose>
 			</camera>
@@ -30,6 +30,23 @@
 		<include>
 			<uri>model://soft_ground_plane</uri>
 		</include>
+		<include>
+			<uri>model://teensize_field</uri>
+		</include>
+		<include>
+			<uri>model://teensize_ball</uri>
+			<pose>0 0 0.095 0 0 0</pose>
+		</include>
+		<include>
+			<uri>model://teensize_goal</uri>
+			<pose>4.525 0 0 0 0 0</pose>
+		</include>
+
+		<include>
+			<uri>model://teensize_goal</uri>
+			<pose>-4.525 0 0 0 0 3.141592</pose>
+		</include>
+
 		<include>
 			<uri>model://sun</uri>
 		</include>

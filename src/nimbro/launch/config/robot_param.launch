@@ -1,0 +1,8 @@
+<launch>
+    <param name="/robot_name" value="$(env NIMBRO_ROBOT_NAME)" type="str" />
+    <param name="/robot_type" value="$(env NIMBRO_ROBOT_TYPE)" type="str" />
+   
+    <rosparam param="/robots">[xs1, xs4, xs5, xs6, xs7, xs8]</rosparam>
+    
+    <include file="$(find nimbro_op_model)/launch/model.launch" />
+</launch>

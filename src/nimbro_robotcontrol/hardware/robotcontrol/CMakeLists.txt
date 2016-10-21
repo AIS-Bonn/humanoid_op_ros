@@ -28,7 +28,7 @@ find_package(catkin REQUIRED COMPONENTS
 	roscpp pluginlib rbdl actionlib actionlib_msgs
 	config_server tf plot_msgs eigen_conversions
 	tf_conversions geometry_msgs vis_utils urdf
-	rot_conv control_msgs
+	rot_conv control_msgs rc_utils
 )
 
 ## System dependencies are found with CMake's conventions
@@ -57,7 +57,9 @@ add_message_files(
 
 add_service_files(
   FILES
-  MagCalib.srv
+  MagCalib2D.srv
+  MagCalib3D.srv
+  MagCalibShow.srv
   WarpAddPoint.srv
 )
 
@@ -83,8 +85,8 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 	INCLUDE_DIRS include
-	LIBRARIES robotmodel
-	CATKIN_DEPENDS config_server rbdl message_runtime eigen_conversions vis_utils
+	LIBRARIES robotmodel magfilter
+	CATKIN_DEPENDS config_server rbdl message_runtime eigen_conversions vis_utils rc_utils
 #	DEPENDS system_lib
 )
 
@@ -100,43 +102,46 @@ include_directories(
 	${cm730_INCLUDE_DIRS}
 )
 
+# Build the magfilter library
+add_library(magfilter
+	src/hw/magfilter.cpp
+)
+target_link_libraries(magfilter
+	${catkin_LIBRARIES}
+	${Boost_LIBRARIES}
+)
+add_dependencies(magfilter
+	robotcontrol_gencpp
+)
+
+# Build the robotmodel shared library
 add_library(robotmodel SHARED
 	src/model/joint.cpp
 	src/model/robotmodel.cpp
 	src/model/singlesupportmodel.cpp
-	src/model/golay.cpp
-	src/model/kalmanfilter.cpp
 	src/motion_utils/trunk_stabilizer.cpp
-	src/hw/angleestimator.cpp
-	src/hw/magfilter.cpp
-	src/hw/attitude_estimator.cpp
 	src/hw/dynamiccommandgenerator.cpp
-	src/hw/hardwareinterface.cpp
 	src/motionmodule.cpp
 )
-
 target_link_libraries(robotmodel
 	${catkin_LIBRARIES}
 	${Boost_LIBRARIES}
+)
+add_dependencies(robotmodel
+	robotcontrol_gencpp
 )
 
 add_executable(robotcontrol
 	src/robotcontrol.cpp
 	src/motionmodule.cpp
 )
-
 add_dependencies(robotcontrol
-	robotcontrol_gencpp
-)
-
-add_dependencies(robotmodel
 	robotcontrol_gencpp
 )
 
 add_library(dummy_interface
 	src/hw/dummyinterface.cpp
 )
-
 target_link_libraries(dummy_interface
 	${catkin_LIBRARIES}
 	${Boost_LIBRARIES}
@@ -178,45 +183,12 @@ endif()
 ## Install ##
 #############
 
-install(TARGETS robotmodel dummy_interface robotcontrol
+install(TARGETS robotmodel magfilter dummy_interface robotcontrol
 	LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 	RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 install(FILES plugin_robotcontrol.xml
 	DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-)
-
-#############
-## Testing ##
-#############
-
-## Attitude estimator test
-catkin_add_gtest(test_attitude_estimator
-	test/test_attitude_estimator.cpp
-)
-target_link_libraries(test_attitude_estimator
-	robotmodel
-	${catkin_LIBRARIES}
-	${GTEST_LIBRARIES}
-)
-
-## Golay test
-catkin_add_gtest(test_golay
-	test/test_golay.cpp
-	src/model/golay.cpp
-)
-target_link_libraries(test_golay
-	${catkin_LIBRARIES}
-	${GTEST_LIBRARIES}
-)
-
-## FIR filter test
-catkin_add_gtest(test_firfilter
-	test/test_firfilter.cpp
-)
-target_link_libraries(test_firfilter
-	${catkin_LIBRARIES}
-	${GTEST_LIBRARIES}
 )
 # EOF

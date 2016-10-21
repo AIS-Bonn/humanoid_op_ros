@@ -40,7 +40,7 @@ namespace dynalib
 	private:
 		std::string filename;
 
-		const YAML::Node& currentDevice();
+		YAML::Node currentDevice();
 		YAML::Node setup;
 #if YAML_NEW_API
 		YAML::iterator deviceIt;

@@ -14,6 +14,8 @@ MotionTimer::MotionTimer(double rate)
  : m_monitor("timerfd")
 #endif
 {
+	m_rate = rate;
+
 	m_timerfd = timerfd_create(CLOCK_MONOTONIC, 0);
 
 	itimerspec timespc;
@@ -64,8 +66,14 @@ long unsigned int MotionTimer::sleep()
 	return expirations;
 }
 
-
-
+int MotionTimer::cyclesForTime(double interval) const
+{
+	double tmp = interval/m_rate;
+	if(tmp >= 0.0)
+		return (int) (tmp + 0.5);
+	else
+		return (int) (tmp - 0.5);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

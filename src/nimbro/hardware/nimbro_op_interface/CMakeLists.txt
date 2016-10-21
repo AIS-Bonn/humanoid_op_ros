@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(nimbro_op_interface)
 
-find_package(catkin REQUIRED COMPONENTS roscpp robotcontrol cm730 servomodel plot_msgs rot_conv nimbro_utils message_generation)
+find_package(catkin REQUIRED COMPONENTS roscpp robotcontrol cm730 servomodel plot_msgs rot_conv rc_utils message_generation rrlogger)
 
 include_directories(include
 	${catkin_INCLUDE_DIRS}
@@ -9,10 +9,16 @@ include_directories(include
 
 add_message_files(FILES
 	Button.msg
+	Buzzer.msg
 	LEDCommand.msg
 )
 add_service_files(FILES
-	AttEstMagCalib.srv
+	AttEstCalib.srv
+	CalibGyroAccNow.srv
+	CalibGyroAccStop.srv
+	CalibGyroReturn.srv
+	CalibGyroStart.srv
+	CalibGyroStop.srv
 	ReadOffset.srv
 )
 generate_messages(DEPENDENCIES
@@ -31,6 +37,7 @@ target_link_libraries(nimbro_op_interface
 
 add_dependencies(nimbro_op_interface
 	nimbro_op_interface_gencpp
+	rrlogger_gencpp
 )
 
 install(TARGETS nimbro_op_interface

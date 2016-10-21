@@ -7,6 +7,7 @@
 #include <QtCore/QObject>
 
 #include <ros/time.h>
+#include <ros/node_handle.h>
 
 namespace plotter
 {
@@ -17,7 +18,7 @@ class PlotIO : public QObject
 {
 Q_OBJECT
 public:
-	PlotIO(Plot* rootPlot, QObject* parent);
+	PlotIO(ros::NodeHandle& nh, Plot* rootPlot, QObject* parent);
 	virtual ~PlotIO();
 
 	bool read(const QString& path);
@@ -25,6 +26,7 @@ public:
 signals:
 	void progress(double done);
 private:
+	ros::NodeHandle m_nh;
 	Plot* m_rootPlot;
 };
 

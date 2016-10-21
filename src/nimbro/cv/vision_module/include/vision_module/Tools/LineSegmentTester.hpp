@@ -11,7 +11,11 @@ using namespace std;
 using namespace cv;
 
 void CallBackFunc(int event, int x, int y, int flags, void* userdata);
-
+/**
+* @ingroup VisionModule
+*
+* @brief A class for visualize and test linesegments
+**/
 class LineSegmentTester
 {
 public:

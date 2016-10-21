@@ -46,6 +46,7 @@ namespace nimbro_op_interface
 		config_server::Parameter<bool>  m_buttonPress0;
 		config_server::Parameter<bool>  m_buttonPress1;
 		config_server::Parameter<bool>  m_buttonPress2;
+		config_server::Parameter<int>   m_fakeTemperature;
 		config_server::Parameter<float> m_fakeIMUGyroX;
 		config_server::Parameter<float> m_fakeIMUGyroY;
 		config_server::Parameter<float> m_fakeIMUGyroZ;
@@ -74,4 +75,5 @@ namespace nimbro_op_interface
 }
 
 #endif
+
 // EOF

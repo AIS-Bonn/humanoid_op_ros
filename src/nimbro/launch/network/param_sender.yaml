@@ -1,0 +1,15 @@
+fec: 0.0
+topics:
+    - name: "/walk_and_kick/teamPacket"
+      compress: false
+      rate: 10.0
+    - name: "/robotmodel/robot_heading"
+      compress: true
+      rate: 30.0
+    - name: "/gait/odometry"
+      compress: true
+    - name: "/robotcontrol/state"
+      compress: true
+    - name: "/vision/outputs"
+      compress: true
+      rate: 30.0

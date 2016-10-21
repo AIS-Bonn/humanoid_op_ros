@@ -5,7 +5,7 @@
 #include <head_control/headcontrol.h>
 #include <pluginlib/class_list_macros.h>
 #include <Eigen/Core>
-#include <math.h>
+#include <cmath>
 
 // Defines
 #define HEAD_PLOT_SCALE 2.0
@@ -49,18 +49,26 @@ HeadControl::HeadControl()
  , m_calibSafetyMargin("/headcontrol/calib/safetyMargin", 0.0, 0.005, 0.4, 0.05)
  , m_calibParamString("/headcontrol/calib/paramString", "")
  , m_plotCalibData("/headcontrol/calib/plotCalibData", false)
+ , m_plotData("/headcontrol/plotData", false)
+ , m_PM(PM_COUNT, "/headcontrol")
 {
 	// Initialise calibration feature
 	initCalibration();
 
+	// Configure the plot manager
+	configurePlotManager();
+
 	// Subscribe to ROS topics
 	m_sub_lookAtTarget = m_nh.subscribe("headcontrol/target", 1, &HeadControl::handleLookAtTarget, this);
 	m_sub_joystickData = m_nh.subscribe("/joy", 1, &HeadControl::handleJoystickData, this);
-	
+
 	// Advertise ROS topics
 	m_pub_headControlStatus = m_nh.advertise<head_control::HeadControlStatus>("headcontrol/status", 1, true);
 	updateHeadControlStatus();
-	
+
+	// Configuration parameter callbacks
+	m_plotData.setCallback(boost::bind(&HeadControl::callbackPlotData, this), true);
+
 	// Initialise the position limiter
 	m_posLimiter.setParams(&m_curCalibParams);
 }
@@ -100,8 +108,15 @@ bool HeadControl::init(robotcontrol::RobotModel* model)
 // Head control trigger function
 bool HeadControl::isTriggered()
 {
+	// Clear the plot manager for a new cycle
+	m_PM.clear();
+	
 	// Determine whether head control should execute
 	bool shouldTrigger = active();
+	
+	// Print messages for the enabling and disabling of head control
+	if(shouldTrigger != m_lastActive)
+		ROS_INFO("Headcontrol has been %s", (shouldTrigger ? "enabled" : "disabled"));
 	
 	// Handle case if we don't wish to trigger
 	if(!shouldTrigger)
@@ -114,16 +129,34 @@ bool HeadControl::isTriggered()
 		m_pitchCurV = 0.0;
 		m_pitchCurEffort = m_headPitchJoint->lastCmd.effort;
 		if(m_lastActive)
-		{
 			updateHeadControlStatus();
-			m_lastActive = false;
-		}
 	}
-	else m_lastActive = true;
+	m_lastActive = shouldTrigger;
 	
 	// Record data if we are currently required to do so
 	if(m_recording)
 		recordPoint();
+	
+	// Plotting
+	if(m_PM.getEnabled())
+	{
+		m_PM.plotScalar(shouldTrigger, PM_ENABLED);
+		m_PM.plotScalar(m_haveTarget, PM_HAVETARGET);
+		m_PM.plotScalar(m_yawTarget, PM_TARGETYAW);
+		m_PM.plotScalar(m_yawEffortTarget, PM_TARGETYAWEFFORT);
+		m_PM.plotScalar(m_pitchTarget, PM_TARGETPITCH);
+		m_PM.plotScalar(m_pitchEffortTarget, PM_TARGETPITCHEFFORT);
+		if(!shouldTrigger)
+		{
+			m_PM.plotScalar(m_yawCurX, PM_CURYAWX);
+			m_PM.plotScalar(m_yawCurV, PM_CURYAWV);
+			m_PM.plotScalar(m_yawCurEffort, PM_CURYAWEFFORT);
+			m_PM.plotScalar(m_pitchCurX, PM_CURPITCHX);
+			m_PM.plotScalar(m_pitchCurV, PM_CURPITCHV);
+			m_PM.plotScalar(m_pitchCurEffort, PM_CURPITCHEFFORT);
+			m_PM.publish();
+		}
+	}
 	
 	// Return whether head control should trigger
 	return shouldTrigger;
@@ -247,8 +280,8 @@ void HeadControl::step()
 	if(m_pitchRelax()) pitchEffort = 0.0;
 	
 	// Command the required new head joint positions
-	m_headYawJoint->cmd.setFromPos(dT, yawCmdX);
-	m_headPitchJoint->cmd.setFromPos(dT, pitchCmdX);
+	m_headYawJoint->cmd.setFromPos(yawCmdX);
+	m_headPitchJoint->cmd.setFromPos(pitchCmdX);
 	m_headYawJoint->cmd.effort = yawEffort;
 	m_headPitchJoint->cmd.effort = pitchEffort;
 	m_headYawJoint->cmd.raw = (yawEffort <= 0.0);
@@ -261,6 +294,19 @@ void HeadControl::step()
 	m_pitchCurX = pitchCmdX;
 	m_pitchCurV = pitchCmdV;
 	m_pitchCurEffort = pitchEffort;
+	
+	// Plotting
+	if(m_PM.getEnabled())
+	{
+		m_PM.plotScalar(time, PM_TIMETOTARGET);
+		m_PM.plotScalar(m_yawCurX, PM_CURYAWX);
+		m_PM.plotScalar(m_yawCurV, PM_CURYAWV);
+		m_PM.plotScalar(m_yawCurEffort, PM_CURYAWEFFORT);
+		m_PM.plotScalar(m_pitchCurX, PM_CURPITCHX);
+		m_PM.plotScalar(m_pitchCurV, PM_CURPITCHV);
+		m_PM.plotScalar(m_pitchCurEffort, PM_CURPITCHEFFORT);
+		m_PM.publish();
+	}
 }
 
 // Reset the head control target
@@ -277,15 +323,23 @@ void HeadControl::resetTarget()
 // Handle data from look at target ROS topic
 void HeadControl::handleLookAtTarget(const head_control::LookAtTargetConstPtr& msg)
 {
+	// Protect against numerical corruption
+	if(!std::isfinite(msg->pitchEffort) || !std::isfinite(msg->yawEffort))
+	{
+		ROS_WARN_THROTTLE(0.5, "A non-finite effort (%.2f, %.2f) was received by the head control => Ignoring entire message!", msg->pitchEffort, msg->yawEffort);
+		return;
+	}
+	if(!std::isfinite(msg->vec.x) || !std::isfinite(msg->vec.y) || !std::isfinite(msg->vec.z))
+	{
+		ROS_WARN_THROTTLE(0.5, "A non-finite vector target (%.3f, %.3f, %.3f) was received by the head control => Ignoring entire message!", msg->vec.x, msg->vec.y, msg->vec.z);
+		return;
+	}
+
 	// Check whether head control should be enabled
 	if(msg->enabled)
-	{
-		if(!m_haveTarget) ROS_INFO("Headcontrol has been enabled");
 		m_haveTarget = true;
-	}
 	else
 	{
-		if(m_haveTarget) ROS_INFO("Headcontrol has been disabled");
 		resetTarget();
 		updateHeadControlStatus();
 		return;
@@ -776,6 +830,37 @@ void HeadControl::testLimiter()
 	
 	// Plot what we've done
 	updatePlotCalibData();
+}
+
+// Configure the plot manager
+void HeadControl::configurePlotManager()
+{
+	// Configure gait command vector variables
+	m_PM.setName(PM_ENABLED,           "enabled");
+	m_PM.setName(PM_HAVETARGET,        "haveTarget");
+	m_PM.setName(PM_TARGETYAW,         "target/yaw");
+	m_PM.setName(PM_TARGETYAWEFFORT,   "target/yawEffort");
+	m_PM.setName(PM_TARGETPITCH,       "target/pitch");
+	m_PM.setName(PM_TARGETPITCHEFFORT, "target/pitchEffort");
+	m_PM.setName(PM_TIMETOTARGET,      "timeToTarget");
+	m_PM.setName(PM_CURYAWX,           "current/yaw");
+	m_PM.setName(PM_CURYAWV,           "current/yawVel");
+	m_PM.setName(PM_CURYAWEFFORT,      "current/yawEffort");
+	m_PM.setName(PM_CURPITCHX,         "current/pitch");
+	m_PM.setName(PM_CURPITCHV,         "current/pitchVel");
+	m_PM.setName(PM_CURPITCHEFFORT,    "current/pitchEffort");
+
+	// Check that we have been thorough
+	if(!m_PM.checkNames())
+		ROS_ERROR("Please review any warnings above that are related to the naming of plotter variables!");
+}
+
+// Callback for when the plotData parameter is updated
+void HeadControl::callbackPlotData()
+{
+	// Enable or disable plotting as required
+	if(m_plotData()) m_PM.enable();
+	else             m_PM.disable();
 }
 
 //

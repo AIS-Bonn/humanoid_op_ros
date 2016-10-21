@@ -1,13 +1,3 @@
 <launch>
-    <include file="$(find launch)/hardware/robot_common.launch" />
-
-    <node name="robotcontrol" pkg="robotcontrol" type="robotcontrol" output="screen" required="true">
-        <rosparam>
-            hw_interface: "nimbro_op_interface::RobotInterface"
-            InitPoseMotion: "init_pose_sit"
-            InitMotion: "init_sit"
-            motion_modules:
-            - "motionplayer::MotionPlayer"
-        </rosparam>
-    </node>
+    <include file="$(find launch)/hardware/$(optenv NIMBRO_ROBOT_TYPE NO_TYPE_FOUND)/robot_motion_test_sitting.$(optenv NIMBRO_ROBOT_TYPE NO_TYPE_FOUND).launch" />
 </launch>

@@ -1,6 +1,7 @@
 *~
 *.kdev*
 .*
+!.gitignore
 *.pyc
 build
 devel

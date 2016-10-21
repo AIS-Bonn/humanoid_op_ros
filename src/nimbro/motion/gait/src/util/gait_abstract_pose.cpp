@@ -6,12 +6,12 @@
 #include <gait/util/gait_joint_pose.h>
 #include <gait/util/gait_inverse_pose.h>
 #include <gait/util/gait_abstract_pose.h>
-#include <nimbro_utils/math_funcs.h>
+#include <rc_utils/math_funcs.h>
 #include <cmath>
 
 // Namespaces
 using namespace gait;
-using namespace nimbro_utils;
+using namespace rc_utils;
 
 //
 // AbstractLegPose

@@ -14,7 +14,7 @@ namespace timewarp
 {
 	// Forward declarations
 	class TimeWarpNode;
-	
+
 	// Timewarp I/O class
 	class TimeWarpIO
 	{
@@ -22,7 +22,7 @@ namespace timewarp
 		// Bag I/O functions
 		static bool load(TimeWarpNode* tw, const std::string& path);
 		static bool save(const TimeWarpNode* tw, const std::string& path, bool append, ros::Time startTime = ros::Time(0.0), ros::Time stopTime = ros::Time(0.0));
-		
+
 	private:
 		// Constructor
 		TimeWarpIO() {}

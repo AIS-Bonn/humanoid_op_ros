@@ -19,9 +19,9 @@
 
 // Includes - Misc
 #include <plot_msgs/plot_manager.h>
-#include <nimbro_utils/ew_integrator.h>
-#include <nimbro_utils/mean_filter.h>
-#include <nimbro_utils/wlbf_filter.h>
+#include <rc_utils/ew_integrator.h>
+#include <rc_utils/mean_filter.h>
+#include <rc_utils/wlbf_filter.h>
 
 // Includes - Library
 #include <Eigen/Core>
@@ -33,7 +33,11 @@
 #include <cap_gait/contrib/Limp.h>
 #include <cap_gait/contrib/ComFilter.h>
 
-// Capture step gait namespace
+/**
+* @namespace cap_gait
+*
+* @brief This namespace defines everything that is required for the capture step gait.
+**/
 namespace cap_gait
 {
 	/**
@@ -65,6 +69,9 @@ namespace cap_gait
 
 		// Update odometry function
 		virtual void updateOdometry();
+
+		// Handle joystick button function
+		virtual void handleJoystickButton(int button);
 
 	private:
 		//
@@ -189,10 +196,10 @@ namespace cap_gait
 		// Gait command vector variables
 		Eigen::Vector3d m_gcv;      // Gait command velocity vector (slope-limited command velocities actually followed by the gait engine)
 		Eigen::Vector3d m_gcvInput; // Gait command velocity vector input (raw velocities commanded by the gait motion module)
-		robotcontrol::GolayDerivative<Eigen::Vector3d, 1, 5, Eigen::aligned_allocator<Eigen::Vector3d> > m_gcvDeriv; // Derivative filter for the GCV to calculate the gait acceleration
-		nimbro_utils::MeanFilter m_gcvAccSmoothX;
-		nimbro_utils::MeanFilter m_gcvAccSmoothY;
-		nimbro_utils::MeanFilter m_gcvAccSmoothZ;
+		rc_utils::GolayDerivative<Eigen::Vector3d, 1, 5, Eigen::aligned_allocator<Eigen::Vector3d> > m_gcvDeriv; // Derivative filter for the GCV to calculate the gait acceleration
+		rc_utils::MeanFilter m_gcvAccSmoothX;
+		rc_utils::MeanFilter m_gcvAccSmoothY;
+		rc_utils::MeanFilter m_gcvAccSmoothZ;
 		Eigen::Vector3d m_gcvAcc;
 
 		// Gait flags
@@ -219,18 +226,18 @@ namespace cap_gait
 		//
 		
 		// Basic feedback filters
-		nimbro_utils::MeanFilter fusedXFeedFilter;
-		nimbro_utils::MeanFilter fusedYFeedFilter;
-		nimbro_utils::WLBFFilter dFusedXFeedFilter;
-		nimbro_utils::WLBFFilter dFusedYFeedFilter;
-		nimbro_utils::MeanFilter iFusedXFeedFilter;
-		nimbro_utils::MeanFilter iFusedYFeedFilter;
-		nimbro_utils::WLBFFilter gyroXFeedFilter;
-		nimbro_utils::WLBFFilter gyroYFeedFilter;
+		rc_utils::MeanFilter fusedXFeedFilter;
+		rc_utils::MeanFilter fusedYFeedFilter;
+		rc_utils::WLBFFilter dFusedXFeedFilter;
+		rc_utils::WLBFFilter dFusedYFeedFilter;
+		rc_utils::MeanFilter iFusedXFeedFilter;
+		rc_utils::MeanFilter iFusedYFeedFilter;
+		rc_utils::WLBFFilter gyroXFeedFilter;
+		rc_utils::WLBFFilter gyroYFeedFilter;
 		
 		// Integrators
-		nimbro_utils::EWIntegrator iFusedXFeedIntegrator;
-		nimbro_utils::EWIntegrator iFusedYFeedIntegrator;
+		rc_utils::EWIntegrator iFusedXFeedIntegrator;
+		rc_utils::EWIntegrator iFusedYFeedIntegrator;
 		config_server::Parameter<bool> m_resetIntegrators;    // Rising edge triggered flag to reset any integrated or learned values in the gait that are not necessarily reset during start/stop of walking
 		config_server::Parameter<bool> m_saveIFeedToHaltPose; // Rising edge triggered flag to save the current integrated feedback values as offsets to the halt pose (only the ones in current use)
 		bool m_savedLegIFeed;   // Flag that specifies within a cycle whether the integrated leg feedback has already been saved
@@ -285,6 +292,7 @@ namespace cap_gait
 		ComFilter<5> m_comFilter;
 
 		// Miscellaneous
+		config_server::Parameter<float> m_gcvZeroTime;
 		margait_contrib::Vec2f adaptation;
 		double lastSupportOrientation;
 		double oldGcvTargetY;
@@ -292,6 +300,7 @@ namespace cap_gait
 		double stepTimeCount;
 		double lastStepDuration;
 		int stepCounter;
+		int noCLStepsCounter;
 		int resetCounter;
 		int cycleNumber;
 
@@ -419,6 +428,9 @@ namespace cap_gait
 			PM_TXMODEL_VY,
 			PM_TXMODEL_SUPPLEG,
 			PM_TXMODEL_TIMETOSTEP,
+			PM_TXMODEL_STEPSIZEX,
+			PM_TXMODEL_STEPSIZEY,
+			PM_TXMODEL_STEPSIZEZ,
 			PM_ADAPTATION_X,
 			PM_ADAPTATION_Y,
 			PM_EXP_FUSED_X,
@@ -441,6 +453,9 @@ namespace cap_gait
 			PM_STEPSIZE_X,
 			PM_STEPSIZE_Y,
 			PM_STEPSIZE_Z,
+			PM_GCVTARGET_X,
+			PM_GCVTARGET_Y,
+			PM_GCVTARGET_Z,
 			PM_LAST_STEP_DURATION,
 			PM_COUNT
 		};

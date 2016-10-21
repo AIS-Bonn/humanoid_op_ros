@@ -4,5 +4,6 @@ model 0x0140
 name MX106
 
 section RAM
+reg 68 2 CURRENT
 reg 70 1 TORQUE_CONTROL_ENABLE
 reg 71 2 GOAL_TORQUE

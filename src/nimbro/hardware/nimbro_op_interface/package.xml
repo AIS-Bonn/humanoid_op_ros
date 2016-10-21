@@ -14,14 +14,16 @@
 	<build_depend>servomodel</build_depend>
 	<build_depend>plot_msgs</build_depend>
 	<build_depend>rot_conv</build_depend>
-	<build_depend>nimbro_utils</build_depend>
+	<build_depend>rc_utils</build_depend>
+	<build_depend>rrlogger</build_depend>
 	<run_depend>roscpp</run_depend>
 	<run_depend>robotcontrol</run_depend>
 	<run_depend>cm730</run_depend>
 	<run_depend>servomodel</run_depend>
 	<run_depend>plot_msgs</run_depend>
 	<run_depend>rot_conv</run_depend>
-	<run_depend>nimbro_utils</run_depend>
+	<run_depend>rc_utils</run_depend>
+	<run_depend>rrlogger</run_depend>
 	<export>
 		<robotcontrol plugin="${prefix}/plugin_robotcontrol.xml" />
 	</export>

@@ -5,14 +5,12 @@
 
 float DistortionModel::getDiagonalAngleView()
 {
-	vector<Point> plist;
+	vector<Point> plist(4);
 	vector<Point2f> pres;
-	plist.push_back(Point(0, 0));
-	plist.push_back(
-			Point(params.camera.width->get() - 1,
-					params.camera.height->get() - 1));
-	plist.push_back(Point(0, params.camera.height->get() - 1));
-	plist.push_back(Point(params.camera.width->get() - 1, 0));
+	plist[0] = Point(0, 0);
+	plist[1] = Point(params.camera->width() - 1, params.camera->height() - 1);
+	plist[2] = Point(0, params.camera->height() - 1);
+	plist[3] = Point(params.camera->width() - 1, 0);
 	undistortP_normalized_slow(plist, pres);
 
 	double longestDagnal = max(GetDistance(pres[3]),
@@ -111,6 +109,7 @@ void DistortionModel::ModifoedOpenCVUndistortPoint(const CvMat* _src,
 		x0 = x = (x - cx) * ifx;
 		y0 = y = (y - cy) * ify;
 
+		// compensate distortion iteratively
 		for (j = 0; j < iters; j++)
 		{
 			double r2 = x * x + y * y;
@@ -171,7 +170,7 @@ void DistortionModel::ModifoedOpenCVUndistortPoint(InputArray _src,
 bool DistortionModel::undistortP_normalized_slow(const vector<Point> contour,
 		vector<Point2f> &resCountour)
 {
-
+	resCountour.resize(contour.size()); //allocate result
 	cv::Mat src = cv::Mat(1, contour.size(), CV_64FC2);
 	for (uint32_t i = 0; i < contour.size(); i++)
 	{
@@ -188,7 +187,7 @@ bool DistortionModel::undistortP_normalized_slow(const vector<Point> contour,
 		cv::Vec2d dv = norm.at<cv::Vec2d>(0, i);
 		float x = (dv[0]);
 		float y = (dv[1]);
-		resCountour.push_back(Point2f(x, y));
+		resCountour[i] = Point2f(x, y);
 	}
 	return true;
 }
@@ -196,13 +195,13 @@ bool DistortionModel::undistortP_normalized_slow(const vector<Point> contour,
 bool DistortionModel::distortP_normalized_slow(const vector<Point3f> contour,
 		vector<Point2f> &resCountour)
 {
-
-	cv::Mat rVec(3, 1, cv::DataType<double>::type);
+	resCountour.resize(contour.size()); //allocate result
+	cv::Mat rVec(3, 1, cv::DataType<double>::type); // Rotation vector
 	rVec.at<double>(0) = 0;
 	rVec.at<double>(1) = 0;
 	rVec.at<double>(2) = 0;
 
-	cv::Mat tVec(3, 1, cv::DataType<double>::type);
+	cv::Mat tVec(3, 1, cv::DataType<double>::type); // Translation vector
 	tVec.at<double>(0) = 0;
 	tVec.at<double>(1) = 0;
 	tVec.at<double>(2) = 0;
@@ -215,49 +214,40 @@ bool DistortionModel::distortP_normalized_slow(const vector<Point3f> contour,
 bool DistortionModel::DistortPFull(const vector<Point> contour,
 		vector<Point> &resCountour)
 {
+	resCountour.resize(contour.size()); //allocate result
+	vector<Point2f> resCountourFloat(contour.size());
+	const int W = params.camera->width();
+	const int H = params.camera->height();
 
-	vector<Point2f> resCountourFloat;
-	const int W = params.camera.width->get();
-	const int H = params.camera.height->get();
-
-	const int siX = params.camera.widthUnDistortion->get();
-	const int siY = params.camera.heightUnDistortion->get();
+	const int siX = params.camera->widthUnDistortion();
+	const int siY = params.camera->heightUnDistortion();
 
 	int offsetx = (siX - W) / 2.;
 	int offsety = (siY - H) / 2.;
-
 	double fx = cameraMatrix.at<double>(0, 0);
 	double fy = cameraMatrix.at<double>(1, 1);
 	double cx = cameraMatrix.at<double>(0, 2);
 	double cy = cameraMatrix.at<double>(1, 2);
-
-	vector<Point3f> contour3f;
+	vector<Point3f> contour3f(contour.size());
 	for (size_t i = 0; i < contour.size(); i++)
 	{
-		contour3f.push_back(
-				Point3f((contour[i].x - (offsetx + cx)) / fx,
-						(contour[i].y - (offsety + cy)) / fy, 1));
+		contour3f[i] = Point3f((contour[i].x - (offsetx + cx)) / fx,
+				(contour[i].y - (offsety + cy)) / fy, 1);
 	}
-
-	cv::Mat rVec(3, 1, cv::DataType<double>::type);
+	cv::Mat rVec(3, 1, cv::DataType<double>::type); // Rotation vector
 	rVec.at<double>(0) = 0;
 	rVec.at<double>(1) = 0;
 	rVec.at<double>(2) = 0;
-
-	cv::Mat tVec(3, 1, cv::DataType<double>::type);
+	cv::Mat tVec(3, 1, cv::DataType<double>::type); // Translation vector
 	tVec.at<double>(0) = 0;
 	tVec.at<double>(1) = 0;
 	tVec.at<double>(2) = 0;
-
 	cv::projectPoints(contour3f, rVec, tVec, cameraMatrix, distCoeffs,
 			resCountourFloat);
-
 	for (uint32_t i = 0; i < resCountourFloat.size(); i++)
 	{
-		resCountour.push_back(
-				Point(
-						(int) round(resCountourFloat[i].x),
-					(int) round(resCountourFloat[i].y)));
+		resCountour[i] = Point((int) round(resCountourFloat[i].x),
+				(int) round(resCountourFloat[i].y));
 	}
 	return true;
 }
@@ -265,13 +255,13 @@ bool DistortionModel::DistortPFull(const vector<Point> contour,
 bool DistortionModel::DistortP(const vector<Point> contour,
 		vector<Point> &resCountour)
 {
+	resCountour.resize(contour.size()); //allocate result
+	vector<Point2f> resCountourFloat(contour.size());
+	const int W = params.camera->width();
+	const int H = params.camera->height();
 
-	vector<Point2f> resCountourFloat;
-	const int W = params.camera.width->get();
-	const int H = params.camera.height->get();
-
-	const int siX = params.camera.widthUnDistortion->get();
-	const int siY = params.camera.heightUnDistortion->get();
+	const int siX = params.camera->widthUnDistortion();
+	const int siY = params.camera->heightUnDistortion();
 
 	int offsetx = (siX - W) / 2.;
 	int offsety = (siY - H) / 2.;
@@ -281,20 +271,19 @@ bool DistortionModel::DistortP(const vector<Point> contour,
 	double cx = cameraMatrix.at<double>(0, 2);
 	double cy = cameraMatrix.at<double>(1, 2);
 
-	vector<Point3f> contour3f;
+	vector<Point3f> contour3f(contour.size());
 	for (size_t i = 0; i < contour.size(); i++)
 	{
-		contour3f.push_back(
-				Point3f((contour[i].x - (offsetx + cx)) / fx,
-						(contour[i].y - (offsety + cy)) / fy, 1));
+		contour3f[i] = Point3f((contour[i].x - (offsetx + cx)) / fx,
+				(contour[i].y - (offsety + cy)) / fy, 1);
 	}
 
-	cv::Mat rVec(3, 1, cv::DataType<double>::type);
+	cv::Mat rVec(3, 1, cv::DataType<double>::type); // Rotation vector
 	rVec.at<double>(0) = 0;
 	rVec.at<double>(1) = 0;
 	rVec.at<double>(2) = 0;
 
-	cv::Mat tVec(3, 1, cv::DataType<double>::type);
+	cv::Mat tVec(3, 1, cv::DataType<double>::type); // Translation vector
 	tVec.at<double>(0) = 0;
 	tVec.at<double>(1) = 0;
 	tVec.at<double>(2) = 0;
@@ -304,14 +293,13 @@ bool DistortionModel::DistortP(const vector<Point> contour,
 
 	for (uint32_t i = 0; i < resCountourFloat.size(); i++)
 	{
-		resCountour.push_back(
-				Point(
-						std::max(
-								std::min((int) round(resCountourFloat[i].x),
-										params.camera.width->get() - 1), 0),
-						std::max(
-								std::min((int) round(resCountourFloat[i].y),
-										params.camera.height->get() - 1), 0)));
+		resCountour[i] = Point(
+				std::max(
+						std::min((int) round(resCountourFloat[i].x),
+								params.camera->width() - 1), 0),
+				std::max(
+						std::min((int) round(resCountourFloat[i].y),
+								params.camera->height() - 1), 0));
 	}
 	return true;
 }
@@ -319,8 +307,9 @@ bool DistortionModel::DistortP(const vector<Point> contour,
 void DistortionModel::undistortP_slow(const vector<Point> contour,
 		vector<Point> &resCountour)
 {
-	const int W = params.camera.width->get();
-	const int H = params.camera.height->get();
+	resCountour.resize(contour.size()); //allocate result
+	const int W = params.camera->width();
+	const int H = params.camera->height();
 
 	cv::Mat src = cv::Mat(1, contour.size(), CV_32FC2);
 	for (uint32_t i = 0; i < contour.size(); i++)
@@ -340,71 +329,103 @@ void DistortionModel::undistortP_slow(const vector<Point> contour,
 		cv::Vec2f dv = norm.at<cv::Vec2f>(0, i);
 		int x = (int) (dv[0]);
 		int y = (int) (dv[1]);
-		resCountour.push_back(Point(x, y));
+		resCountour[i] = Point(x, y);
 	}
 }
 
-bool DistortionModel::UndistortP(const vector<Point> contour,
+bool DistortionModel::UndistortP(const vector<Point> &contour,
 		vector<Point> &resCountour)
 {
-	const int siX = params.camera.widthUnDistortion->get();
-	const int siY = params.camera.heightUnDistortion->get();
+	resCountour.resize(contour.size()); //allocate result
 
-	const int W = params.camera.width->get();
-	const int H = params.camera.height->get();
-	int offsetx = (siX - W) / 2.;
-	int offsety = (siY - H) / 2.;
+	const int W = params.camera->width();
+	const int H = params.camera->height();
 
 	for (uint32_t i = 0; i < contour.size(); i++)
 	{
-		float x = contour[i].x;
-		float y = contour[i].y;
+		int x = contour[i].x;
+		int y = contour[i].y;
 		if (x < 0 || y < 0 || x >= W || y >= H)
 		{
-			ROS_ERROR("Error In Programming");
+			ROS_ERROR("Error In Programming (x =%d, y =%d)", x, y);
 			return false;
 		}
 
-		cv::Vec3f dv = distortionModel.at<cv::Vec3f>(Point(x, y));
-		resCountour.push_back(Point(dv[1] + offsetx, dv[0] + offsety));
+		Point tmp = distortionVector[y * W + x];
+		resCountour[i] = Point(tmp.x, tmp.y);
+
 	}
-
 	return true;
-
 }
-void DistortionModel::CreateUndistortFull(const Mat &rawImg, Mat &res,Scalar bg=blackColor())
+
+bool DistortionModel::UndistortP(const vector<Point> &contour,
+		vector<Point2f> &resCountour)
 {
-	const int W = params.camera.width->get();
-	const int H = params.camera.height->get();
-	const int siX = params.camera.widthUnDistortion->get();
-	const int siY = params.camera.heightUnDistortion->get();
-	vector<Point> p, resP;
+	resCountour.resize(contour.size()); //allocate result
+	int W = params.camera->width();
+	int H = params.camera->height();
+	for (uint32_t i = 0; i < contour.size(); i++)
+	{
+		int x = contour[i].x;
+		int y = contour[i].y;
+		if (x < 0 || y < 0 || x >= W || y >= H)
+		{
+			ROS_ERROR("Error In Programming (x =%d, y =%d)", x, y);
+			return false;
+		}
+
+		resCountour[i] = distortionVector[y * W + x];
+	}
+	return true;
+}
+
+bool DistortionModel::UndistortP(const Point &inPoint, Point2f &resPoint)
+{
+	int W = params.camera->width();
+	int H = params.camera->height();
+	int x = inPoint.x;
+	int y = inPoint.y;
+	if (x < 0 || y < 0 || x >= W || y >= H)
+	{
+		ROS_ERROR("Error In Programming (x =%d, y =%d)", x, y);
+		return false;
+	}
+	resPoint = distortionVector[y * W + x];
+	return true;
+}
+
+void DistortionModel::CreateUndistortFull(const Mat &rawImg, Mat &res,
+		Scalar bg = blackColor())
+{
+	const int W = params.camera->width();
+	const int H = params.camera->height();
+	const int siX = params.camera->widthUnDistortion();
+	const int siY = params.camera->heightUnDistortion();
+	vector<Point> p(siY * siX), resP;
+	int ctmp = 0;
 	for (int y = 0; y < siY; y++)
 	{
 		for (int x = 0; x < siX; x++)
 		{
-			p.push_back(Point(x, y));
+			p[ctmp++] = Point(x, y);
 		}
 	}
 	DistortPFull(p, resP);
-
 	res = Mat::zeros(Size(siX, siY), CV_8UC3);
-	res=bg;
+	res = bg;
 	int counter = 0;
-
 	const int resChannels = res.channels();
-	const int resSize = res.rows * res.cols;
+	const int resSize = siX * siY;
 	uchar* raw_D = rawImg.data;
 	uchar* tmp_D = res.data;
-
 	for (int i = 0; i < resSize; i++)
 	{
-
 		int x = resP[counter].x;
 		int y = resP[counter].y;
 		counter++;
 		tmp_D += resChannels;
-		if(x<0||y<0||x>=W||y>=H)
+
+		if (x < 0 || y < 0 || x >= W || y >= H)
 		{
 			continue;
 		}
@@ -415,23 +436,23 @@ void DistortionModel::CreateUndistortFull(const Mat &rawImg, Mat &res,Scalar bg=
 	}
 }
 
-
 void DistortionModel::CreateUndistort(const Mat &rawImg, Mat &res)
 {
-	const int W = params.camera.width->get();
-	const int H = params.camera.height->get();
-	vector<Point> p, resP;
+	const int W = params.camera->width();
+	const int H = params.camera->height();
+	vector<Point> p(H * W), resP;
+	int ctmp = 0;
 	for (int y = 0; y < H; y++)
 	{
 		for (int x = 0; x < W; x++)
 		{
-			p.push_back(Point(x, y));
+			p[ctmp++] = Point(x, y);
 		}
 	}
 	UndistortP(p, resP);
 
-	const int siX = params.camera.widthUnDistortion->get();
-	const int siY = params.camera.heightUnDistortion->get();
+	const int siX = params.camera->widthUnDistortion();
+	const int siY = params.camera->heightUnDistortion();
 	res = Mat::zeros(Size(siX, siY), CV_8UC3);
 
 	int counter = 0;
@@ -461,51 +482,54 @@ void DistortionModel::CreateUndistort(const Mat &rawImg, Mat &res)
 
 bool DistortionModel::Init()
 {
+	string tmpCalibPath = "";
 	try
 	{
-		cv::FileStorage fs(params.calib.filePath->get(), FileStorage::READ);
+		tmpCalibPath = params.configPath + params.calib->filePath();
+		ROS_INFO("cCfile path = %s", tmpCalibPath.c_str());
+		cv::FileStorage fs(tmpCalibPath, FileStorage::READ);
 		fs["cameraMatrix"] >> cameraMatrix;
 		fs["distCoeffs"] >> distCoeffs;
 	} catch (cv::Exception& e)
 	{
+		ROS_ERROR("Problem in cCfile @ %s", tmpCalibPath.c_str());
 		ROS_ERROR("exception caught: %s", e.what());
 		return false;
 	}
 
+	if(cameraMatrix.empty() || distCoeffs.empty())
 	{
-		cameraMatrix.at<double>(Point(0,0))*=params.camera.width->get();
-		cameraMatrix.at<double>(Point(0,0))/=640;
-		cameraMatrix.at<double>(Point(2,0))*=params.camera.width->get();
-		cameraMatrix.at<double>(Point(2,0))/=640;
-		cameraMatrix.at<double>(Point(1,1))*=params.camera.height->get();
-		cameraMatrix.at<double>(Point(1,1))/=480;
-		cameraMatrix.at<double>(Point(2,1))*=params.camera.height->get();
-		cameraMatrix.at<double>(Point(2,1))/=480;
+		ROS_ERROR("Problem in cCfile content");
+		return false;
 	}
 
-
-	const int W = params.camera.width->get();
-	const int H = params.camera.height->get();
-
-	distortionModel = Mat::zeros(Size(W, H), CV_32FC3);
-	vector<Point> center, resC;
-	center.push_back(
-			Point(params.camera.width->get() / 2,
-					params.camera.height->get() / 2));
+	//Because the original camera matrix was created with 640*480
+	{
+		cameraMatrix.at<double>(Point(0, 0)) *= params.camera->width();
+		cameraMatrix.at<double>(Point(0, 0)) /= 640;
+		cameraMatrix.at<double>(Point(2, 0)) *= params.camera->width();
+		cameraMatrix.at<double>(Point(2, 0)) /= 640;
+		cameraMatrix.at<double>(Point(1, 1)) *= params.camera->height();
+		cameraMatrix.at<double>(Point(1, 1)) /= 480;
+		cameraMatrix.at<double>(Point(2, 1)) *= params.camera->height();
+		cameraMatrix.at<double>(Point(2, 1)) /= 480;
+	}
+	const int W = params.camera->width();
+	const int H = params.camera->height();
+	distortionVector.resize(H * W);
+	vector<Point> center(1), resC;
+	center[0] = Point(params.camera->width() / 2, params.camera->height() / 2);
 	undistortP_slow(center, resC);
-
-	cout << "resC" << resC[0] << endl;
-
-	vector<Point> p, resP;
-
+	ROS_INFO("Center of Image = [%d, %d]", resC[0].x, resC[0].y);
+	vector<Point> p(H * W), resP;
+	int ctmp = 0;
 	for (int y = 0; y < H; y++)
 	{
 		for (int x = 0; x < W; x++)
 		{
-			p.push_back(Point(x, y));
+			p[ctmp++] = Point(x, y);
 		}
 	}
-
 	undistortP_slow(p, resP);
 
 	int maxW = -999999;
@@ -514,26 +538,31 @@ bool DistortionModel::Init()
 	{
 		int x = resP[i].x;
 		int y = resP[i].y;
-		int xP = p[i].x;
-		int yP = p[i].y;
 
 		maxW = max(abs(resC[0].x - x), maxW);
 		maxH = max(abs(resC[0].y - y), maxH);
 
-		cv::Vec3f dVec;
-
-		dVec[0] = y;
-		dVec[1] = x;
-		dVec[2] = 1; //1 ->ok
-
-		distortionModel.at<cv::Vec3f>(yP, xP) = dVec;
 	}
 
-	params.camera.widthUnDistortion->set((maxW * 2) + 1);
-	params.camera.heightUnDistortion->set((maxH * 2) + 1);
+	params.camera->widthUnDistortion.set((maxW * 2) + 1);
+	params.camera->heightUnDistortion.set((maxH * 2) + 1);
+	const int siX = params.camera->widthUnDistortion();
+	const int siY = params.camera->heightUnDistortion();
+
+	int offsetx = (siX - W) / 2.;
+	int offsety = (siY - H) / 2.;
+	for (int i = 0; i < H * W; i++)
+	{
+		int x = resP[i].x;
+		int y = resP[i].y;
+		int xP = p[i].x;
+		int yP = p[i].y;
+		distortionVector[(yP * W) + xP] = Point2f(x + offsetx, y + offsety);
+	}
+
 	ROS_INFO("Calculated Boundry if symetrical => ( width = %d , heigth = %d)",
-			params.camera.widthUnDistortion->get(),
-			params.camera.heightUnDistortion->get());
+			params.camera->widthUnDistortion(),
+			params.camera->heightUnDistortion());
 
 	return true;
 }

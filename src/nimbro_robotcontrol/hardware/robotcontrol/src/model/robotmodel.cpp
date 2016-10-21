@@ -53,6 +53,7 @@ inline void rbdlToTF(const Math::SpatialTransform& X, tf::Transform* t)
 RobotModel::RobotModel(RobotControl* robotControl)
  : CONFIG_PARAM_PATH("robotModel/")
  , m_robotControl(robotControl)
+ , m_warnZeroTotalSuppCoeff(CONFIG_PARAM_PATH + "warnZeroTotalSuppCoeff", true)
  , m_useSupportInformation(CONFIG_PARAM_PATH + "useSupportInfo", true)
  , m_useFeedbackPos(CONFIG_PARAM_PATH + "useFeedbackPos", false)
  , m_plotRobotModelData(CONFIG_PARAM_PATH + "plotData", false)
@@ -60,6 +61,7 @@ RobotModel::RobotModel(RobotControl* robotControl)
  , m_headingIsFusedYaw(CONFIG_PARAM_PATH + "headingIsFusedYaw", true)
  , m_currentState(0)
  , m_relaxed(false)
+ , m_relaxedWasSet(false)
  , m_timerDuration(DEFAULT_TIMER_DURATION) // Note: This default value should be overwritten by RobotControl on init, so in theory this can be arbitrary...
 {
 	// Retrieve a node handle
@@ -77,6 +79,8 @@ RobotModel::RobotModel(RobotControl* robotControl)
 	setRobotAngularVelocity(Eigen::Vector3d::Zero());        // Note: By default the robot is simply at rest
 	setAccelerationVector(Eigen::Vector3d(0.0, 0.0, 9.81));  // Note: Gravity pointing downwards looks like an upwards acceleration of the robot
 	setMagneticFieldVector(Eigen::Vector3d(0.5, 0.0, 0.0));  // Note: A 'reasonable' default value of 0.50 gauss in line with the positive x-axis
+	setTemperature(35.0);                                    // Note: Robots usually heat up above standard room temperature
+	setVoltage(16.0);                                        // Note: The approximate value of a slightly discharged 4-cell LiPo battery
 	processReadData();
 
 	// Initialise the plotter variable names
@@ -103,12 +107,19 @@ RobotModel::RobotModel(RobotControl* robotControl)
 	m_plot.points[PM_FUSED_DYAW     ].name = "/RobotModel/Fused/DYaw";
 	m_plot.points[PM_FUSED_DPITCH   ].name = "/RobotModel/Fused/DPitch";
 	m_plot.points[PM_FUSED_DROLL    ].name = "/RobotModel/Fused/DRoll";
+	m_plot.points[PM_HEADING        ].name = "/RobotModel/Heading";
+	m_plot.points[PM_FUSED_YAW_PR   ].name = "/RobotModel/FusedPR/Yaw";
 	m_plot.points[PM_FUSED_PITCH_PR ].name = "/RobotModel/FusedPR/Pitch";
 	m_plot.points[PM_FUSED_ROLL_PR  ].name = "/RobotModel/FusedPR/Roll";
 	m_plot.points[PM_FUSED_HEMI_PR  ].name = "/RobotModel/FusedPR/Hemi";
+	m_plot.points[PM_FUSED_DYAW_PR  ].name = "/RobotModel/FusedPR/DYaw";
 	m_plot.points[PM_FUSED_DPITCH_PR].name = "/RobotModel/FusedPR/DPitch";
 	m_plot.points[PM_FUSED_DROLL_PR ].name = "/RobotModel/FusedPR/DRoll";
-	m_plot.points[PM_HEADING        ].name = "/RobotModel/Heading";
+	m_plot.points[PM_TEMPERATURE    ].name = "/RobotModel/Temperature";
+	m_plot.points[PM_VOLTAGE        ].name = "/RobotModel/Voltage";
+	m_plot.points[PM_RELAXEDMODEL   ].name = "/RobotModel/RelaxedModel";
+	m_plot.points[PM_RELAXEDWRITTEN ].name = "/RobotModel/RelaxedWritten";
+	m_plot.points[PM_ROBOT_STATE    ].name = "/RobotModel/RobotState";
 
 	// Register an initial state and set it as the current state
 	setState(registerState("unknown")); // Note: This should get overwritten in RobotControl::RobotControl()
@@ -264,6 +275,7 @@ void RobotModel::newCommands()
 {
 	for(size_t i = 0; i < m_joints.size(); i++)
 		m_joints[i]->lastCmd = m_joints[i]->cmd;
+	m_relaxedWasSet = false;
 }
 
 /**
@@ -288,7 +300,8 @@ void RobotModel::doInverseDynamics()
 		double total = 0.0;
 		for(size_t i = 0; i < m_models.size(); ++i)
 			total += m_models[i]->doInverseDynamics(source, true, false, true);
-		if(total == 0.0) ROS_WARN_THROTTLE(1.0, "All support coefficients are currently zero");
+		if(total == 0.0 && m_warnZeroTotalSuppCoeff())
+			ROS_WARN_THROTTLE(1.0, "All support coefficients are currently zero");
 	}
 	else
 	{
@@ -324,7 +337,10 @@ void RobotModel::setSupportCoefficient(const boost::shared_ptr<const urdf::Link>
 	// Ensure that we found the model
 	if(!model)
 	{
-		ROS_ERROR_THROTTLE(0.3, "setSupportCoefficient called with non-tip link '%s' (URDF)", link->name.c_str());
+		if(link)
+			ROS_ERROR_THROTTLE(0.3, "setSupportCoefficient called with non-tip link '%s' (URDF)", link->name.c_str());
+		else
+			ROS_ERROR_THROTTLE(0.3, "setSupportCoefficient called with a null pointer non-tip link (URDF)");
 		return;
 	}
 	
@@ -488,6 +504,7 @@ void RobotModel::setRobotOrientation(const Eigen::Quaterniond& quaternion, const
 	{
 		// Just copy out the already calculated orientation parameters to the PR member variables
 		m_robotOrientationPR = m_robotOrientationNoFYaw;
+		m_robotFYawPR = m_robotFYaw;
 		m_robotFPitchPR = m_robotFPitch;
 		m_robotFRollPR = m_robotFRoll;
 		m_robotFHemiPR = m_robotFHemi;
@@ -508,7 +525,10 @@ void RobotModel::setRobotOrientation(const Eigen::Quaterniond& quaternion, const
 		double hR32 = w*x + y*z;         // Half of the (3,2) entry (zGy) in the rotation matrix corresponding to the given quaternion
 		double hR33 = 0.5 - (x*x + y*y); // Half of the (3,3) entry (zGz) in the rotation matrix corresponding to the given quaternion
 
-		// Calculate the fused pitch, roll and hemisphere of the orientation
+		// Calculate the fused angles of the orientation
+		m_robotFYawPR = 2.0*atan2(z,w);                    // Output of atan2 is [-pi,pi], so this expression is in [-2*pi,2*pi]
+		if(m_robotFYawPR >   M_PI) m_robotFYawPR -= M_2PI; // m_robotFYawPR is now in [-2*pi,pi]
+		if(m_robotFYawPR <= -M_PI) m_robotFYawPR += M_2PI; // m_robotFYawPR is now in (-pi,pi]
 		double sth = -2.0 * hR31;
 		double sphi = 2.0 * hR32;
 		sth = (sth >= 1.0 ? 1.0 : (sth <= -1.0 ? -1.0 : sth));     // Note: This should never trim off more than perhaps a few eps
@@ -517,13 +537,8 @@ void RobotModel::setRobotOrientation(const Eigen::Quaterniond& quaternion, const
 		m_robotFRollPR = asin(sphi);    // Fused roll is the asin of the (3,2) rotation matrix entry (zGy)
 		m_robotFHemiPR = (hR33 >= 0.0); // The orientation hemisphere depends only on the sign of the (3,3) rotation matrix entry (zGz)
 		
-		// Calculate the fused yaw of the orientation
-		double FYaw = 2.0*atan2(z,w);    // Output of atan2 is [-pi,pi], so this expression is in [-2*pi,2*pi]
-		if(FYaw >   M_PI) FYaw -= M_2PI; // FYaw is now in [-2*pi,pi]
-		if(FYaw <= -M_PI) FYaw += M_2PI; // FYaw is now in (-pi,pi]
-		
 		// Calculate the robot fused pitch/roll orientation without its fused yaw component
-		double hFYaw = 0.5 * FYaw;
+		double hFYaw = 0.5 * m_robotFYawPR;
 		double hcFYaw = cos(hFYaw);
 		double hsFYaw = sin(hFYaw); // The quaternion corresponding to the fused yaw component of the given quaternion is now (hcFYaw,0,0,hsFYaw)
 		m_robotOrientationPR.w() = w*hcFYaw + z*hsFYaw;
@@ -609,12 +624,19 @@ void RobotModel::visualizeData(RCMarkerMan* markers)
 		m_plot.points[PM_FUSED_DYAW     ].value = m_robotDFYaw;
 		m_plot.points[PM_FUSED_DPITCH   ].value = m_robotDFPitch;
 		m_plot.points[PM_FUSED_DROLL    ].value = m_robotDFRoll;
+		m_plot.points[PM_HEADING        ].value = m_robotHeading;
+		m_plot.points[PM_FUSED_YAW_PR   ].value = m_robotFYawPR;
 		m_plot.points[PM_FUSED_PITCH_PR ].value = m_robotFPitchPR;
 		m_plot.points[PM_FUSED_ROLL_PR  ].value = m_robotFRollPR;
 		m_plot.points[PM_FUSED_HEMI_PR  ].value = (m_robotFHemiPR ? 1.0 : -1.0);
+		m_plot.points[PM_FUSED_DYAW_PR  ].value = m_robotDFYawPR;
 		m_plot.points[PM_FUSED_DPITCH_PR].value = m_robotDFPitchPR;
 		m_plot.points[PM_FUSED_DROLL_PR ].value = m_robotDFRollPR;
-		m_plot.points[PM_HEADING        ].value = m_robotHeading;
+		m_plot.points[PM_TEMPERATURE    ].value = m_temperature;
+		m_plot.points[PM_VOLTAGE        ].value = m_voltage;
+		m_plot.points[PM_RELAXEDMODEL   ].value = m_relaxed;
+		m_plot.points[PM_RELAXEDWRITTEN ].value = m_relaxedWasSet;
+		m_plot.points[PM_ROBOT_STATE    ].value = m_currentState.index() * 0.1;
 
 		// Plot support coefficients
 		for(size_t i = 0; i < m_models.size(); i++)
@@ -645,7 +667,7 @@ void RobotModel::publishTF(bool useMeasurement)
 		m_rootSupportModel->updateRBDLJointPos(SingleSupportModel::CommandData);
 
 	tf::Quaternion tfRobotOrientation;
-	tf::quaternionEigenToTF((m_egoRotIncludesHeading() ? robotOrientation() : robotOrientationNoHeading()), tfRobotOrientation);
+	tf::quaternionEigenToTF((m_egoRotIncludesHeading() ? robotOrientation() : robotOrientationPR()), tfRobotOrientation);
 	if(m_robotOrientationTime == ros::Time(0))
 		m_tf_buf[0].stamp_ = m_rootSupportModel->joint(1)->feedback.stamp;
 	else
@@ -713,10 +735,13 @@ void RobotModel::publishTF(bool useMeasurement)
 	RSmsg.FPitch   = m_robotFPitch;
 	RSmsg.FRoll    = m_robotFRoll;
 	RSmsg.FHemi    = (m_robotFHemi ? 1 : -1);
+	RSmsg.heading  = m_robotHeading;
+	RSmsg.FYawPR   = m_robotFYawPR;
 	RSmsg.FPitchPR = m_robotFPitchPR;
 	RSmsg.FRollPR  = m_robotFRollPR;
 	RSmsg.FHemiPR  = (m_robotFHemiPR ? 1 : -1);
-	RSmsg.heading  = m_robotHeading;
+	RSmsg.temperature = m_temperature;
+	RSmsg.voltage  = m_voltage;
 	m_pub_robotState.publish(RSmsg);
 
 	// Publish the robot heading
@@ -727,6 +752,7 @@ void RobotModel::publishTF(bool useMeasurement)
 	RHmsg.orientationPR.x = m_robotOrientationPR.x();
 	RHmsg.orientationPR.y = m_robotOrientationPR.y();
 	RHmsg.orientationPR.z = m_robotOrientationPR.z();
+	RHmsg.FYawPR = m_robotFYawPR;
 	m_pub_robotHeading.publish(RHmsg);
 }
 
@@ -778,6 +804,7 @@ std::string RobotModel::currentStateLabel() const
 void RobotModel::setRelaxed(bool relax)
 {
 	m_relaxed = relax;
+	m_relaxedWasSet = true;
 }
 
 void RobotModel::processReadData()
@@ -786,6 +813,7 @@ void RobotModel::processReadData()
 	m_golayDFYaw.put(m_robotFYaw);
 	m_golayDFPitch.put(m_robotFPitch);
 	m_golayDFRoll.put(m_robotFRoll);
+	m_golayDFYawPR.put(m_robotFYawPR);
 	m_golayDFPitchPR.put(m_robotFPitchPR);
 	m_golayDFRollPR.put(m_robotFRollPR);
 	
@@ -793,6 +821,7 @@ void RobotModel::processReadData()
 	m_robotDFYaw = m_golayDFYaw.value() / m_timerDuration;
 	m_robotDFPitch = m_golayDFPitch.value() / m_timerDuration;
 	m_robotDFRoll = m_golayDFRoll.value() / m_timerDuration;
+	m_robotDFYawPR = m_golayDFYawPR.value() / m_timerDuration;
 	m_robotDFPitchPR = m_golayDFPitchPR.value() / m_timerDuration;
 	m_robotDFRollPR = m_golayDFRollPR.value() / m_timerDuration;
 }

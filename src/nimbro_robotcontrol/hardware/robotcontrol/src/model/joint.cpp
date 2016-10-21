@@ -4,6 +4,8 @@
 
 // Includes
 #include <robotcontrol/model/joint.h>
+#include <ros/console.h>
+#include <cmath>
 
 // Robotcontrol namespace
 namespace robotcontrol
@@ -25,6 +27,11 @@ Joint::Command::Command()
  , rawPos(0.0)
  , effort(0.0)
  , raw(false)
+ , m_updateType(SFT_NONE)
+ , m_newPos(0.0)
+ , m_newVel(0.0)
+ , m_newAcc(0.0)
+ , m_updateCount(0)
 {
 }
 
@@ -37,15 +44,105 @@ void Joint::Command::resetDerivs()
 	m_dev_velToAcc.reset();
 }
 
+// Start a joint command update phase
+void Joint::Command::startUpdatePhase()
+{
+	// Reset the update variables
+	m_updateType = SFT_NONE;
+	m_newPos = 0.0;
+	m_newVel = 0.0;
+	m_newAcc = 0.0;
+	m_updateCount = 0;
+}
+
+// Stop a joint command update phase, and actually perform the update
+void Joint::Command::stopUpdatePhase(double deltaT)
+{
+	// Protect against numerical corruption
+	bool badCommand = !(std::isfinite(m_newPos) && std::isfinite(m_newVel) && std::isfinite(m_newAcc));
+	if(badCommand)
+		ROS_WARN_THROTTLE(0.5, "A non-finite joint command (%.3f, %.3f, %.3f) was detected => Ignoring the command!", m_newPos, m_newVel, m_newAcc);
+
+	// Actually update the joint command on a "he with the last word wins" basis
+	if(m_updateCount <= 0 || m_updateType <= SFT_NONE || m_updateType >= SFT_COUNT || badCommand)
+		actuallySetFromPos(deltaT, pos);
+	else if(m_updateType == SFT_POS)
+		actuallySetFromPos(deltaT, m_newPos);
+	else if(m_updateType == SFT_POSUNSMOOTHED)
+		actuallySetFromPosUnsmoothed(deltaT, m_newPos);
+	else if(m_updateType == SFT_POSVEL)
+		actuallySetFromPosVel(deltaT, m_newPos, m_newVel);
+	else if(m_updateType == SFT_POSVELACC)
+		actuallySetFromPosVelAcc(m_newPos, m_newVel, m_newAcc);
+	else // Should never happen...
+		actuallySetFromPos(deltaT, pos);
+}
+
 /**
  * @brief This method calculates the vel and acc fields using Savitzky-Golay smoothed differentiation.
- * 
- * The function assumes that it is called at regular intervals given by the @p deltaT parameter.
  *
- * @param deltaT Time step (s)
  * @param newPos Goal position (rad)
  **/
-void Joint::Command::setFromPos(double deltaT, double newPos)
+void Joint::Command::setFromPos(double newPos)
+{
+	// Save that this method was called
+	m_updateType = SFT_POS;
+	m_newPos = newPos;
+	m_newVel = 0.0;
+	m_newAcc = 0.0;
+	m_updateCount++;
+}
+
+/**
+ * @brief This method calculates the vel and acc fields using direct difference equations, use with care!
+ *
+ * @param newPos Goal position (rad)
+ **/
+void Joint::Command::setFromPosUnsmoothed(double newPos)
+{
+	// Save that this method was called
+	m_updateType = SFT_POSUNSMOOTHED;
+	m_newPos = newPos;
+	m_newVel = 0.0;
+	m_newAcc = 0.0;
+	m_updateCount++;
+}
+
+/**
+ * @brief This method calculates the acc field using Savitzky-Golay smoothed differentiation of the given velocity values.
+ *
+ * @param newPos Goal position (rad)
+ * @param newVel Goal velocity (rad/s)
+ **/
+void Joint::Command::setFromPosVel(double newPos, double newVel)
+{
+	// Save that this method was called
+	m_updateType = SFT_POSVEL;
+	m_newPos = newPos;
+	m_newVel = newVel;
+	m_newAcc = 0.0;
+	m_updateCount++;
+}
+
+/**
+ * This function directly sets the target position, velocity and acceleration values.
+ *
+ * @param newPos Goal position (rad)
+ * @param newVel Goal velocity (rad/s)
+ * @param newAcc Goal acceleration (rad/s^2)
+ **/
+void Joint::Command::setFromPosVelAcc(double newPos, double newVel, double newAcc)
+{
+	// Save that this method was called
+	m_updateType = SFT_POSVELACC;
+	m_newPos = newPos;
+	m_newVel = newVel;
+	m_newAcc = newAcc;
+	m_updateCount++;
+}
+
+// Actually set the command based on a position
+void Joint::Command::actuallySetFromPos(double deltaT, double newPos)
 {
 	// Handle invalid time step
 	if(deltaT <= 0.0)
@@ -71,15 +168,8 @@ void Joint::Command::setFromPos(double deltaT, double newPos)
 	m_dev_velToAcc.put(newVel);
 }
 
-/**
- * @brief This method calculates the vel and acc fields using direct difference equations, use with care!
- *
- * The function assumes that it is called at regular intervals given by the @p deltaT parameter.
- *
- * @param deltaT Time step (s)
- * @param newPos Goal position (rad)
- **/
-void Joint::Command::setFromPosUnsmoothed(double deltaT, double newPos)
+// Actually set the command based on a position, but in an unsmoothed manner
+void Joint::Command::actuallySetFromPosUnsmoothed(double deltaT, double newPos)
 {
 	// Handle invalid time step
 	if(deltaT <= 0)
@@ -105,16 +195,8 @@ void Joint::Command::setFromPosUnsmoothed(double deltaT, double newPos)
 	m_dev_velToAcc.put(newVel);
 }
 
-/**
- * @brief This method calculates the acc field using Savitzky-Golay smoothed differentiation of the given velocity values.
- *
- * The function assumes that it is called at regular intervals given by the @p deltaT parameter.
- *
- * @param deltaT Time step (s)
- * @param newPos Goal position (rad)
- * @param newVel Goal velocity (rad/s)
- **/
-void Joint::Command::setFromPosVel(double deltaT, double newPos, double newVel)
+// Actually set the command based on a position and velocity
+void Joint::Command::actuallySetFromPosVel(double deltaT, double newPos, double newVel)
 {
 	// Handle invalid time step
 	if(deltaT <= 0)
@@ -138,14 +220,8 @@ void Joint::Command::setFromPosVel(double deltaT, double newPos, double newVel)
 	m_dev_posToAcc.put(newPos);
 }
 
-/**
- * This function directly sets the target position, velocity and acceleration values.
- *
- * @param newPos Goal position (rad)
- * @param newVel Goal velocity (rad/s)
- * @param newAcc Goal acceleration (rad/s^2)
- **/
-void Joint::Command::setFromPosVelAcc(double newPos, double newVel, double newAcc)
+// Actually set the command based on a position, velocity and acceleration
+void Joint::Command::actuallySetFromPosVelAcc(double newPos, double newVel, double newAcc)
 {
 	// Update the joint command variables
 	pos = newPos;
@@ -171,3 +247,4 @@ Joint::Feedback::Feedback()
 }
 
 }
+// EOF

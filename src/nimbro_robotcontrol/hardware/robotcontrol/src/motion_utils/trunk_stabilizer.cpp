@@ -49,7 +49,6 @@ TrunkStabilizer::~TrunkStabilizer()
  **/
 void TrunkStabilizer::update(const Eigen::Vector2d& goal)
 {
-	// TODO: Remove smoothing if unneeded
 	Eigen::Vector3d gyro = m_model->robotAngularVelocity();
 	m_gyro_golay.put(gyro.head<2>());
 	Eigen::Vector2d gyro_smooth = m_gyro_golay.value();

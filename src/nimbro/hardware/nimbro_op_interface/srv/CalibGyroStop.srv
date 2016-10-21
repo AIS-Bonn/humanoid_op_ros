@@ -1,0 +1,8 @@
+---
+float32 finalYaw    # Final yaw of the yaw-estimating attitude estimator
+float32 finalTemp   # Final temperature
+int8 finalLoops     # Number of loops detected from the middle yaw to the final yaw
+int8 type           # 0 = Nothing was updated, 1 = Updated low temperature calib, 2 = Updated high temperature calib
+float32 temperature # Average temperature during the calibration
+float32 scaleFactor # Calibrated scale factor for the current temperature
+float32 yawDrift    # Approximated yaw drift used in the calculation of the scale factor (for order of magnitude inspection only)

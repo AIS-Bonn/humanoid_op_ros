@@ -11,7 +11,6 @@ find_package(catkin REQUIRED COMPONENTS
   limb_control
   state_controller
   nimbro_op_interface
-  face_tracker
 )
 
 ###################################

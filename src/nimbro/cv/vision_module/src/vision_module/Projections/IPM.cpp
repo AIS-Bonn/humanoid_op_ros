@@ -22,8 +22,8 @@ bool IPM::GetHomographyUseYaw(float diagonalAngleView,Point3d cameraLocation, Po
 	Point2d _downRightPoint = gPoints[1];
 	Point2d _downLeftPoint = gPoints[0];
 
-	int tmpOffset = (int) ((params.topView.width->get()
-			/ params.topView.scale->get()) / 2.);
+	int tmpOffset = (int) ((params.topView->width()
+			/ params.topView->scale()) / 2.);
 
 	_upRightPoint.y += tmpOffset;
 	_downRightPoint.y += tmpOffset;
@@ -37,33 +37,33 @@ bool IPM::GetHomographyUseYaw(float diagonalAngleView,Point3d cameraLocation, Po
 	physicalCorners[2] = _upRightPoint;
 	physicalCorners[3] = _upLeftPoint;
 
-	double scale = params.camera.widthUnDistortion->get()
+	double scale = params.camera->widthUnDistortion()
 			/ abs(cPoints[1].y - cPoints[0].y);
 
 	outerCornetrs[0].x = 0;
-	outerCornetrs[0].y = params.camera.heightUnDistortion->get() - 1;
+	outerCornetrs[0].y = params.camera->heightUnDistortion() - 1;
 
-	outerCornetrs[1].x = params.camera.widthUnDistortion->get() - 1;
-	outerCornetrs[1].y = params.camera.heightUnDistortion->get() - 1;
+	outerCornetrs[1].x = params.camera->widthUnDistortion() - 1;
+	outerCornetrs[1].y = params.camera->heightUnDistortion() - 1;
 
-	outerCornetrs[2].x = params.camera.widthUnDistortion->get() - 1;
-	outerCornetrs[2].y = params.camera.heightUnDistortion->get() - 1
+	outerCornetrs[2].x = params.camera->widthUnDistortion() - 1;
+	outerCornetrs[2].y = params.camera->heightUnDistortion() - 1
 			- scale * abs(cPoints[2].x - cPoints[1].x);
 
 	outerCornetrs[3].x = 0;
-	outerCornetrs[3].y = params.camera.heightUnDistortion->get() - 1
+	outerCornetrs[3].y = params.camera->heightUnDistortion() - 1
 			- scale * abs(cPoints[3].x - cPoints[0].x);
 
 	for (int i = 0; i < 4; i++)
 	{
 		if (outerCornetrs[i].x < 0
-				|| outerCornetrs[i].x >= params.camera.widthUnDistortion->get())
+				|| outerCornetrs[i].x >= params.camera->widthUnDistortion())
 		{
 			return false;
 		}
 		if (outerCornetrs[i].y < 0
 				|| outerCornetrs[i].y
-						>= params.camera.heightUnDistortion->get())
+						>= params.camera->heightUnDistortion())
 		{
 			return false;
 		}
@@ -75,7 +75,7 @@ bool IPM::GetHomographyUseYaw(float diagonalAngleView,Point3d cameraLocation, Po
 	physicalCornersCalib[2] = _upRightPoint;
 	physicalCornersCalib[3] = _upLeftPoint;
 	double ofY = 0;
-	double ofX = ((params.topView.width->get() / params.topView.scale->get())
+	double ofX = ((params.topView->width() / params.topView->scale())
 			/ 2.) - 0;
 	physicalCornersCalib[0].y += ofY;
 	physicalCornersCalib[1].y += ofY;
@@ -132,8 +132,8 @@ bool IPM::GetHomographyNoYaw(float diagonalAngleView,Point3d cameraLocation, Poi
 	Point2d _downRightPoint = gPoints[1];
 	Point2d _downLeftPoint = gPoints[0];
 
-	int tmpOffset = (int) ((params.topView.width->get()
-			/ params.topView.scale->get()) / 2.);
+	int tmpOffset = (int) ((params.topView->width()
+			/ params.topView->scale()) / 2.);
 
 	_upRightPoint.y += tmpOffset;
 	_downRightPoint.y += tmpOffset;
@@ -147,32 +147,32 @@ bool IPM::GetHomographyNoYaw(float diagonalAngleView,Point3d cameraLocation, Poi
 	physicalCorners[2] = _upRightPoint;
 	physicalCorners[3] = _upLeftPoint;
 
-	double scale = params.camera.widthUnDistortion->get()
+	double scale = params.camera->widthUnDistortion()
 			/ abs(cPoints[1].y - cPoints[0].y);
 
 	outerCornetrs[0].x = 0;
-	outerCornetrs[0].y = params.camera.heightUnDistortion->get() - 1;
+	outerCornetrs[0].y = params.camera->heightUnDistortion() - 1;
 
-	outerCornetrs[1].x = params.camera.widthUnDistortion->get() - 1;
-	outerCornetrs[1].y = params.camera.heightUnDistortion->get() - 1;
+	outerCornetrs[1].x = params.camera->widthUnDistortion() - 1;
+	outerCornetrs[1].y = params.camera->heightUnDistortion() - 1;
 
-	outerCornetrs[2].x = params.camera.widthUnDistortion->get() - 1;
-	outerCornetrs[2].y = params.camera.heightUnDistortion->get() - 1
+	outerCornetrs[2].x = params.camera->widthUnDistortion() - 1;
+	outerCornetrs[2].y = params.camera->heightUnDistortion() - 1
 			- scale * abs(cPoints[2].x - cPoints[1].x);
 
 	outerCornetrs[3].x = 0;
-	outerCornetrs[3].y = params.camera.heightUnDistortion->get() - 1
+	outerCornetrs[3].y = params.camera->heightUnDistortion() - 1
 			- scale * abs(cPoints[3].x - cPoints[0].x);
 	for (int i = 0; i < 4; i++)
 	{
 		if (outerCornetrs[i].x < 0
-				|| outerCornetrs[i].x >= params.camera.widthUnDistortion->get())
+				|| outerCornetrs[i].x >= params.camera->widthUnDistortion())
 		{
 			return false;
 		}
 		if (outerCornetrs[i].y < 0
 				|| outerCornetrs[i].y
-						>= params.camera.heightUnDistortion->get())
+						>= params.camera->heightUnDistortion())
 		{
 			return false;
 		}
@@ -204,9 +204,9 @@ bool IPM::GetPoints(Point3d cameraLocation, Point3d cameraOrintation,
 	{
 		cameraOrintation.z = 0;
 	}
-	cameraLocation.x /= params.topView.scale->get() * 0.01;
-	cameraLocation.y /= params.topView.scale->get() * 0.01;
-	cameraLocation.z /= params.topView.scale->get() * 0.01;
+	cameraLocation.x /= params.topView->scale() * 0.01;
+	cameraLocation.y /= params.topView->scale() * 0.01;
+	cameraLocation.z /= params.topView->scale() * 0.01;
 
 	Mat _points = Mat(3, 4, DataType<double>::type, -1.0);
 	_points.at<double>(0, 0) = -ta;
@@ -349,8 +349,8 @@ Mat IPM::GetMultiplyExtrinsicRotationMatrix(Point3d vec, bool inv)
 
 bool IPM::InitIPM(float diagonalAngleView)
 {
-	double w = params.camera.aspW->get();
-	double h = params.camera.aspH->get();
+	double w = params.camera->aspW();
+	double h = params.camera->aspH();
 
 	double w_2 = w / 2.0;
 	double h_2 = h / 2.0;

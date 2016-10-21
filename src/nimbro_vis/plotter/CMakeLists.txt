@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(plotter)
 
-find_package(catkin REQUIRED COMPONENTS roscpp rqt_gui plot_msgs rosbag config_server)
+find_package(catkin REQUIRED COMPONENTS roscpp rqt_gui plot_msgs rosbag config_server timewarp)
 
 find_package(Qt4 REQUIRED COMPONENTS QtCore QtGui)
 include(${QT_USE_FILE})

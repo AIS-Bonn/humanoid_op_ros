@@ -19,6 +19,10 @@
 #define byte                        u8
 #define word                        u16
 
+// Boolean values
+#define FALSE                       0
+#define TRUE                        1
+
 // Key codes
 #define ESC_KEY                     0x1B
 #define TAB_KEY                     0x09

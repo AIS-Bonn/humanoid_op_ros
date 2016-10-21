@@ -29,17 +29,9 @@
 #define ACC_CTRL_REG5   0x24
 #define MAX_AVG_POINTS  5
 
-// SPI data Tx buffers
-const u8 SPI_GyroTxBuf[3][3] = {{0xC0|0x28, 0xFF, 0xFF},  // Gyroscope: Bytes to send in order to read the registers 0x28, 0x2A and 0x2C (OUT_X, OUT_Y, OUT_Z)
-                                {0xC0|0x2A, 0xFF, 0xFF},
-                                {0xC0|0x2C, 0xFF, 0xFF}};
-const u8 SPI_AccTxBuf[3][3]  = {{0xC0|0x28, 0xFF, 0xFF},  // Accelerometer: Bytes to send in order to read the registers 0x28, 0x2A and 0x2C (OUT_X, OUT_Y, OUT_Z)
-                                {0xC0|0x2A, 0xFF, 0xFF},
-                                {0xC0|0x2C, 0xFF, 0xFF}};
-
 // SPI data Rx buffers
-vu8 SPI_GyroRxBuf[3][3]; // Buffer to store the bytes read from the gyroscope
-vu8 SPI_AccRxBuf[3][3];  // Buffer to store the bytes read from the accelerometer
+vu8 SPI_GyroRxBuf[9] = {0}; // Buffer to store the bytes read from the gyroscope
+vu8 SPI_AccRxBuf[7] = {0};  // Buffer to store the bytes read from the accelerometer
 
 // Data history buffer
 vs16 GyroAccAvgBuf[MAX_AVG_POINTS][6] = {{0}}; // Stores a history of GyroX, GyroY, GyroZ, AccX, AccY, AccZ
@@ -47,29 +39,36 @@ vu8  GyroAccAvgBufFull = 0;                    // Flag specifying whether the hi
 vu8  GyroAccAvgBufPtr = 0;                     // Pointer of where to write to next in the history buffer
 vu8  GyroAccAvgBufClear = 1;                   // A flag that can be used to clear the history buffer
 
+// Temperature variables
+vu8 gbTempCounter = 0;
+
 // Convert the received SPI Rx bytes into the required gyroscope and accelerometer readings and place them in the control table
 void ProcessData()
 {
 	// Declare variables
 	s16 RawGyroX, RawGyroY, RawGyroZ, RawAccX, RawAccY, RawAccZ;
 	s32 GyroX, GyroY, GyroZ, AccX, AccY, AccZ;
+	s8 Temperature;
 	u8 i, num;
 
 	// Note: The axes of the L3G4200D gyroscope chip are aligned such that on the NimbRo-OP:
 	//       x is towards the back, y is towards the robot's right, z is upwards
 
 	// Retrieve the raw gyroscope data from the corresponding SPI Rx buffer (and adjust for the chip's coordinate system indicated above)
-	RawGyroX = -(((s16) SPI_GyroRxBuf[0][2] << 8) | SPI_GyroRxBuf[0][1]); // X(robot) = -X(chip)
-	RawGyroY = -(((s16) SPI_GyroRxBuf[1][2] << 8) | SPI_GyroRxBuf[1][1]); // Y(robot) = -Y(chip)
-	RawGyroZ =  (((s16) SPI_GyroRxBuf[2][2] << 8) | SPI_GyroRxBuf[2][1]); // Z(robot) =  Z(chip)
+	RawGyroX = -(((s16) SPI_GyroRxBuf[4] << 8) | SPI_GyroRxBuf[3]); // X(robot) = -X(chip)
+	RawGyroY = -(((s16) SPI_GyroRxBuf[6] << 8) | SPI_GyroRxBuf[5]); // Y(robot) = -Y(chip)
+	RawGyroZ =  (((s16) SPI_GyroRxBuf[8] << 8) | SPI_GyroRxBuf[7]); // Z(robot) =  Z(chip)
+
+	// Retrieve the temperature inside the gyroscope chip
+	Temperature = 50 - ((s8) SPI_GyroRxBuf[1]); // Note: The 50 here is only for convenience, the temperature is only a relative reading, not an absolute one!
 
 	// Note: The axes of the LIS331DLH accelerometer chip are aligned such that on the NimbRo-OP:
 	//       x is towards the robot's left, y is towards the back, z is upwards
 
 	// Retrieve the raw accelerometer data from the corresponding SPI Rx buffer (and adjust for the chip's coordinate system indicated above)
-	RawAccX = -(((s16) SPI_AccRxBuf[1][2] << 8) | SPI_AccRxBuf[1][1]); // X(robot) = -Y(chip)
-	RawAccY =  (((s16) SPI_AccRxBuf[0][2] << 8) | SPI_AccRxBuf[0][1]); // Y(robot) =  X(chip)
-	RawAccZ =  (((s16) SPI_AccRxBuf[2][2] << 8) | SPI_AccRxBuf[2][1]); // Z(robot) =  Z(chip)
+	RawAccX = -(((s16) SPI_AccRxBuf[4] << 8) | SPI_AccRxBuf[3]); // X(robot) = -Y(chip)
+	RawAccY =  (((s16) SPI_AccRxBuf[2] << 8) | SPI_AccRxBuf[1]); // Y(robot) =  X(chip)
+	RawAccZ =  (((s16) SPI_AccRxBuf[6] << 8) | SPI_AccRxBuf[5]); // Z(robot) =  Z(chip)
 
 	// Check whether we need to clear the buffer
 	if(GyroAccAvgBufClear != 0)
@@ -116,11 +115,14 @@ void ProcessData()
 	GW_GYRO_X = (s16) GyroX;
 	GW_GYRO_Y = (s16) GyroY;
 	GW_GYRO_Z = (s16) GyroZ;
-	
+
 	// Place the accelerometer values into the control table
 	GW_ACC_X = (s16) AccX;
 	GW_ACC_Y = (s16) AccY;
 	GW_ACC_Z = (s16) AccZ;
+
+	// Place the gyro temperature value into the control table
+	GB_TEMPERATURE = Temperature;
 }
 
 // Write to a register of the L3G4200D gyroscope chip
@@ -150,13 +152,13 @@ void WriteGyroRegister(u16 address, u16 value)
 void ConfigureGyro()
 {
 	// Configure CTRL_REG1:
-	// DR1-DR0 = 11 => Output data rate of 800Hz
+	// DR1-DR0 = 10 => Output data rate of 400Hz
 	// BW1-BW0 = 11 => LPF2 cut-off frequency of 110Hz (in addition to the fixed 93Hz LPF1 / not relevant unless OUT_SEL1 = 1)
 	// PD      = 1  => Normal mode
 	// Zen     = 1  => Enable z-axis
 	// Yen     = 1  => Enable y-axis
 	// Xen     = 1  => Enable x-axis
-	WriteGyroRegister(GYRO_CTRL_REG1, 0xFF);
+	WriteGyroRegister(GYRO_CTRL_REG1, 0xBF);
 
 	// Configure CTRL_REG4:
 	// BDU     = 1  => Enable block data update mode
@@ -232,47 +234,78 @@ void ConfigureAcc()
 void __ISR_GYRO_ACC_SPI() // Called at 259.3Hz (see isr.c)
 {
 	// Declare variables
-	int i, j;
+	u8 i;
 
-	// Read the gyroscope data
-	for(i = 0;i < 3;i++)
+	//
+	// Gyroscope
+	//
+
+	// Update the temperature counter (gbTempCounter == 0 at a rate of 2.0Hz)
+	gbTempCounter++;
+	if(gbTempCounter >= 130)
+		gbTempCounter = 0;
+
+	// Decide which register to start reading and how many bytes to read
+	u8 gyroReg = 0x28;
+	u8 gyroLen = 6;
+	if(gbTempCounter == 0)
 	{
-		// Activate the gyroscope chip select line
+		gyroReg = 0x26;
+		gyroLen = 8;
+	}
+	u8 gyroOffset = gyroReg - 0x25;
+
+	// Activate the gyroscope chip select line
+	while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET);
+	GPIO_ResetBits(PORT_SIG_GYRO_CS, PIN_SIG_GYRO_CS);
+
+	// Write the address to start reading from (RW = 1 for read, MS = 1 for auto-increment => 0xC0)
+	SPI_I2S_SendData(SPI2, 0xC0|gyroReg);
+	while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET);
+	while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_RXNE) == RESET);
+	SPI_GyroRxBuf[0] = (u8) SPI_I2S_ReceiveData(SPI2);
+
+	// Read the required number of registers from the gyro chip (e.g. OUT_TEMP, STATUS_REG, OUT_X, OUT_Y, OUT_Z)
+	for(i = 0; i < gyroLen; i++)
+	{
+		SPI_I2S_SendData(SPI2, 0xFF);
 		while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET);
-		GPIO_ResetBits(PORT_SIG_GYRO_CS, PIN_SIG_GYRO_CS);
-
-		// Send and receive the bytes required to read out one of the gyro values (i.e. one of OUT_X, OUT_Y, OUT_Z)
-		for(j = 0;j < 3;j++)
-		{
-			SPI_I2S_SendData(SPI2, SPI_GyroTxBuf[i][j]);
-			while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET);
-			while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_RXNE) == RESET);
-			SPI_GyroRxBuf[i][j] = (u8) SPI_I2S_ReceiveData(SPI2);
-		}
-
-		// Deactivate the gyroscope chip select line
-		GPIO_SetBits(PORT_SIG_GYRO_CS, PIN_SIG_GYRO_CS);
+		while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_RXNE) == RESET);
+		SPI_GyroRxBuf[gyroOffset + i] = (u8) SPI_I2S_ReceiveData(SPI2);
 	}
 
-	// Read the accelerometer data
-	for(i = 0;i < 3;i++)
+	// Deactivate the gyroscope chip select line
+	GPIO_SetBits(PORT_SIG_GYRO_CS, PIN_SIG_GYRO_CS);
+
+	//
+	// Accelerometer
+	//
+
+	// Activate the accelerometer chip select line
+	while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET);
+	GPIO_ResetBits(PORT_SIG_ACC_CS, PIN_SIG_ACC_CS);
+
+	// Write the address to start reading from (RW = 1 for read, MS = 1 for auto-increment => 0xC0)
+	SPI_I2S_SendData(SPI2, 0xC0|0x28);
+	while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET);
+	while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_RXNE) == RESET);
+	SPI_AccRxBuf[0] = (u8) SPI_I2S_ReceiveData(SPI2);
+
+	// Read the required number of registers from the accelerometer chip (e.g. OUT_X, OUT_Y, OUT_Z)
+	for(i = 0; i < 6; i++)
 	{
-		// Activate the accelerometer chip select line
+		SPI_I2S_SendData(SPI2, 0xFF);
 		while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET);
-		GPIO_ResetBits(PORT_SIG_ACC_CS, PIN_SIG_ACC_CS);
-
-		// Send and receive the bytes required to read out one of the gyro values (i.e. one of OUT_X, OUT_Y, OUT_Z)
-		for(j = 0;j < 3;j++)
-		{
-			SPI_I2S_SendData(SPI2, SPI_AccTxBuf[i][j]);
-			while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET);
-			while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_RXNE) == RESET);
-			SPI_AccRxBuf[i][j] = (u8) SPI_I2S_ReceiveData(SPI2);
-		}
-
-		// Deactivate the accelerometer chip select line
-		GPIO_SetBits(PORT_SIG_ACC_CS, PIN_SIG_ACC_CS);
+		while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_RXNE) == RESET);
+		SPI_AccRxBuf[i + 1] = (u8) SPI_I2S_ReceiveData(SPI2);
 	}
+
+	// Deactivate the accelerometer chip select line
+	GPIO_SetBits(PORT_SIG_ACC_CS, PIN_SIG_ACC_CS);
+
+	//
+	// Process data
+	//
 
 	// Process the received data
 	ProcessData();

@@ -7,11 +7,6 @@
 #include <cstdlib>
 #include <ros/node_handle.h>
 
-#include <sys/ioctl.h>
-#include <sys/types.h>
-
-#include <termios.h>
-
 static unsigned int g_statusLines = 2;
 
 void cleanup()
@@ -19,30 +14,26 @@ void cleanup()
 	for(unsigned int i = 0; i < g_statusLines+1; ++i)
 		printf("\n");
 
+	rosmon::Terminal term;
+
 	// Switch cursor back on
-	printf("\033[?25h");
+	term.setCursorVisible();
 
 	// Switch character echo on
-	termios ios;
-	if(tcgetattr(STDIN_FILENO, &ios) == 0)
-	{
-		ios.c_lflag |= ECHO;
-		ios.c_lflag |= ICANON;
-		tcsetattr(STDIN_FILENO, TCSANOW, &ios);
-	}
+	term.setEcho(true);
 }
 
 namespace rosmon
 {
 
-UI::UI(LaunchConfig* config, const FDWatcher::Ptr& fdWatcher)
- : m_config(config)
+UI::UI(monitor::Monitor* monitor, const FDWatcher::Ptr& fdWatcher)
+ : m_monitor(monitor)
  , m_fdWatcher(fdWatcher)
  , m_columns(80)
  , m_selectedNode(-1)
 {
 	std::atexit(cleanup);
-	m_config->logMessageSignal.connect(boost::bind(&UI::log, this, _1, _2));
+	m_monitor->logMessageSignal.connect(boost::bind(&UI::log, this, _1, _2));
 
 	m_sizeTimer = ros::NodeHandle().createWallTimer(ros::WallDuration(2.0), boost::bind(&UI::checkWindowSize, this));
 	m_sizeTimer.start();
@@ -51,16 +42,10 @@ UI::UI(LaunchConfig* config, const FDWatcher::Ptr& fdWatcher)
 	setupColors();
 
 	// Switch cursor off
-	printf("\033[?25l");
+	m_term.setCursorInvisible();
 
 	// Switch character echo off
-	termios ios;
-	if(tcgetattr(STDIN_FILENO, &ios) == 0)
-	{
-		ios.c_lflag &= ~ECHO;
-		ios.c_lflag &= ~ICANON;
-		tcsetattr(STDIN_FILENO, TCSANOW, &ios);
-	}
+	m_term.setEcho(false);
 
 	fdWatcher->registerFD(STDIN_FILENO, boost::bind(&UI::handleInput, this));
 }
@@ -73,7 +58,7 @@ UI::~UI()
 void UI::setupColors()
 {
 	// Sample colors from the HUSL space
-	int n = m_config->nodes().size();
+	int n = m_monitor->nodes().size();
 
 	for(int i = 0; i < n; ++i)
 	{
@@ -93,7 +78,7 @@ void UI::setupColors()
 			| (std::min(255, std::max<int>(0, g)) << 8)
 			| (std::min(255, std::max<int>(0, b)) << 16);
 
-		m_nodeColorMap[m_config->nodes()[i]->name()] = color;
+		m_nodeColorMap[m_monitor->nodes()[i]->name()] = ChannelInfo(color);
 	}
 }
 
@@ -103,14 +88,10 @@ void UI::drawStatusLine()
 
 	unsigned int lines = 2;
 
+	// Print menu if a node is selected
 	if(m_selectedNode != -1)
-	{
-		auto& node = m_config->nodes()[m_selectedNode];
+		printf("Actions: s: start, k: stop, d: debug");
 
-		printf("Actions: s: start, k: stop");
-		if(node->coredumpAvailable())
-			printf(", d: debug");
-	}
 	printf("\n");
 
 	int col = 0;
@@ -118,7 +99,7 @@ void UI::drawStatusLine()
 	char key = 'a';
 	int i = 0;
 
-	for(auto node : m_config->nodes())
+	for(auto& node : m_monitor->nodes())
 	{
 		char label[NODE_WIDTH+2];
 		int padding = std::max<int>(0, (NODE_WIDTH - node->name().length())/2);
@@ -131,21 +112,27 @@ void UI::drawStatusLine()
 		label[NODE_WIDTH] = 0;
 
 		// Print key with grey background
-		printf("\033[48;2;200;200;200;30m%c", key);
+		m_term.setSimpleForeground(Terminal::Black);
+
+		if(m_term.has256Colors())
+			m_term.setBackgroundColor(0xC8C8C8);
+		else
+			m_term.setSimpleBackground(Terminal::White);
+		printf("%c", key);
 
 		switch(node->state())
 		{
-			case Node::STATE_RUNNING:
-				printf("\033[42;30m");
+			case monitor::NodeMonitor::STATE_RUNNING:
+				m_term.setSimplePair(Terminal::Black, Terminal::Green);
 				break;
-			case Node::STATE_IDLE:
-				printf("\033[0m");
+			case monitor::NodeMonitor::STATE_IDLE:
+				m_term.setStandardColors();
 				break;
-			case Node::STATE_CRASHED:
-				printf("\033[41;30m");
+			case monitor::NodeMonitor::STATE_CRASHED:
+				m_term.setSimplePair(Terminal::Black, Terminal::Red);
 				break;
-			case Node::STATE_WAITING:
-				printf("\033[43;30m");
+			case monitor::NodeMonitor::STATE_WAITING:
+				m_term.setSimplePair(Terminal::Black, Terminal::Yellow);
 				break;
 		}
 
@@ -153,7 +140,7 @@ void UI::drawStatusLine()
 			printf("[%s]", label);
 		else
 			printf(" %s ", label);
-		printf("\033[0m");
+		m_term.setStandardColors();
 
 		// Primitive wrapping control
 		const int BLOCK_WIDTH = NODE_WIDTH + 3;
@@ -199,44 +186,65 @@ void UI::log(const std::string& channel, const std::string& log)
 	std::string clean = log;
 
 	auto it = m_nodeColorMap.find(channel);
-	if(it != m_nodeColorMap.end())
-	{
-		char buf[256];
 
-		unsigned int color = it->second;
-		snprintf(buf, sizeof(buf), "\033[48;2;%d;%d;%dm", color & 0xFF, (color >> 8) & 0xFF, (color >> 16) & 0xFF);
-		fputs(buf, stdout);
+	if(m_term.has256Colors())
+	{
+		if(it != m_nodeColorMap.end())
+		{
+			m_term.setBackgroundColor(it->second.labelColor);
+			m_term.setSimpleForeground(Terminal::White);
+		}
+	}
+	else
+	{
+		m_term.setSimplePair(Terminal::Black, Terminal::White);
 	}
 
-	printf("\033[K%20s:\033[0m ", channel.c_str());
+	m_term.clearToEndOfLine();
+	printf("%20s:", channel.c_str());
+	m_term.setStandardColors();
+	putchar(' ');
 
 	unsigned int len = clean.length();
 	while(len != 0 && (clean[len-1] == '\n' || clean[len-1] == '\r'))
 		len--;
 
+	if(it != m_nodeColorMap.end())
+	{
+		it->second.parser.apply(&m_term);
+		it->second.parser.parse(clean);
+	}
+
 	fwrite(clean.c_str(), 1, len, stdout);
-	printf("\033[K\n\033[0m\033[K");
+	m_term.clearToEndOfLine();
+	putchar('\n');
+	m_term.setStandardColors();
+	m_term.clearToEndOfLine();
 	fflush(stdout);
 }
 
 void UI::update()
 {
+	if(!m_term.interactive())
+		return;
+
 	// We currently are at the beginning of the status line.
-	printf("\n\033[K");
+	putchar('\n');
+	m_term.clearToEndOfLine();
 	drawStatusLine();
 
 	// Move back
-	printf("\033[K\033[%uA\r", g_statusLines);
+	m_term.clearToEndOfLine();
+	m_term.moveCursorUp(g_statusLines);
+	m_term.moveCursorToStartOfLine();
 	fflush(stdout);
 }
 
 void UI::checkWindowSize()
 {
-	struct winsize w;
-	if(ioctl(0, TIOCGWINSZ, &w) == 0)
-	{
-		m_columns = w.ws_col;
-	}
+	int rows, columns;
+	if(m_term.getSize(&columns, &rows))
+		m_columns = columns;
 }
 
 void UI::handleInput()
@@ -256,14 +264,14 @@ void UI::handleInput()
 		else if(c >= '0' && c <= '9')
 			nodeIndex = 26 + 26 + c - '0';
 
-		if(nodeIndex < 0 || (size_t)nodeIndex > m_config->nodes().size())
+		if(nodeIndex < 0 || (size_t)nodeIndex > m_monitor->nodes().size())
 			return;
 
 		m_selectedNode = nodeIndex;
 	}
 	else
 	{
-		auto& node = m_config->nodes()[m_selectedNode];
+		auto& node = m_monitor->nodes()[m_selectedNode];
 
 		switch(c)
 		{

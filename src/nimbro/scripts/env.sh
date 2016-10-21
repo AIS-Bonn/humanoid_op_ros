@@ -16,7 +16,7 @@ export NIMBRO_ROOT
 
 # Initialise other variables
 INSTALLPATH="/nimbro"
-BOT="xs4.local"
+BOT="xs0.local"
 
 # Set up environment variables for catkin and ROS
 source "$NIMBRO_ROOT/devel/setup.bash"
@@ -24,53 +24,6 @@ source "$NIMBRO_ROOT/devel/setup.bash"
 # Set additional model path for gazebo simulation
 NIMBRO_MODEL_PATHS="$NIMBRO_ROOT/src/nimbro/hardware/nimbro_op_gazebo/models"
 [[ "$GAZEBO_MODEL_PATH" != *"$NIMBRO_MODEL_PATHS"* ]] && export GAZEBO_MODEL_PATH="$NIMBRO_MODEL_PATHS:$GAZEBO_MODEL_PATH"
-
-function gitpull() {
-	if ! git pull --rebase; then
-		echo "---"
-		read -p "Did the pull get refused because of unstaged changes [y/N]? " response
-		echo
-		if [[ $response == "y" || $response == "Y" ]]; then
-			echo "Yes: Ok, I'm temporarily stashing away those changes..."
-			git status
-			git stash save "Changes stashed automatically to allow a rebase" && {
-				git pull --rebase
-				git stash pop || echo "Couldn't pop the stashed changes - Please check 'git stash list'..."
-				echo 'The stashed changes have been reapplied to the working directory!'
-			}
-		else
-			echo "No: Ok, then please resolve the problem and try again."
-		fi
-	fi
-}
-
-function gitpush() {
-	local LIGHT_GREEN="$(echo -e "\E[1;32m")"
-	local NO_COLOUR="$(echo -e "\E[0m")"
-	git --no-pager log @{upstream}..HEAD
-	counts=($(git rev-list --left-right --count @{upstream}..HEAD))
-	[[ "${counts[1]}" -gt 0 ]] && echo
-	if [[ "${counts[0]}" -eq 0 ]]; then
-		if [[ "${counts[1]}" -eq 0 ]]; then
-			echo $LIGHT_GREEN"No commits to push."$NO_COLOUR
-		else
-			echo $LIGHT_GREEN"Ahead ${counts[1]} commits."$NO_COLOUR
-		fi
-	else
-		echo $LIGHT_GREEN"Ahead ${counts[1]} commits, but behind ${counts[0]} commits."$NO_COLOUR
-	fi
-	[[ "${counts[1]}" -eq 0 ]] && return
-	read -p "Git push [Y/n]? " response
-	response="${response:0:1}"
-	response="${response,,}"
-	if [[ $response == "n" ]]; then
-		echo "No: Ok, not pushing anything."
-	else
-		if ! git push "$@"; then
-			echo "Git push was not successful."
-		fi
-	fi
-}
 
 function _fadetorque() {
 	rostopic pub -1 /robotcontrol/fade_torque/goal robotcontrol/FadeTorqueActionGoal "{header: {stamp: now}, goal: {torque: $1}}"
@@ -135,7 +88,7 @@ function _makefirmware() { # Pass the device name as the first parameter
 	return 0
 }
 
-function _callservice() { # Example: _callservice /robotcontrol/nopInterface/attEstCalibrate robotcontrol
+function _callservice() { # Example: _callservice /nimbro_op_interface/attEstCalibrate robotcontrol
 	if rosservice list &>/dev/null; then
 		echo "Calling service: $1"
 		rosservice call "$1" "${@:3}" || echo "Service call failed! Is the $2 node running?"
@@ -144,15 +97,40 @@ function _callservice() { # Example: _callservice /robotcontrol/nopInterface/att
 	fi
 }
 
+function _setGCIP() { # Example: _setGCIP OR _setGCIP xs4.local
+	( # Start a subshell to have only a temporary change of the ROS master
+		local target="$1"
+		if [[ "$target" == "xs0" ]] || [[ "$target" == "xs0.local" ]]; then
+			target="localhost"
+		fi
+		if [[ -n "$target" ]]; then
+			ROS_MASTER_URI=http://"$target":11311
+			ROS_HOSTNAME=$(hostname).local
+		fi
+		local curhost="${ROS_MASTER_URI#http://}"
+		curhost="${curhost%:11311}"
+		echo "Setting the server IP of the game controller..."
+		local serverIP="$(rosservice call /config_server/get_parameter "name: '/game_controller/serverIP'")"
+		serverIP="${serverIP#value: }"
+		echo "Server IP was:    $serverIP"
+		rosservice call /config_server/set_parameter "{name: '/game_controller/useLastServerIP', value: '1', no_notify: '0'}" >/dev/null
+		serverIP="$(rosservice call /config_server/get_parameter "name: '/game_controller/serverIP'")"
+		serverIP="${serverIP#value: }"
+		echo "Server IP is now: $serverIP"
+	)
+}
+
 function nimbro() {
+	local LIGHT_RED="$(echo -e "\E[1;31m")"
 	local LIGHT_CYAN="$(echo -e "\E[1;36m")"
 	local NO_COLOUR="$(echo -e "\E[0m")"
+	local oldPath="$(pwd)"
 	cd "$NIMBRO_ROOT"
 	case "$1" in
 		"")
 			;;
 		make)
-			catkin_make "${@:2}" -DCMAKE_INSTALL_PREFIX="$INSTALLPATH" -DCMAKE_BUILD_TYPE=RelWithDebInfo
+			time catkin_make "${@:2}" -DCMAKE_INSTALL_PREFIX="$INSTALLPATH" -DCMAKE_BUILD_TYPE=RelWithDebInfo
 			;;
 		make-doc | make-docv)
 			if [[ "$1" == "make-docv" ]]; then
@@ -272,18 +250,20 @@ function nimbro() {
 				echo "Done."
 				return
 			fi
+			local target="$2"
+			if [[ "$target" == "xs0" ]] || [[ "$target" == "xs0.local" ]]; then
+				target="localhost"
+			fi
 			if nimbro make install; then
 				find /nimbro -mindepth 1 -name "*~" -type f -printf "Removing file %p\n" -delete
-				if [ -z "$2" ];then
-					rsync -avz --delete /nimbro/ nimbro@$BOT:/nimbro
-				else
-					target="$2"
-					rsync -avz --delete /nimbro/ nimbro@$target:/nimbro
-				fi
-				if [ $? -ne 0 ]; then
-					echo $LIGHT_CYAN"############################################################"$NO_COLOUR
-					echo $LIGHT_CYAN"Careful: The rsync failed so the code has NOT been deployed"'!'$NO_COLOUR
-					echo $LIGHT_CYAN"############################################################"$NO_COLOUR
+				if [[ "$target" != "localhost" ]]; then
+					[[ -z "$target" ]] && target="$BOT"
+					rsync -avz --delete --exclude='share/launch/config/vision/samples/*' /nimbro/ nimbro@"$target":/nimbro
+					if [[ $? -ne 0 ]]; then
+						echo $LIGHT_CYAN"############################################################"$NO_COLOUR
+						echo $LIGHT_CYAN"Careful: The rsync failed so the code has NOT been deployed"'!'$NO_COLOUR
+						echo $LIGHT_CYAN"############################################################"$NO_COLOUR
+					fi
 				fi
 			else
 				echo $LIGHT_CYAN"###########################################################"$NO_COLOUR
@@ -309,6 +289,10 @@ function nimbro() {
 					localbot="$3"
 				else
 					localbot="$BOT"
+				fi
+				if [[ "$localbot" == "localhost" ]] || [[ "$localbot" == "xs0" ]] || [[ "$localbot" == "xs0.local" ]]; then
+					echo "You are trying to flash your own localhost microcontroller as a robot, use nimbro flash direct instead..."
+					return 1
 				fi
 				localbot="${localbot%% *}"
 				echo "Remaking the CM730 firmware and flashing it onto the robot $localbot..."
@@ -378,7 +362,7 @@ function nimbro() {
 					fi
 					_makefirmware "CM730" || return 1
 				fi
-				FIRM_INST="$NIMBRO_ROOT/tools/firmware_installer/firmware_installer"
+				FIRM_INST="$NIMBRO_ROOT/misc/tools/firmware_installer/firmware_installer"
 				if [[ -x "$FIRM_INST" ]]; then
 					echo "Flashing to device: $CMDEVICE"
 					echo
@@ -412,9 +396,20 @@ function nimbro() {
 			;;
 		remake-all)
 			echo "Removing build/ and devel/ folders from nimbro project root..."
+			safePlace="$(mktemp -d /tmp/remake-all-XXXXXX)" || { echo "Error: Failed to create temporary directory with mktemp"'!'; return 1; }
+			cp -r "$NIMBRO_ROOT/build/"{.project,.pydevproject,.cproject} "$safePlace" 2>/dev/null
 			rm -rf "$NIMBRO_ROOT/build" "$NIMBRO_ROOT/devel"
-			echo "Running catkin_make..."
-			catkin_make "${@:2}" -DCMAKE_INSTALL_PREFIX="$INSTALLPATH" -DCMAKE_BUILD_TYPE=RelWithDebInfo
+			time catkin_make "${@:2}" -DCMAKE_INSTALL_PREFIX="$INSTALLPATH" -DCMAKE_BUILD_TYPE=RelWithDebInfo
+			cp -r "$safePlace/"{.project,.pydevproject,.cproject} "$NIMBRO_ROOT/build" 2>/dev/null
+			rm -rf "$safePlace"
+			;;
+		eclipse)
+			echo "Generate eclipse project ..."
+			catkin_make --force-cmake -G"Eclipse CDT4 - Unix Makefiles"
+			awk -f $(rospack find mk)/eclipse.awk build/.project > build/.project_with_env && mv build/.project_with_env build/.project
+			mkdir -p build/.settings
+			printf '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<project>\n<configuration id="org.eclipse.cdt.core.default.config.1" name="Configuration">\n		<extension point="org.eclipse.cdt.core.LanguageSettingsProvider">\n			<provider copy-of="extension" id="org.eclipse.cdt.ui.UserLanguageSettingsProvider"/>\n			<provider-reference id="org.eclipse.cdt.core.ReferencedProjectsLanguageSettingsProvider" ref="shared-provider"/>\n			<provider-reference id="org.eclipse.cdt.core.PathEntryScannerInfoLanguageSettingsProvider" ref="shared-provider"/>\n			<provider class="org.eclipse.cdt.managedbuilder.language.settings.providers.GCCBuiltinSpecsDetector" console="false" env-hash="-1547573120553910201" id="org.eclipse.cdt.managedbuilder.core.GCCBuiltinSpecsDetector" keep-relative-paths="false" name="CDT GCC Built-in Compiler Settings" parameter="${COMMAND} ${FLAGS} -E -P -v -dD &quot;${INPUTS}&quot;">\n				<language-scope id="org.eclipse.cdt.core.gcc"/>\n				<language-scope id="org.eclipse.cdt.core.g++"/>\n			</provider>\n		</extension>\n	</configuration>\n</project>\n' > build/.settings/language.settings.xml
+			echo "Your eclipse project is in build/.project"
 			;;
 		source | src)
 			case "$2" in
@@ -439,17 +434,11 @@ function nimbro() {
 				"mon" | "rosmon")
 					cd "$NIMBRO_ROOT/src/rosmon"
 					;;
-				"mis" | "misc")
-					cd "$NIMBRO_ROOT/misc"
+				"net" | "nimbro_network")
+					cd "$NIMBRO_ROOT/src/nimbro_network"
 					;;
-				"nop" | "nopnotes")
-					cd "$NIMBRO_ROOT/misc/NOPNotes"
-					;;
-				"rgen" | "releasegen")
-					cd "$NIMBRO_ROOT/releasegen"
-					;;
-				"rel" | "release" | "nimbro-op-ros")
-					cd "$NIMBRO_ROOT/nimbro-op-ros"
+				"cat" | "catch_ros")
+					cd "$NIMBRO_ROOT/src/catch_ros"
 					;;
 				*)
 					echo "Unknown parameter '$2': Going to main nimbro repository"'!'
@@ -460,233 +449,13 @@ function nimbro() {
 					echo "nimbro_vis:           vis, visualization"
 					echo "nimbro_robotcontrol:  rob, robot, robotcontrol"
 					echo "nimbro_config_server: con, config, config_server"
+					echo "nimbro_network:       net, nimbro_network"
+					echo "catch_ros:            cat, catch_ros"
 					echo "dynalib:              dyn, dynalib"
 					echo "rosmon:               mon, rosmon"
-					echo "misc:                 mis, misc"
-					echo "NOPNotes:             nop, nopnotes"
-					echo "releasegen:           rgen, releasegen"
-					echo "nimbro-op-ros:        rel, release, nimbro-op-ros"
 					cd "$NIMBRO_ROOT/src/nimbro"
 					;;
 			esac
-			;;
-		status)
-			echo "Printing the git status of all the repositories..."
-			cd "$NIMBRO_ROOT/src/nimbro"
-			echo
-			echo $LIGHT_CYAN"*** nimbro repository ***"$NO_COLOUR
-			git status
-			cd "$NIMBRO_ROOT/src/nimbro_vis"
-			echo
-			echo $LIGHT_CYAN"*** nimbro_vis repository ***"$NO_COLOUR
-			git status
-			cd "$NIMBRO_ROOT/src/nimbro_robotcontrol"
-			echo
-			echo $LIGHT_CYAN"*** nimbro_robotcontrol repository ***"$NO_COLOUR
-			git status
-			cd "$NIMBRO_ROOT/src/nimbro_config_server"
-			echo
-			echo $LIGHT_CYAN"*** nimbro_config_server repository ***"$NO_COLOUR
-			git status
-			cd "$NIMBRO_ROOT/src/dynalib"
-			echo
-			echo $LIGHT_CYAN"*** dynalib repository ***"$NO_COLOUR
-			git status
-			if [[ -d "$NIMBRO_ROOT/src/rosmon" ]]; then
-				cd "$NIMBRO_ROOT/src/rosmon"
-				echo
-				echo $LIGHT_CYAN"*** rosmon repository ***"$NO_COLOUR
-				git status
-			fi
-			if [[ -d "$NIMBRO_ROOT/misc" ]]; then
-				cd "$NIMBRO_ROOT/misc"
-				echo
-				echo $LIGHT_CYAN"*** misc repository ***"$NO_COLOUR
-				git status
-			fi
-			if [[ -d "$NIMBRO_ROOT/misc/NOPNotes" ]]; then
-				cd "$NIMBRO_ROOT/misc/NOPNotes"
-				echo
-				echo $LIGHT_CYAN"*** NOPNotes repository ***"$NO_COLOUR
-				git status
-			fi
-			if [[ -d "$NIMBRO_ROOT/releasegen" ]]; then
-				cd "$NIMBRO_ROOT/releasegen"
-				echo
-				echo $LIGHT_CYAN"*** releasegen repository ***"$NO_COLOUR
-				git status
-			fi
-			if [[ -d "$NIMBRO_ROOT/nimbro-op-ros" ]]; then
-				cd "$NIMBRO_ROOT/nimbro-op-ros"
-				echo
-				echo $LIGHT_CYAN"*** nimbro-op-ros repository ***"$NO_COLOUR
-				git status
-			fi
-			echo
-			cd "$NIMBRO_ROOT/src/nimbro"
-			;;
-		gui)
-			echo "Opening git gui for repositories with working tree changes..."
-			cd "$NIMBRO_ROOT/src/nimbro"
-			echo
-			echo $LIGHT_CYAN"*** nimbro repository ***"$NO_COLOUR
-			[[ -n "$(git status --porcelain --untracked-files=normal)" ]] && git gui
-			cd "$NIMBRO_ROOT/src/nimbro_vis"
-			echo
-			echo $LIGHT_CYAN"*** nimbro_vis repository ***"$NO_COLOUR
-			[[ -n "$(git status --porcelain --untracked-files=normal)" ]] && git gui
-			cd "$NIMBRO_ROOT/src/nimbro_robotcontrol"
-			echo
-			echo $LIGHT_CYAN"*** nimbro_robotcontrol repository ***"$NO_COLOUR
-			[[ -n "$(git status --porcelain --untracked-files=normal)" ]] && git gui
-			cd "$NIMBRO_ROOT/src/nimbro_config_server"
-			echo
-			echo $LIGHT_CYAN"*** nimbro_config_server repository ***"$NO_COLOUR
-			[[ -n "$(git status --porcelain --untracked-files=normal)" ]] && git gui
-			cd "$NIMBRO_ROOT/src/dynalib"
-			echo
-			echo $LIGHT_CYAN"*** dynalib repository ***"$NO_COLOUR
-			[[ -n "$(git status --porcelain --untracked-files=normal)" ]] && git gui
-			if [[ -d "$NIMBRO_ROOT/src/rosmon" ]]; then
-				cd "$NIMBRO_ROOT/src/rosmon"
-				echo
-				echo $LIGHT_CYAN"*** rosmon repository ***"$NO_COLOUR
-				[[ -n "$(git status --porcelain --untracked-files=normal)" ]] && git gui
-			fi
-			if [[ -d "$NIMBRO_ROOT/misc" ]]; then
-				cd "$NIMBRO_ROOT/misc"
-				echo
-				echo $LIGHT_CYAN"*** misc repository ***"$NO_COLOUR
-				[[ -n "$(git status --porcelain --untracked-files=normal)" ]] && git gui
-			fi
-			if [[ -d "$NIMBRO_ROOT/misc/NOPNotes" ]]; then
-				cd "$NIMBRO_ROOT/misc/NOPNotes"
-				echo
-				echo $LIGHT_CYAN"*** NOPNotes repository ***"$NO_COLOUR
-				[[ -n "$(git status --porcelain --untracked-files=normal)" ]] && git gui
-			fi
-			if [[ -d "$NIMBRO_ROOT/releasegen" ]]; then
-				cd "$NIMBRO_ROOT/releasegen"
-				echo
-				echo $LIGHT_CYAN"*** releasegen repository ***"$NO_COLOUR
-				[[ -n "$(git status --porcelain --untracked-files=normal)" ]] && git gui
-			fi
-			if [[ -d "$NIMBRO_ROOT/nimbro-op-ros" ]]; then
-				cd "$NIMBRO_ROOT/nimbro-op-ros"
-				echo
-				echo $LIGHT_CYAN"*** nimbro-op-ros repository ***"$NO_COLOUR
-				[[ -n "$(git status --porcelain --untracked-files=normal)" ]] && git gui
-			fi
-			echo
-			cd "$NIMBRO_ROOT/src/nimbro"
-			;;
-		pull)
-			cd "$NIMBRO_ROOT/src/nimbro"
-			echo
-			echo $LIGHT_CYAN"*** Pulling nimbro repository ***"$NO_COLOUR
-			gitpull
-			cd "$NIMBRO_ROOT/src/nimbro_vis"
-			echo
-			echo $LIGHT_CYAN"*** Pulling nimbro_vis repository ***"$NO_COLOUR
-			gitpull
-			cd "$NIMBRO_ROOT/src/nimbro_robotcontrol"
-			echo
-			echo $LIGHT_CYAN"*** Pulling nimbro_robotcontrol repository ***"$NO_COLOUR
-			gitpull
-			cd "$NIMBRO_ROOT/src/nimbro_config_server"
-			echo
-			echo $LIGHT_CYAN"*** Pulling nimbro_config_server repository ***"$NO_COLOUR
-			gitpull
-			cd "$NIMBRO_ROOT/src/dynalib"
-			echo
-			echo $LIGHT_CYAN"*** Pulling dynalib repository ***"$NO_COLOUR
-			gitpull
-			if [[ -d "$NIMBRO_ROOT/src/rosmon" ]]; then
-				cd "$NIMBRO_ROOT/src/rosmon"
-				echo
-				echo $LIGHT_CYAN"*** Pulling rosmon repository ***"$NO_COLOUR
-				gitpull
-			fi
-			if [[ -d "$NIMBRO_ROOT/misc" ]]; then
-				cd "$NIMBRO_ROOT/misc"
-				echo
-				echo $LIGHT_CYAN"*** Pulling misc repository ***"$NO_COLOUR
-				gitpull
-			fi
-			if [[ -d "$NIMBRO_ROOT/misc/NOPNotes" ]]; then
-				cd "$NIMBRO_ROOT/misc/NOPNotes"
-				echo
-				echo $LIGHT_CYAN"*** Pulling NOPNotes repository ***"$NO_COLOUR
-				gitpull
-			fi
-			if [[ -d "$NIMBRO_ROOT/releasegen" ]]; then
-				cd "$NIMBRO_ROOT/releasegen"
-				echo
-				echo $LIGHT_CYAN"*** Pulling releasegen repository ***"$NO_COLOUR
-				gitpull
-			fi
-			if [[ -d "$NIMBRO_ROOT/nimbro-op-ros" ]]; then
-				cd "$NIMBRO_ROOT/nimbro-op-ros"
-				echo
-				echo $LIGHT_CYAN"*** Pulling nimbro-op-ros repository ***"$NO_COLOUR
-				gitpull
-			fi
-			echo
-			cd "$NIMBRO_ROOT/src/nimbro"
-			;;
-		push)
-			cd "$NIMBRO_ROOT/src/nimbro"
-			echo
-			echo $LIGHT_CYAN"*** Pushing nimbro repository ***"$NO_COLOUR
-			gitpush "${@:2}"
-			cd "$NIMBRO_ROOT/src/nimbro_vis"
-			echo
-			echo $LIGHT_CYAN"*** Pushing nimbro_vis repository ***"$NO_COLOUR
-			gitpush "${@:2}"
-			cd "$NIMBRO_ROOT/src/nimbro_robotcontrol"
-			echo
-			echo $LIGHT_CYAN"*** Pushing nimbro_robotcontrol repository ***"$NO_COLOUR
-			gitpush "${@:2}"
-			cd "$NIMBRO_ROOT/src/nimbro_config_server"
-			echo
-			echo $LIGHT_CYAN"*** Pushing nimbro_config_server repository ***"$NO_COLOUR
-			gitpush "${@:2}"
-			cd "$NIMBRO_ROOT/src/dynalib"
-			echo
-			echo $LIGHT_CYAN"*** Pushing dynalib repository ***"$NO_COLOUR
-			gitpush "${@:2}"
-			if [[ -d "$NIMBRO_ROOT/src/rosmon" ]]; then
-				cd "$NIMBRO_ROOT/src/rosmon"
-				echo
-				echo $LIGHT_CYAN"*** Pushing rosmon repository ***"$NO_COLOUR
-				gitpush "${@:2}"
-			fi
-			if [[ -d "$NIMBRO_ROOT/misc" ]]; then
-				cd "$NIMBRO_ROOT/misc"
-				echo
-				echo $LIGHT_CYAN"*** Pushing misc repository ***"$NO_COLOUR
-				gitpush "${@:2}"
-			fi
-			if [[ -d "$NIMBRO_ROOT/misc/NOPNotes" ]]; then
-				cd "$NIMBRO_ROOT/misc/NOPNotes"
-				echo
-				echo $LIGHT_CYAN"*** Pushing NOPNotes repository ***"$NO_COLOUR
-				gitpush "${@:2}"
-			fi
-			if [[ -d "$NIMBRO_ROOT/releasegen" ]]; then
-				cd "$NIMBRO_ROOT/releasegen"
-				echo
-				echo $LIGHT_CYAN"*** Pushing releasegen repository ***"$NO_COLOUR
-				gitpush "${@:2}"
-			fi
-			if [[ -d "$NIMBRO_ROOT/nimbro-op-ros" ]]; then
-				cd "$NIMBRO_ROOT/nimbro-op-ros"
-				echo
-				echo $LIGHT_CYAN"*** Pushing nimbro-op-ros repository ***"$NO_COLOUR
-				gitpush "${@:2}"
-			fi
-			echo
-			cd "$NIMBRO_ROOT/src/nimbro"
 			;;
 		set)
 			if [[ -z "$2" ]]; then
@@ -704,19 +473,120 @@ function nimbro() {
 			fi
 			;;
 		robot | bot)
-			if [[ -z "$2" ]]; then
+			local target="$2"
+			if [[ "$target" == "xs0" ]] || [[ "$target" == "xs0.local" ]]; then
+				target="localhost"
+			fi
+			if [[ -z "$target" ]]; then
 				echo "Currently selected robot is '$BOT'."
-				return
+				return 0
 			fi
-			if ! ping -c1 "$2" > /dev/null; then
-				echo "Could not resolve host name '$2'."
-				echo "Selecting '$2' as host anyway..."
+			if ! ping -c1 "$target" &>/dev/null; then
+				echo "Could not resolve host name '$target'."
+				echo "Selecting '$target' as host anyway..."
 			fi
-			BOT="$2"
+			BOT="$target"
 			echo "Robot '$BOT' selected."
+			;;
+		behaviour)
+			case "$2" in
+				"startstop")
+					_callservice /config_server/set_parameter config_server "{name: '/nimbro_op_interface/button/pressButton1', value: '1', no_notify: '0'}"
+				;;
+				"setGCIP")
+					_setGCIP "$3"
+				;;
+				"visualiseClear")
+					_callservice /walk_and_kick/visualiseClear walk_and_kick "{}"
+				;;
+				"visualiseDBH")
+					local field="$4"
+					[[ "$field" != "bonn" ]] && field="teensize"
+					local side="$5"
+					local sidesign=
+					if [[ "$side" == "blue" ]]; then
+						side="false"
+						sidesign="-"
+					else
+						side="true"
+					fi
+					local heading="$6"
+					[[ -z "$heading" ]] && heading="0.0"
+					case "$3" in
+						"clear")
+							_callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 0, playOnYellow: $side, ballXMin: 0.0, ballXMax: 0.0, ballXNum: 0, ballYMin: 0.0, ballYMax: 0.0, ballYNum: 0, compassHeading: $heading}"
+						;;
+						"compass")
+							[[ "$field" == "bonn" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 2, playOnYellow: $side, ballXMin: -3.0, ballXMax: 3.0, ballXNum: 70, ballYMin: -2.3, ballYMax: 2.3, ballYNum: 54, compassHeading: $heading}"
+							[[ "$field" == "teensize" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 2, playOnYellow: $side, ballXMin: -4.8, ballXMax: 4.8, ballXNum: 70, ballYMin: -3.2, ballYMax: 3.2, ballYNum: 47, compassHeading: $heading}"
+						;;
+						"corner")
+							[[ "$field" == "bonn" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 1, playOnYellow: $side, ballXMin: $sidesign""1.5, ballXMax: $sidesign""3.0, ballXNum: 78, ballYMin: 0.0, ballYMax: 2.3, ballYNum: 120, compassHeading: $heading}"
+							[[ "$field" == "teensize" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 1, playOnYellow: $side, ballXMin: $sidesign""2.4, ballXMax: $sidesign""4.8, ballXNum: 90, ballYMin: 0.0, ballYMax: 3.2, ballYNum: 120, compassHeading: $heading}"
+						;;
+						"posts")
+							[[ "$field" == "bonn" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 1, playOnYellow: $side, ballXMin: $sidesign""1.5, ballXMax: $sidesign""3.0, ballXNum: 39, ballYMin: -2.3, ballYMax: 2.3, ballYNum: 120, compassHeading: $heading}"
+							[[ "$field" == "teensize" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 1, playOnYellow: $side, ballXMin: $sidesign""2.4, ballXMax: $sidesign""4.8, ballXNum: 45, ballYMin: -3.2, ballYMax: 3.2, ballYNum: 120, compassHeading: $heading}"
+						;;
+						"half")
+							[[ "$field" == "bonn" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 1, playOnYellow: $side, ballXMin: 0.0, ballXMax: $sidesign""3.0, ballXNum: 47, ballYMin: -2.3, ballYMax: 2.3, ballYNum: 70, compassHeading: $heading}"
+							[[ "$field" == "teensize" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 1, playOnYellow: $side, ballXMin: 0.0, ballXMax: $sidesign""4.8, ballXNum: 53, ballYMin: -3.2, ballYMax: 3.2, ballYNum: 70, compassHeading: $heading}"
+						;;
+						"centre")
+							[[ "$field" == "bonn" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 1, playOnYellow: $side, ballXMin: -1.5, ballXMax: 1.5, ballXNum: 47, ballYMin: -2.3, ballYMax: 2.3, ballYNum: 70, compassHeading: $heading}"
+							[[ "$field" == "teensize" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 1, playOnYellow: $side, ballXMin: -2.4, ballXMax: 2.4, ballXNum: 53, ballYMin: -3.2, ballYMax: 3.2, ballYNum: 70, compassHeading: $heading}"
+						;;
+						"whole" | "")
+							[[ "$field" == "bonn" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 1, playOnYellow: $side, ballXMin: -3.0, ballXMax: 3.0, ballXNum: 70, ballYMin: -2.3, ballYMax: 2.3, ballYNum: 54, compassHeading: $heading}"
+							[[ "$field" == "teensize" ]] && _callservice /walk_and_kick/visualiseDBH walk_and_kick "{type: 1, playOnYellow: $side, ballXMin: -4.8, ballXMax: 4.8, ballXNum: 70, ballYMin: -3.2, ballYMax: 3.2, ballYNum: 47, compassHeading: $heading}"
+						;;
+						*)
+							echo "Unrecognised visualiseDBH command."
+							echo "Usage: nimbro behaviour visualiseDBH [clear|compass|corner|posts|half|centre|whole] [teensize|bonn] [yellow|blue] [HEADING]"
+						;;
+					esac
+				;;
+				"visualiseDbApp")
+					local robotangle="$3"
+					local rightfoot="$4"
+					[[ -z "$robotangle" ]] && robotangle="0.0"
+					[[ "$rightfoot" != "leftFoot" ]] && rightfoot="true" || rightfoot="false"
+					_callservice /walk_and_kick/visualiseDbApp walk_and_kick "{useRightFoot: $rightfoot, robotAngle: $robotangle, numX: 50, numY: 25, gridSize: 0.04}"
+				;;
+				"visualiseGcvXY")
+					_callservice /walk_and_kick/visualiseGcvXY walk_and_kick "{}"
+				;;
+				*)
+					echo "Unrecognised behaviour command."
+					echo "Usage: nimbro behaviour {startstop|setGCIP|visualiseClear|visualiseDBH|visualiseDbApp|visualiseGcvXY}"
+				;;
+			esac
 			;;
 		ctrl | control)
 			case "$2" in
+				"facetracking")
+					( # Start a subshell to have only a temporary change of the ROS master
+						hostvar="$4"
+						if [[ "$hostvar" == "xs0" ]] || [[ "$hostvar" == "xs0.local" ]]; then
+							hostvar="localhost"
+						fi
+						if [[ -n "$hostvar" ]]; then
+							ROS_MASTER_URI=http://"$hostvar":11311
+							ROS_HOSTNAME=$(hostname).local
+						fi
+						local curhost="${ROS_MASTER_URI#http://}"
+						curhost="${curhost%:11311}"
+						if [[ "$3" == "disable" ]]; then
+							echo "Disabling face tracking..."
+							rostopic pub /vision/face_tracker std_msgs/Bool "data: false" --once
+						elif [[ "$3" == "enable" ]]; then
+							echo "Enabling face tracking..."
+							rostopic pub /vision/face_tracker std_msgs/Bool "data: true" --once
+						else
+							echo "Usage: nimbro ctrl facetracking {disable|enable} [robot]"
+						fi
+					)
+				;;
 				"fade")
 					case "$3" in
 						"in")
@@ -733,6 +603,23 @@ function nimbro() {
 				;;
 				"halt")
 					_gaitcmd 0.0 0.0 0.0 false
+				;;
+				"press")
+					case "$3" in
+						"fade")
+							_callservice /config_server/set_parameter config_server "{name: '/nimbro_op_interface/button/pressButton0', value: '1', no_notify: '0'}"
+						;;
+						"mode")
+							_callservice /config_server/set_parameter config_server "{name: '/nimbro_op_interface/button/pressButton1', value: '1', no_notify: '0'}"
+						;;
+						"reset")
+							_callservice /config_server/set_parameter config_server "{name: '/nimbro_op_interface/button/pressButton2', value: '1', no_notify: '0'}"
+						;;
+						*)
+							echo "Unrecognised button to press."
+							echo "Usage: nimbro {control|ctrl} press {fade|mode|reset}"
+						;;
+					esac
 				;;
 				"head")
 					if [[ -z "$3" ]]; then
@@ -781,7 +668,7 @@ function nimbro() {
 				;;
 				*)
 					echo "Unrecognised control command"
-					echo "Usage: nimbro {control|ctrl} {fade|walk|halt} [...]"
+					echo "Usage: nimbro {control|ctrl} {facetracking|fade|halt|head|press|walk} [...]"
 				;;
 			esac
 			;;
@@ -789,8 +676,12 @@ function nimbro() {
 			case "$2" in
 				"heading")
 					( # Start a subshell to have only a temporary change of the ROS master
-						if [[ -n "$3" ]]; then
-							ROS_MASTER_URI=http://"$3":11311
+						local target="$3"
+						if [[ "$target" == "xs0" ]] || [[ "$target" == "xs0.local" ]]; then
+							target="localhost"
+						fi
+						if [[ -n "$target" ]]; then
+							ROS_MASTER_URI=http://"$target":11311
 							ROS_HOSTNAME=$(hostname).local
 						fi
 						local curhost="${ROS_MASTER_URI#http://}"
@@ -799,12 +690,15 @@ function nimbro() {
 						echo "Put the robot on the field exactly upright and facing the positive goal..."
 						read -p "Continue with heading calibration of $curhost (Y/n)? " response 2>&1
 						response="${response:0:1}"
-						[[ "${response,,}" == "n" ]] && echo "No => Stopping here then." || _callservice /robotcontrol/nopInterface/attEstCalibrate robotcontrol
+						[[ "${response,,}" == "n" ]] && echo "No => Stopping here then." || _callservice /nimbro_op_interface/attEstCalibrate robotcontrol
 					)
 				;;
 				"magnetometer")
 					( # Start a subshell to have only a temporary change of the ROS master
 						[[ "$3" == "warpAdd" ]] && hostvar="$5" || hostvar="$4"
+						if [[ "$hostvar" == "xs0" ]] || [[ "$hostvar" == "xs0.local" ]]; then
+							hostvar="localhost"
+						fi
 						if [[ -n "$hostvar" ]]; then
 							ROS_MASTER_URI=http://"$hostvar":11311
 							ROS_HOSTNAME=$(hostname).local
@@ -817,21 +711,27 @@ function nimbro() {
 							echo "3D => Rotate the robot in every direction imaginable"
 							read -p "Start magnetometer calibration of $curhost (Y/n)? " response 2>&1
 							response="${response:0:1}"
-							[[ "${response,,}" == "n" ]] && echo "No => Stopping here then." || _callservice /robotcontrol/nopInterface/magFilter/startCalibration robotcontrol
+							[[ "${response,,}" == "n" ]] && echo "No => Stopping here then." || _callservice /nimbro_op_interface/magFilter/startCalibration robotcontrol
 						elif [[ "$3" == "stop2D" ]]; then
 							echo "Stopping the 2D magnetometer calibration of $curhost..."
-							_callservice /robotcontrol/nopInterface/magFilter/stopCalibration2D robotcontrol
+							_callservice /nimbro_op_interface/magFilter/stopCalibration2D robotcontrol
 						elif [[ "$3" == "stop3D" ]]; then
 							echo "Stopping the 3D magnetometer calibration of $curhost..."
-							_callservice /robotcontrol/nopInterface/magFilter/stopCalibration3D robotcontrol
+							_callservice /nimbro_op_interface/magFilter/stopCalibration3D robotcontrol
+						elif [[ "$3" == "abort" ]]; then
+							echo "Aborting the magnetometer calibration of $curhost..."
+							_callservice /nimbro_op_interface/magFilter/abortCalibration robotcontrol
+						elif [[ "$3" == "show" ]]; then
+							echo "Showing the current magnetometer calibration of $curhost..."
+							_callservice /nimbro_op_interface/magFilter/showCalibration robotcontrol
 						elif [[ "$3" == "warpClear" ]]; then
 							echo "Clearing the magnetometer warp parameter string, resulting in an identity yaw warp transform..."
-							_callservice /robotcontrol/nopInterface/magFilter/warpClearPoints robotcontrol
+							_callservice /nimbro_op_interface/magFilter/warpClearPoints robotcontrol
 						elif [[ "$3" == "warpAdd" ]]; then
 							echo "Adding reference point that robot is currently at a true yaw (CCW from +ve goal) of $4 degrees..."
-							_callservice /robotcontrol/nopInterface/magFilter/warpAddPoint robotcontrol "$4"
+							_callservice /nimbro_op_interface/magFilter/warpAddPoint robotcontrol "$4"
 						else
-							echo "Usage: nimbro calib magnetometer {start|stop2D|stop3D|warpClear|warpAdd} [value] [robot]"
+							echo "Usage: nimbro calib magnetometer {abort|show|start|stop2D|stop3D|warpClear|warpAdd} [value] [robot]"
 						fi
 					)
 				;;
@@ -842,12 +742,15 @@ function nimbro() {
 			esac
 			;;
 		config)
+			roscd launch/config
 			case "$2" in
+				"")
+				;;
 				"list")
 					proctemp="$(rostopic echo -n 1 /config_server/parameter_list | grep name | sort)"
 					if [[ -z "$proctemp" ]]; then
 						echo "Unable to retrieve parameter list from config server"'!'
-						return
+						return 1
 					fi
 					configlist=()
 					while IFS= read -r -d $'\n' line; do
@@ -855,6 +758,33 @@ function nimbro() {
 						configlist+=("/${line#*/}")
 					done <<< "$proctemp"
 					echo "$(IFS=$'\n'; echo "${configlist[*]}")"
+				;;
+				"open")
+					local LAUNCH="$(rospack find launch)"
+					local robotname="$3"
+					[[ -z "$robotname" ]] && robotname="xs0"
+					robotsuffix=".${robotname#*.}"
+					[[ "$robotsuffix" == ".$robotname" ]] && robotsuffix= || robotname="${robotname%$robotsuffix}"
+					local filepath="$LAUNCH/config/config_$robotname.yaml$robotsuffix"
+					echo "Opening config file: $filepath..."
+					xdg-open "$filepath"
+				;;
+				"find")
+					proctemp="$(rostopic echo -n 1 /config_server/parameter_list | grep name | sort)"
+					if [[ -z "$proctemp" ]]; then
+						echo "Unable to retrieve parameter list from config server"'!'
+						return 1
+					fi
+					configlist=()
+					while IFS= read -r -d $'\n' line; do
+						[[ -z "$line" ]] && continue
+						configlist+=("/${line#*/}")
+					done <<< "$proctemp"
+					if [[ -n "$3" ]]; then
+						echo "$(IFS=$'\n'; echo "${configlist[*]}")" | grep "$3"
+					else
+						echo "$(IFS=$'\n'; echo "${configlist[*]}")"
+					fi
 				;;
 				"get")
 					paramname="$3"
@@ -908,37 +838,207 @@ function nimbro() {
 				;;
 				"showdead")
 					configPath="$3"
-					echo "Showing dead config parameters in '$configPath'... (see robotcontrol console)"
+					echo "Showing dead config parameters in '$configPath'... (see config server console)"
 					rosservice call /config_server/show_dead_vars "{configPath: '$configPath'}"
 				;;
 				"cleanyaml")
 					local LAUNCH="$(rospack find launch)"
 					if [[ -z "$3" ]]; then
-						echo "Please specify the robot to clean the config file for as an argument.";
+						echo "Please specify the robot(s) to clean the config file(s) for as arguments.";
 					elif [[ "$3" == "all" ]] || [[ "$4" == "all" ]] || [[ "$5" == "all" ]] || [[ "$6" == "all" ]]; then
-						python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/"config_*.yaml
+						compgen -G "$LAUNCH/config/config_*.yaml" >/dev/null && python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/"config_*.yaml
+						compgen -G "$LAUNCH/config/config_*.yaml.*" >/dev/null && python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/"config_*.yaml.*
 					else
-						[[ -n "$3" ]] && python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/config_$3.yaml"
-						[[ -n "$4" ]] && python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/config_$4.yaml"
-						[[ -n "$5" ]] && python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/config_$5.yaml"
-						[[ -n "$6" ]] && python "$LAUNCH/config/cleanYaml.py" "$LAUNCH/config/config_$6.yaml"
+						local filelist=()
+						while [[ -n "$3" ]]; do
+							local src="$3"
+							local srcbase="${src%%.*}"
+							src="config_$srcbase.yaml${src#$srcbase}"
+							filelist+=("$LAUNCH/config/$src")
+							shift
+						done
+						python "$LAUNCH/config/cleanYaml.py" "${filelist[@]}"
+					fi
+				;;
+				"listyaml")
+					local LAUNCH="$(rospack find launch)"
+					if [[ -z "$3" ]]; then
+						echo "Please specify the robot to list the config file for as an argument."
+					else
+						local depth="$4"
+						python "$LAUNCH/config/listYaml.py" "$LAUNCH/config/config_$3.yaml" "$depth"
 					fi
 				;;
 				"cpyaml")
+					local LIGHT_RED="$(echo -e "\E[1;31m")"
+					local NO_COLOUR="$(echo -e "\E[0m")"
 					local LAUNCH="$(rospack find launch)"
-					python "$LAUNCH/config/copyConfig.py" "-f$3" "-t$4" "-p$5" "-b$LAUNCH/config/"
+					local src="$3"
+					local dst="$4"
+					local element="$5"
+					if [[ -z "$src" ]] || [[ -z "$dst" ]]; then
+						echo $LIGHT_RED"You need to specify source and destination config files"'!'$NO_COLOUR
+						return 1
+					fi
+					if [[ -z "$element" ]]; then
+						echo $LIGHT_RED"No config parameter element specified => Use 'all' if you want to copy everything"'!'$NO_COLOUR
+						return 1
+					fi
+					if [[ "$src" == "all" ]]; then
+						echo $LIGHT_RED"The source config file cannot be 'all'"'!'$NO_COLOUR
+						return 1
+					fi
+					local srcbase="${src%%.*}"
+					src="config_$srcbase.yaml${src#$srcbase}"
+					if [[ "$dst" == "all" ]]; then
+						for yamlfile in "$LAUNCH/config/"config_*.yaml; do
+							local filename="$(basename "$yamlfile")"
+							[[ "$filename" == "config_*.yaml" ]] && continue
+							if [[ "$src" != "$filename" ]]; then
+								python "$LAUNCH/config/copyConfig.py" -b "$LAUNCH/config" -s "$src" -d "$filename" -e "$element"
+							fi
+						done
+						for yamlfile in "$LAUNCH/config/"config_*.yaml.*; do
+							local filename="$(basename "$yamlfile")"
+							[[ "$filename" == "config_*.yaml.*" ]] && continue
+							if [[ "$src" != "$filename" ]]; then
+								python "$LAUNCH/config/copyConfig.py" -b "$LAUNCH/config" -s "$src" -d "$filename" -e "$element"
+							fi
+						done
+					else
+						local dstbase="${dst%%.*}"
+						dst="config_$dstbase.yaml${dst#$dstbase}"
+						if [[ "$src" == "$dst" ]]; then
+							echo $LIGHT_RED"Are you trying to copy from and to the same yaml...?"'!'$NO_COLOUR
+							return 1
+						fi
+						python "$LAUNCH/config/copyConfig.py" -b "$LAUNCH/config" -s "$src" -d "$dst" -e "$element"
+					fi
+				;;
+				"rmyaml")
+					local LIGHT_RED="$(echo -e "\E[1;31m")"
+					local NO_COLOUR="$(echo -e "\E[0m")"
+					local LAUNCH="$(rospack find launch)"
+					local src="$3"
+					local element="$4"
+					if [[ -z "$src" ]]; then
+						echo $LIGHT_RED"You need to specify a source config file"'!'$NO_COLOUR
+						return 1
+					fi
+					if [[ -z "$element" ]]; then
+						echo $LIGHT_RED"No config parameter element specified => Use 'all' if you want to remove everything"'!'$NO_COLOUR
+						return 1
+					fi
+					if [[ "$src" == "all" ]]; then
+						for yamlfile in "$LAUNCH/config/"config_*.yaml; do
+							local filename="$(basename "$yamlfile")"
+							[[ "$filename" == "config_*.yaml" ]] && continue
+							python "$LAUNCH/config/removeConfig.py" -b "$LAUNCH/config" -s "$filename" -e "$element"
+						done
+						for yamlfile in "$LAUNCH/config/"config_*.yaml.*; do
+							local filename="$(basename "$yamlfile")"
+							[[ "$filename" == "config_*.yaml.*" ]] && continue
+							python "$LAUNCH/config/removeConfig.py" -b "$LAUNCH/config" -s "$filename" -e "$element"
+						done
+					else
+						local srcbase="${src%%.*}"
+						src="config_$srcbase.yaml${src#$srcbase}"
+						python "$LAUNCH/config/removeConfig.py" -b "$LAUNCH/config" -s "$src" -e "$element"
+					fi
+				;;
+				"compare")
+					local LIGHT_RED="$(echo -e "\E[1;31m")"
+					local NO_COLOUR="$(echo -e "\E[0m")"
+					local LAUNCH="$(rospack find launch)"
+					local src="$3"
+					local dst="$4"
+					local element="$5"
+					if [[ -z "$src" ]] || [[ -z "$dst" ]]; then
+						echo $LIGHT_RED"You need to specify source and destination config files"'!'$NO_COLOUR
+						return 1
+					fi
+					local srcbase="${src%%.*}"
+					src="config_$srcbase.yaml${src#$srcbase}"
+					local dstbase="${dst%%.*}"
+					dst="config_$dstbase.yaml${dst#$dstbase}"
+					python "$LAUNCH/config/compareConfig.py" -b "$LAUNCH/config" -s "$src" -d "$dst" -e "$element"
+				;;
+				"kompare")
+					local LAUNCH="$(rospack find launch)"
+					"$LAUNCH/config/kompareConfig.sh" "$3" "$4"
 				;;
 				"retrieve")
 					local target="$BOT"
 					[[ -n "$3" ]] && target="$3"
+					if [[ "$target" == "localhost" ]] || [[ "$target" == "xs0" ]] || [[ "$target" == "xs0.local" ]]; then
+						echo "You are trying to retrieve configs from yourself...?"
+						return 1
+					fi
+					while ! ping -c1 "$target" &>/dev/null; do sleep 0.5s; done
+					local targetname="$(ssh "nimbro@$target" 'hostname')" 2>/dev/null
+					targetname="${targetname%%\\*}"
+					targetname="${targetname%%/*}"
 					local LAUNCH="$(rospack find launch)"
-					scp "nimbro@$target:/nimbro/share/launch/config/config*.yaml" "$LAUNCH/config/"
-					scp "nimbro@$target:/nimbro/share/launch/config/vision/*" "$LAUNCH/config/vision/"
-					scp "nimbro@$target:/nimbro/share/camera_v4l2/launch/cam_settings.yaml" "$(rospack find camera_v4l2)/launch/"
+					local LIGHT_RED="$(echo -e "\E[1;31m")"
+					local LIGHT_GREEN="$(echo -e "\E[1;32m")"
+					local NO_COLOUR="$(echo -e "\E[0m")"
+					local robots=(xs0 xs1 xs2 xs3 xs4 xs5 xs6 xs7 xs8 xs9)
+					if [[ -z "$4" ]]; then
+						echo $LIGHT_GREEN"Retrieving config.yaml's..."$NO_COLOUR
+						local proctemp="$(ssh "nimbro@$target" 'find -P /nimbro/share/launch/config -ignore_readdir_race -noleaf -nowarn -type f -name "*.yaml" -print | sort')" 2>/dev/null
+						local filelist=()
+						while IFS= read -r -d $'\n' line; do
+							[[ -z "$line" ]] && continue
+							for robot in "${robots[@]}"; do
+								[[ "$robot" == "$targetname" ]] && continue
+								[[ "$line" =~ ^.*_"$robot"\..*$ ]] && continue 2
+							done
+							filelist+=("nimbro@$target:$line")
+						done <<< "$proctemp"
+						if [[ "${#filelist[@]}" -gt 0 ]]; then
+							rsync -avz --checksum --progress --human-readable "${filelist[@]}" "$LAUNCH/config/"
+						else
+							echo "Nothing to retrieve here from $target..."
+						fi
+						echo
+						echo $LIGHT_GREEN"Retrieving vision configs..."$NO_COLOUR
+						local proctemp="$(ssh "nimbro@$target" 'find -P /nimbro/share/launch/config/vision -ignore_readdir_race -noleaf -nowarn -maxdepth 1 -type f -print | sort')" 2>/dev/null
+						local filelist=("nimbro@$target:/nimbro/share/launch/config/vision/samples")
+						while IFS= read -r -d $'\n' line; do
+							[[ -z "$line" ]] && continue
+							for robot in "${robots[@]}"; do
+								[[ "$robot" == "$targetname" ]] && continue
+								[[ "$line" =~ ^.*_"$robot"\..*$ ]] && continue 2
+							done
+							filelist+=("nimbro@$target:$line")
+						done <<< "$proctemp"
+						if [[ "${#filelist[@]}" -gt 0 ]]; then
+							rsync -avz --checksum --progress --human-readable "${filelist[@]}" "$LAUNCH/config/vision/"
+						else
+							echo "Nothing to retrieve here from $target..."
+						fi
+					elif [[ "$4" == "backup" ]]; then
+						local LOG_DIR="/var/log/nimbro"
+						local BACKUP_DIR="$LAUNCH/config/backup"
+						echo
+						echo $LIGHT_GREEN"Retrieving latest config.yaml backup to $BACKUP_DIR..."$NO_COLOUR
+						local latestconfig="$(ssh "nimbro@$target" 'find -P "'"$LOG_DIR/config_server"'" -ignore_readdir_race -noleaf -nowarn -type f -name "'"config_$targetname_*.yaml"'" -print 2>/dev/null | sort | tail -n 1')" 2>/dev/null
+						if [[ -n "$latestconfig" ]]; then
+							mkdir -p "$BACKUP_DIR" && rsync -avz --progress --human-readable "nimbro@$target:$latestconfig" "$BACKUP_DIR/"
+						else
+							echo $LIGHT_RED"No config backup files were found on $target"'!'$NO_COLOUR
+						fi
+					else
+						echo "Unknown specification '$4' of what to retrieve"
+						echo "Usage: nimbro config retrieve [TARGET] [{backup}]"
+					fi
+				;;
+				"setGCIP")
+					_setGCIP "$3"
 				;;
 				*)
 					echo "Unrecognised config command"
-					echo "Usage: nimbro config {list|reset|load|save|get|set|showdead|cleanyaml|cpyaml|retrieve} [...]"
+					echo "Usage: nimbro config {list|reset|load|save|open|compare|kompare|get|set|showdead|cleanyaml|cpyaml|listyaml|rmyaml|retrieve|setGCIP} [...]"
 				;;
 			esac
 			;;
@@ -954,38 +1054,63 @@ function nimbro() {
 			esac
 			;;
 		host)
-			host="$2"
-			if [[ "$host" == "reset" ]]; then
-				export ROS_HOSTNAME=localhost
-				export ROS_MASTER_URI=http://localhost:11311
-				return 0
+			if [[ -n "$2" ]]; then
+				local host="$2"
+				if [[ "$host" == "reset" ]] || [[ "$host" == "xs0" ]] || [[ "$host" == "xs0.local" ]]; then
+					host="localhost"
+				fi
+				if ! ping -c1 "$host" &>/dev/null; then
+					echo "Could not resolve host name '$host'."
+					return 1
+				fi
+				export ROS_HOSTNAME="$(hostname).local"
+				export ROS_MASTER_URI="http://$host:11311"
+				if rostopic list > /dev/null; then
+					echo "Connected."
+				else
+					echo "Could not connect to ROS master running at '$host'"
+					echo "Setting it as master anyway."
+				fi
+				BOT="$host"
+				if [[ "$host" == "localhost" ]]; then # To avoid localhost password request: cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys && chmod og-wx ~/.ssh/authorized_keys
+					hostRobotSet="$(ssh "localhost" 'bash -ic '"'"'echo "$NIMBRO_ROBOT_TYPE" && echo "$NIMBRO_ROBOT_NAME" && echo "$NIMBRO_ROBOT_VARIANT"'"'"' 2>/dev/null')"
+				else
+					hostRobotSet="$(ssh "nimbro@$host" 'bash -ic '"'"'echo "$NIMBRO_ROBOT_TYPE" && echo "$NIMBRO_ROBOT_NAME" && echo "$NIMBRO_ROBOT_VARIANT"'"'"' 2>/dev/null')"
+				fi
+				local hostRobotType="$(sed -n 1p <<< "$hostRobotSet")"
+				local hostRobotName="$(sed -n 2p <<< "$hostRobotSet")"
+				local hostRobotVariant="$(sed -n 3p <<< "$hostRobotSet")"
+				[[ -n "$hostRobotType" ]] && export NIMBRO_ROBOT_TYPE="$hostRobotType"
+				[[ -n "$hostRobotName" ]] && export NIMBRO_ROBOT_NAME="$hostRobotName"
+				[[ -n "$hostRobotVariant" ]] && export NIMBRO_ROBOT_VARIANT="$hostRobotVariant"
 			fi
-			export ROS_MASTER_URI=http://$host:11311
-			if ! ping -c1 $host > /dev/null; then
-				echo "Could not resolve host name '$host'."
-				return 1
-			fi
-			if ping -c1 $(hostname).local > /dev/null; then
-				export ROS_HOSTNAME=$(hostname).local
-			fi
-			if ! rostopic list > /dev/null; then
-				echo "Could not connect to ROS master running at '$host'"
-				echo "Setting it as master anyway."
-				BOT="$2"
-				return 0
-			fi
-			echo "Connected."
-			BOT="$2"
+			echo "Current ROS hostname: $ROS_HOSTNAME"
+			echo "Current ROS master:   $ROS_MASTER_URI"
+			echo "Current BOT:          $BOT"
+			echo "Current NIMBRO_ROBOT_TYPE:    $NIMBRO_ROBOT_TYPE"
+			echo "Current NIMBRO_ROBOT_NAME:    $NIMBRO_ROBOT_NAME"
+			echo "Current NIMBRO_ROBOT_VARIANT: $NIMBRO_ROBOT_VARIANT"
 			;;
 		ssh)
-			if [[ -z "$2" ]]; then
-				while ! ping -c1 "$BOT" 1>/dev/null; do sleep 0.5s; done
+			local bott="$2"
+			if [[ "$bott" == "localhost" ]] || [[ "$bott" == "xs0" ]] || [[ "$bott" == "xs0.local" ]]; then
+				echo "You are trying to ssh into yourself...?"
+				return 1
+			fi
+			if [[ -z "$bott" ]]; then
+				while ! ping -c1 "$BOT" &>/dev/null; do sleep 0.5s; done
 			    ssh nimbro@"$BOT"
 			else
-				local target="$2"
-				while ! ping -c1 "$target" 1>/dev/null; do sleep 0.5s; done
+				local target="$bott"
+				while ! ping -c1 "$target" &>/dev/null; do sleep 0.5s; done
 				ssh nimbro@"$target"
 			fi
+			;;
+		servos)
+			cat "$(roscd dynalib/robots && pwd)/NOP.robot"
+			;;
+		env)
+			xdg-open "${BASH_SOURCE[0]}"
 			;;
 		help|-h|--help)
 			cat <<EOS
@@ -1000,24 +1125,19 @@ Commands:
   deploy      Make and deploy binaries to the robot
   doc         Opens the specified nimbro html documentation
   flash       Compiles and flashes the CM730 firmware onto a connected microcontroller
-  getconfig   Get config.yaml from robot
-  cpconfig  Copy config.yaml from one robot to another
-  gui         Open the git gui for repositories that have changes in the working tree
   help        Display this help message
-  host        Use HOST as the ROS master, e.g. nimbro host xs2.local
+  host        Use HOST as the ROS master, e.g. nimbro host xs4.local
   make        Run catkin_make with correct arguments in the correct directory
   make-doc    Compile the doxygen documentation (use 'make-doc open' to automatically open the html)
   make-docv   Verbose compilation of the doxygen documentation (see make-doc)
-  pull        Pull and rebase the latest commits for each of the source repositories
-  push        Git push in each of the source repositories (asks for confirmation)
   remake-all  Hard clean build and devel folders then run catkin_make to remake entire project
-  robot       Select a given robot, e.g. nimbro robot xs2.local
+  eclipse     Make eclipse project for you
+  robot       Select a given robot, e.g. nimbro robot xs4.local
   set         Set the environment variables for a particular robot
   sim         Commands to control the robot Gazebo simulation
   source      Change to the nimbro source directory
   src         Alias for 'source'
   ssh         Open an SSH connection to the robot
-  status      Display the git status of the internal nimbro repositories
 
 The default command just changes into the NimbRo-OP catkin workspace.
 EOS
@@ -1036,27 +1156,31 @@ function _nimbro()
 	local subcmd="${COMP_WORDS[2]}"
 	local subsubcmd="${COMP_WORDS[3]}"
 	
-	local robotlist="xs4 xs4.local xs5 xs5.local xs6 xs6.local xs7 xs7.local"
-	local P1list="xs4 xs5 xs6 xs7"
+	local hostlist="xs0.local"
+	local hostlistloc="localhost $hostlist"
+	local robotlist="xs0"
 	
 	COMPREPLY=""
 	case "${COMP_CWORD}" in
 		1)
-			COMPREPLY=($(compgen -W "bot calib clean config control ctrl deploy doc flash gui help host make make-doc make-docv pull push remake-all robot set sim source src ssh status" -- "$cur"))
+			COMPREPLY=($(compgen -W "bot behaviour calib clean config control ctrl deploy doc env flash help host make make-doc make-docv remake-all eclipse robot servos set sim source src ssh" -- "$cur"))
 			;;
 		2)
 			case "$cmd" in
+				behaviour)
+					COMPREPLY=($(compgen -W "setGCIP startstop visualiseClear visualiseDBH visualiseDbApp visualiseGcvXY" -- "$cur"))
+					;;
 				calib)
 					COMPREPLY=($(compgen -W "heading magnetometer" -- "$cur"))
 					;;
 				config)
-					COMPREPLY=($(compgen -W "cleanyaml cpyaml get list load reset retrieve save set showdead" -- "$cur"))
+					COMPREPLY=($(compgen -W "cleanyaml compare cpyaml find get kompare list listyaml load open reset retrieve rmyaml save set setGCIP showdead" -- "$cur"))
 					;;
 				ctrl | control)
-					COMPREPLY=($(compgen -W "fade halt head walk" -- "$cur"))
+					COMPREPLY=($(compgen -W "facetracking fade halt head press walk" -- "$cur"))
 					;;
 				deploy)
-					COMPREPLY=($(compgen -W "clean $robotlist" -- "$cur"))
+					COMPREPLY=($(compgen -W "clean $hostlistloc" -- "$cur"))
 					;;
 				doc)
 					COMPREPLY=($(compgen -W "nimbro visualization robotcontrol config_server all" -- "$cur"))
@@ -1065,13 +1189,16 @@ function _nimbro()
 					COMPREPLY=($(compgen -W "clean compile direct robot" -- "$cur"))
 					;;
 				host)
-					COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					COMPREPLY=($(compgen -W "$hostlistloc" -- "$cur"))
+					;;
+				make)
+					COMPREPLY=($(compgen -W "--force-cmake clean install run_tests test tests" -- "$cur"))
 					;;
 				make-doc | make-docv)
 					COMPREPLY=($(compgen -W "nimbro visualization robotcontrol config_server all open" -- "$cur"))
 					;;
 				robot | bot)
-					COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					COMPREPLY=($(compgen -W "$hostlistloc" -- "$cur"))
 					;;
 				set)
 					COMPREPLY=($(compgen -W "P1" -- "$cur"))
@@ -1082,28 +1209,36 @@ function _nimbro()
 				source | src)
 					local sources="src nimbro visualization robotcontrol config_server dynalib"
 					[[ -d "$NIMBRO_ROOT/src/rosmon" ]] && sources+=" mon rosmon"
-					[[ -d "$NIMBRO_ROOT/misc" ]] && sources+=" misc"
-					[[ -d "$NIMBRO_ROOT/misc/NOPNotes" ]] && sources+=" nopnotes"
-					[[ -d "$NIMBRO_ROOT/releasegen" ]] && sources+=" rgen releasegen"
-					[[ -d "$NIMBRO_ROOT/nimbro-op-ros" ]] && sources+=" release nimbro-op-ros"
+					[[ -d "$NIMBRO_ROOT/src/nimbro_network" ]] && sources+=" net network"
+					[[ -d "$NIMBRO_ROOT/src/catch_ros" ]] && sources+=" cat catch_ros"
 					COMPREPLY=($(compgen -W "$sources" -- "$cur"))
 					;;
 				ssh)
-					COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					COMPREPLY=($(compgen -W "$hostlist" -- "$cur"))
 					;;
 			esac
 			;;
 		3)
 			case "$cmd" in
+				behaviour)
+					[[ "$subcmd" == "setGCIP" ]] && COMPREPLY=($(compgen -W "$hostlist" -- "$cur"))
+					[[ "$subcmd" == "visualiseDBH" ]] && COMPREPLY=($(compgen -W "clear compass corner posts half centre whole" -- "$cur"))
+					[[ "$subcmd" == "visualiseDbApp" ]] && COMPREPLY=($(compgen -W "0.0 0.5 1.0 1.5 -0.5 -1.0 -1.5" -- "$cur"))
+					;;
 				calib)
-					[[ "$subcmd" == "heading" ]] && COMPREPLY=($(compgen -W "localhost $robotlist" -- "$cur"))
-					[[ "$subcmd" == "magnetometer" ]] && COMPREPLY=($(compgen -W "start stop2D stop3D warpAdd warpClear" -- "$cur"))
+					[[ "$subcmd" == "heading" ]] && COMPREPLY=($(compgen -W "$hostlistloc" -- "$cur"))
+					[[ "$subcmd" == "magnetometer" ]] && COMPREPLY=($(compgen -W "abort show start stop2D stop3D warpAdd warpClear" -- "$cur"))
 					;;
 				config)
-					[[ "$subcmd" == "cleanyaml" ]] && COMPREPLY=($(compgen -W "all $P1list" -- "$cur"))
-					[[ "$subcmd" == "cpyaml" ]] && COMPREPLY=($(compgen -W "$P1list" -- "$cur"))
-					[[ "$subcmd" == "retrieve" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
-					if [[ "$subcmd" == "get" ]] || [[ "$subcmd" == "set" ]] || [[ "$subcmd" == "showdead" ]]; then
+					[[ "$subcmd" == "compare" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					[[ "$subcmd" == "cpyaml" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					[[ "$subcmd" == "listyaml" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					[[ "$subcmd" == "rmyaml" ]] && COMPREPLY=($(compgen -W "all $robotlist" -- "$cur"))
+					[[ "$subcmd" == "kompare" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					[[ "$subcmd" == "open" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					[[ "$subcmd" == "retrieve" ]] && COMPREPLY=($(compgen -W "$hostlist" -- "$cur"))
+					[[ "$subcmd" == "setGCIP" ]] && COMPREPLY=($(compgen -W "$hostlist" -- "$cur"))
+					if [[ "$subcmd" == "get" ]] || [[ "$subcmd" == "set" ]] || [[ "$subcmd" == "showdead" ]] || [[ "$subcmd" == "find" ]]; then
 						proctemp="$(rostopic echo -n 1 /config_server/parameter_list 2>/dev/null | grep name | sort)"
 						if [[ -n "$proctemp" ]]; then
 							local configlist=()
@@ -1116,39 +1251,71 @@ function _nimbro()
 					fi
 					;;
 				ctrl | control)
+					[[ "$subcmd" == "facetracking" ]] && COMPREPLY=($(compgen -W "enable disable" -- "$cur"))
 					[[ "$subcmd" == "fade" ]] && COMPREPLY=($(compgen -W "in out" -- "$cur"))
+					[[ "$subcmd" == "press" ]] && COMPREPLY=($(compgen -W "fade mode reset" -- "$cur"))
 					[[ "$subcmd" == "walk" ]] && COMPREPLY=($(compgen -W "0.0" -- "$cur"))
 					[[ "$subcmd" == "head" ]] && COMPREPLY=($(compgen -W "disable enable movetoangle movetovector relax" -- "$cur"))
 					;;
 				flash)
 					[[ "$subcmd" == "compile" ]] && COMPREPLY=($(compgen -W "CM730 CM740" -- "$cur"))
-					[[ "$subcmd" == "direct" ]] && COMPREPLY=($(compgen -G "/dev/ttyUSB*" -- "$cur"))
-					[[ "$subcmd" == "robot" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					if [[ "$subcmd" == "direct" ]]; then
+						local usblist=(/dev/ttyUSB*)
+						[[ "${usblist[*]}" == "/dev/ttyUSB*" ]] && usblist=()
+						COMPREPLY=($(compgen -W "${usblist[*]}" -- "$cur"))
+					fi
+					[[ "$subcmd" == "robot" ]] && COMPREPLY=($(compgen -W "$hostlist" -- "$cur"))
 					;;
 				make-doc | make-docv)
 					[[ "$subcmd" != "open" ]] && COMPREPLY=($(compgen -W "open" -- "$cur"))
 					;;
 				set)
-					[[ "$subcmd" == "P1" ]] && COMPREPLY=($(compgen -W "$P1list" -- "$cur"))
+					[[ "$subcmd" == "P1" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
 					;;
 			esac
 			;;
 		4)
 			case "$cmd" in
+				behaviour)
+					[[ "$subcmd" == "visualiseDBH" ]] && [[ "$subsubcmd" != "clear" ]] && COMPREPLY=($(compgen -W "teensize bonn" -- "$cur"))
+					[[ "$subcmd" == "visualiseDbApp" ]] && COMPREPLY=($(compgen -W "leftFoot rightFoot" -- "$cur"))
+					;;
 				calib)
 					if [[ "$subcmd" == "magnetometer" ]]; then
 						if [[ "$subsubcmd" == "warpAdd" ]]; then
 							COMPREPLY=($(compgen -W "0 45 90 180 225 270 315" -- "$cur"))
 						else
-							COMPREPLY=($(compgen -W "localhost $robotlist" -- "$cur"))
+							COMPREPLY=($(compgen -W "$hostlistloc" -- "$cur"))
 						fi
 					fi
 					;;
 				config)
-					[[ "$subcmd" == "cleanyaml" ]] && COMPREPLY=($(compgen -W "all $P1list" -- "$cur"))
-					[[ "$subcmd" == "cpyaml" ]] && COMPREPLY=($(compgen -W "$P1list" -- "$cur"))
+					[[ "$subcmd" == "compare" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					[[ "$subcmd" == "cpyaml" ]] && COMPREPLY=($(compgen -W "all $robotlist" -- "$cur"))
+					[[ "$subcmd" == "listyaml" ]] && COMPREPLY=($(compgen -W "1 2 3 4 5" -- "$cur"))
+					[[ "$subcmd" == "kompare" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					[[ "$subcmd" == "retrieve" ]] && COMPREPLY=($(compgen -W "backup" -- "$cur"))
+					if [[ "$subcmd" == "rmyaml" ]]; then
+						local configdir="$(rospack find launch)/config"
+						local configfile="$configdir/config_$subsubcmd.yaml"
+						if [[ "$subsubcmd" == "all" ]]; then
+							configfile="$configdir/$(ls -1 "$configdir" | egrep "config_.*.yaml" | sort | head -n 1)"
+						fi
+						local depth="$(grep -o "/" <<< "$cur" | wc -l)"
+						[[ "$depth" == "0" ]] && depth="1"
+						local proctemp="$(python "$(rospack find launch)/config/listYaml.py" "$configfile" "$depth" 2>/dev/null | sort)"
+						if [[ -n "$proctemp" ]]; then
+							local configlist=("all")
+							while IFS= read -r -d $'\n' line; do
+								[[ -z "$line" ]] && continue
+								configlist+=("$line")
+							done <<< "$proctemp"
+							COMPREPLY=($(compgen -W "${configlist[*]}" -- "$cur"))
+						fi
+					fi
 					;;
 				ctrl | control)
+					[[ "$subcmd" == "facetracking" ]] && COMPREPLY=($(compgen -W "$hostlistloc" -- "$cur"))
 					[[ "$subcmd" == "walk" ]] && COMPREPLY=($(compgen -W "0.0" -- "$cur"))
 					[[ "$subcmd" == "head" ]] && [[ "${subsubcmd:0:6}" == "moveto" ]] && COMPREPLY=($(compgen -W "0.0" -- "$cur"))
 					;;
@@ -1157,23 +1324,25 @@ function _nimbro()
 					[[ "$subcmd" == "robot" ]] && COMPREPLY=($(compgen -W "CM730 CM740" -- "$cur"))
 					;;
 				set)
-					[[ "$subcmd" == "P1" ]] && COMPREPLY=($(compgen -W "nimbro_op nimbro_op_hull" -- "$cur"))
+					[[ "$subcmd" == "P1" ]] && COMPREPLY=($(compgen -W "nimbro_op nimbro_op_hull igus_op igus_op_hull" -- "$cur"))
 					;;
 			esac
 			;;
 		5)
 			case "$cmd" in
+				behaviour)
+					[[ "$subcmd" == "visualiseDBH" ]] && [[ "$subsubcmd" != "clear" ]] && COMPREPLY=($(compgen -W "yellow blue" -- "$cur"))
+					;;
 				calib)
-					[[ "$subcmd" == "magnetometer" ]] && [[ "$subsubcmd" == "warpAdd" ]] && COMPREPLY=($(compgen -W "localhost $robotlist" -- "$cur"))
+					[[ "$subcmd" == "magnetometer" ]] && [[ "$subsubcmd" == "warpAdd" ]] && COMPREPLY=($(compgen -W "$hostlistloc" -- "$cur"))
 					;;
 				config)
-					[[ "$subcmd" == "cleanyaml" ]] && COMPREPLY=($(compgen -W "all $P1list" -- "$cur"))
-					if [[ "$subcmd" == "cpyaml" ]]; then
+					if [[ "$subcmd" == "cpyaml" ]] || [[ "$subcmd" == "compare" ]]; then
 						local configdir="$(rospack find launch)/config"
 						local configfile="$configdir/config_$subsubcmd.yaml"
 						local depth="$(grep -o "/" <<< "$cur" | wc -l)"
 						[[ "$depth" == "0" ]] && depth="1"
-						proctemp="$(python "$(rospack find launch)/config/listYaml.py" "$configfile" "$depth" | sort)"
+						local proctemp="$(python "$(rospack find launch)/config/listYaml.py" "$configfile" "$depth" | sort)"
 						if [[ -n "$proctemp" ]]; then
 							local configlist=("all")
 							while IFS= read -r -d $'\n' line; do
@@ -1192,8 +1361,8 @@ function _nimbro()
 			;;
 		6)
 			case "$cmd" in
-				config)
-					[[ "$subcmd" == "cleanyaml" ]] && COMPREPLY=($(compgen -W "all $P1list" -- "$cur"))
+				behaviour)
+					[[ "$subcmd" == "visualiseDBH" ]] && [[ "$subsubcmd" == "compass" ]] && COMPREPLY=($(compgen -W "0.0 0.5 1.0 1.5 -0.5 -1.0 -1.5" -- "$cur"))
 					;;
 				ctrl | control)
 					[[ "$subcmd" == "walk" ]] && COMPREPLY=($(compgen -W "true" -- "$cur"))
@@ -1217,6 +1386,9 @@ function _nimbro()
 			esac
 			;;
 	esac
+	if [[ "$cmd" == "config" ]] && [[ "$subcmd" == "cleanyaml" ]] && [[ "${COMP_CWORD}" -ge 3 ]]; then
+		COMPREPLY=($(compgen -W "all $robotlist" -- "$cur"))
+	fi
 	[[ -z "$COMPREPLY" ]] && COMPREPLY=($(compgen -o nospace -W "" -- "$cur"))
 }
 

@@ -38,10 +38,6 @@
 #define DXL_BYTE_TIMEOUT       25                           // Maximum allowed time between consecutive bytes in a dynamixel packet (in ms) [Note: In the Dynamixel protocol this maximum is specified as 100ms, but here we run a tighter ship!]
 #define INIT_TIME_LAST_BYTE    (-((u32)DXL_BYTE_TIMEOUT)-1) // Value that ensures that the very first received byte is seen as a timeout (=> start of new packet)
 
-// Defines - Misc
-#define FALSE                  0
-#define TRUE                   1
-
 // Enumerations
 enum ParseState
 {

@@ -7,7 +7,7 @@
 #include <robotcontrol/model/singlesupportmodel.h>
 #include <robotcontrol/model/joint.h>
 #include <config_server/parameter.h>
-
+#include <rc_utils/golay.h>
 #include <plot_msgs/Plot.h>
 
 namespace robotcontrol
@@ -49,7 +49,7 @@ private:
 
 	Leg m_legs[2];
 
-	GolayDerivative<Eigen::Vector2d, 0, 5, Eigen::aligned_allocator<Eigen::Vector2d> > m_gyro_golay;
+	rc_utils::GolayDerivative<Eigen::Vector2d, 0, 5, Eigen::aligned_allocator<Eigen::Vector2d> > m_gyro_golay;
 
 	config_server::Parameter<float> m_pitch_P;
 	config_server::Parameter<float> m_pitch_D;

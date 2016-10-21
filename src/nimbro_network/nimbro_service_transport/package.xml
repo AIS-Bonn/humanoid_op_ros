@@ -1,0 +1,25 @@
+<package format="2">
+	<name>nimbro_service_transport</name>
+	<version>1.0.0</version>
+	<description>Calls services on a different master with minimal latency</description>
+
+	<maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+
+	<license>GPLv2</license>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<depend>roscpp</depend>
+	<depend>topic_tools</depend>
+
+	<build_depend>message_generation</build_depend>
+
+	<depend>rqt_gui</depend>
+
+	<!-- soft dependency for unit tests -->
+	<depend>catch_ros</depend>
+
+	<export>
+		<rqt_gui plugin="${prefix}/plugin.xml" />
+	</export>
+
+</package>

@@ -57,8 +57,6 @@ void WalkControl::initPlugin(qt_gui_cpp::PluginContext& context)
 
 void WalkControl::shutdownPlugin()
 {
-	rqt_gui_cpp::Plugin::shutdownPlugin();
-
 	m_pub_cmd.shutdown();
 	m_sub_perf.shutdown();
 }

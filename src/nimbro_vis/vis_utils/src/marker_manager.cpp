@@ -23,7 +23,7 @@ const std::string MarkerManager::DEFAULT_TOPICNAME = "~vis_marker_array";
 const std::string GenMarker::DEFAULT_MARKER_NAMESPACE = "~";
 
 // Constructor
-GenMarker::GenMarker(MarkerManager* MM, const std::string& frameID, const std::string& markerNamespace) : MM(MM)
+GenMarker::GenMarker(MarkerManager* MM, const std::string& frameID, const std::string& markerNamespace, bool dynamic) : MM(MM), dynamic(dynamic)
 {
 	// Refine the marker namespace
 	std::string ns = markerNamespace;
@@ -35,7 +35,7 @@ GenMarker::GenMarker(MarkerManager* MM, const std::string& frameID, const std::s
 	setFrameID(frameID);
 	marker.header.stamp = MM->m_stamp;
 	marker.ns = ns;
-	marker.id = MM->getUniqueID();
+	marker.id = (dynamic ? -1 : MM->getUniqueID());
 	marker.action = visualization_msgs::Marker::MODIFY; // Equivalent to ADD...
 	setType(visualization_msgs::Marker::SPHERE); // Sphere by default (instead of arrow by default, as the Marker implementation specifies)
 
@@ -49,7 +49,7 @@ GenMarker::GenMarker(MarkerManager* MM, const std::string& frameID, const std::s
 }
 
 // Update function
-void GenMarker::update()
+void GenMarker::updateAdd()
 {
 	// Add the marker to the owning MarkerManager's marker array if it is going to be published in this step
 	if(MM->willPublish())
@@ -57,5 +57,22 @@ void GenMarker::update()
 		// <-- In update() overloads, set any additional marker properties here
 		MM->add(this);
 	}
+}
+
+// Update a dynamic marker
+void MarkerManager::updateDynamicMarker(int index, vis_utils::GenMarker& marker)
+{
+	// Set the ID and namespace of the marker
+	IndexMap::const_iterator it = m_dynamicMap.find(index);
+	if(it == m_dynamicMap.end())
+	{
+		newDynamicMarker(index);
+		marker.marker.id = m_dynamicMap[index];
+	}
+	else
+		marker.marker.id = it->second;
+
+	// Add the marker for publishing in this cycle
+	marker.updateAdd();
 }
 // EOF

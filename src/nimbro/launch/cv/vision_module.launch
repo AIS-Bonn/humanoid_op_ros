@@ -1,5 +1,8 @@
 <launch>
-     <param name="use_sim_time" value="false" />
-	<node pkg="vision_module" name="vision_module_node" type="vision_module_node" output="screen" args=""/>
-	<node pkg="vision_module" name="watch_vision_node" type="watch_vision.py" output="log" args=""/>
+    <param name="/use_sim_time" value="false" />
+	<node pkg="vision_module" name="vision_module_node" type="vision_module_node" output="screen" args="" respawn="false">
+			<param name="cameraDev" value="/dev/eyeRight" />
+			<param name="config_server/wait_duration" value="-1" />
+	</node>
+	<node pkg="vision_module" name="watch_vision_node" type="watch_vision.py" output="screen" args="" respawn="false"/>
 </launch>

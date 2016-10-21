@@ -6,11 +6,21 @@ This page documents the installation process required for the igus Humanoid Open
 Dependencies
 ------------
 
-* Ubuntu 14.04 (anything else and you are on your own)
+* Ubuntu 14.04 LTS (anything else and you are on your own)
+
+* Suggested kernel: Xenial Xerus
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo apt-get install linux-generic-lts-xenial
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * [ROS Indigo](http://www.ros.org/wiki/indigo/Installation/Ubuntu):
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net --recv-key 0xB01FA116
+sudo apt-get update
 sudo apt-get install ros-indigo-desktop-full
+sudo rosdep init
+rosdep update
 sudo apt-get install ros-indigo-rqt-rviz
 sudo apt-get install ros-indigo-joy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -35,7 +45,7 @@ sudo apt-get install ros-indigo-rqt-controller-manager
 
 * Vision packages:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
-sudo apt-get install v4l-utils
+sudo apt-get install v4l-utils v4l2ucp v4l-conf
 sudo add-apt-repository ppa:pj-assis/ppa
 sudo apt-get update
 sudo apt-get install guvcview
@@ -43,10 +53,40 @@ sudo apt-get install guvcview
 
 * Python dependencies:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo apt-get install sshpass
 sudo apt-get install python-pip python-dev build-essential
 sudo pip install --upgrade pip
 sudo pip install --upgrade virtualenv
+sudo pip install --upgrade --no-deps --force-reinstall pexpect
 sudo pip install termcolor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ncurses Library: 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo apt-get install libncurses5-dev
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* x264 Library: 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo apt-get install libx264-dev
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* GCC ARM Compiler: 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo apt-get install gcc-arm-none-eabi
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Doxygen Documentation System:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo apt-get install doxygen
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Utilities (optional, choose relevant ones):
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo apt-get install curl tshark ssh screen
+sudo apt-get install git git-gui gitk qgit
+sudo apt-get install joe vim nano kwrite kdiff3 colordiff kompare
+sudo apt-get install gdb valgrind tree htop
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Installation
@@ -55,34 +95,52 @@ Installation
 Place the following into your `.bashrc`:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
 source /opt/ros/indigo/setup.bash
-source /path/to/src/nimbro/scripts/env.sh
+source ~/NimbRo-OP/src/nimbro/scripts/env.sh # Or alternate path
 
 export NIMBRO_ROBOT_TYPE=P1
-export NIMBRO_ROBOT_NAME=xs4
+export NIMBRO_ROBOT_NAME=xs0
 export NIMBRO_ROBOT_VARIANT=nimbro_op_hull
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Clone our repository:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
-cd ~ # Or another path without spaces can be taken
-git clone https://github.com/AIS-Bonn/humanoid_op_ros humanoid_op_ros
+git clone https://github.com/AIS-Bonn/humanoid_op_ros ~/NimbRo-OP
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 System setup
 ------------
 
-The robotcontrol node needs realtime permissions to run reliably. Furthermore, you need to setup
-udev rules for the devices we use. There is a shell script that does the required system setup,
-but it is recommended that you perform the required actions manually yourself and just use the
-shell script as a guide.
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
-nimbro/scripts/system_setup.sh
+The robotcontrol node needs realtime permissions to run reliably. Create a file
+`/etc/security/limits.d/nimbro.conf` with contents (replace USER with your username):
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*    hard rtprio 0
+*    soft rtprio 0
+USER hard rtprio 20
+USER soft rtprio 20
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You will need to log out and in again to load the security settings.
 Alternatively, you can use the following to emulate the login:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
 sudo -i -u user
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to set up udev rules for devices you want to use, then refer to:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/nimbro/scripts/set_camera.py
+src/nimbro/scripts/set_cm7X0.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For installation and deployment of the required files to the robots, a special installation folder is required:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo mkdir -p /nimbro
+sudo chown $USER /nimbro
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A logging and backup directory is also required:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo mkdir -p /var/log/nimbro
+sudo chmod 777 /var/log/nimbro
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For everything to work properly you may also need to modify the first two lines of

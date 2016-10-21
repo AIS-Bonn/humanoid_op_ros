@@ -1,0 +1,10 @@
+int8 type  # 0 = Clear / 1 = Calculate pose ball targets / 2 = Calculate compass ball targets
+bool playOnYellow
+float32 ballXMin
+float32 ballXMax
+uint8 ballXNum
+float32 ballYMin
+float32 ballYMax
+uint8 ballYNum
+float32 compassHeading
+---

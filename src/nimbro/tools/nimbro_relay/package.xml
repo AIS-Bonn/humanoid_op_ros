@@ -1,0 +1,29 @@
+<package>
+  <name>nimbro_relay</name>
+  <version>0.0.1</version>
+  <description>
+	It is a modified version of https://github.com/ros/ros_comm/
+    Nimbro relay which keeps publishing even if bag stoped
+  </description>
+  <maintainer email="farazi@ais.uni-bonn.de">Hafez Farazi</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend version_gte="0.5.78">catkin</buildtool_depend>
+
+  <build_depend>cpp_common</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>rosconsole</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>rostest</build_depend>
+  <build_depend>rostime</build_depend>
+  <build_depend>rosunit</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>xmlrpcpp</build_depend>
+
+  <run_depend>message_runtime</run_depend>
+  <run_depend>rosconsole</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>rostime</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>xmlrpcpp</run_depend>
+</package>

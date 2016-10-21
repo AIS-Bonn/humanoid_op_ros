@@ -26,15 +26,15 @@ DummyInterface::DummyInterface()
  , m_addDelay(CONFIG_PARAM_PATH + "addDelay", true)
  , m_noiseEnable(CONFIG_PARAM_PATH + "noise/enabled", true)
  , m_noiseMagnitude(CONFIG_PARAM_PATH + "noise/magnitude", 0.0, 0.0002, 0.04, 0.002)
- , m_fakeIMUGyroX(CONFIG_PARAM_PATH + "fakeIMU/gyroX", -2.0, 0.05, 2.0, 0.0)
- , m_fakeIMUGyroY(CONFIG_PARAM_PATH + "fakeIMU/gyroY", -2.0, 0.05, 2.0, 0.0)
- , m_fakeIMUGyroZ(CONFIG_PARAM_PATH + "fakeIMU/gyroZ", -2.0, 0.05, 2.0, 0.0)
+ , m_fakeIMUGyroX(CONFIG_PARAM_PATH + "fakeIMU/gyroX", -2.0, 0.02, 2.0, 0.0)
+ , m_fakeIMUGyroY(CONFIG_PARAM_PATH + "fakeIMU/gyroY", -2.0, 0.02, 2.0, 0.0)
+ , m_fakeIMUGyroZ(CONFIG_PARAM_PATH + "fakeIMU/gyroZ", -2.0, 0.02, 2.0, 0.0)
  , m_fakeIMUAccX(CONFIG_PARAM_PATH + "fakeIMU/accX", -20.0, 0.2, 20.0, 0.0)
  , m_fakeIMUAccY(CONFIG_PARAM_PATH + "fakeIMU/accY", -20.0, 0.2, 20.0, 0.0)
  , m_fakeIMUAccZ(CONFIG_PARAM_PATH + "fakeIMU/accZ", -20.0, 0.2, 20.0, 9.81)
- , m_fakeIMUMagX(CONFIG_PARAM_PATH + "fakeIMU/magX", -2.0, 0.05, 20.0, 0.5)
- , m_fakeIMUMagY(CONFIG_PARAM_PATH + "fakeIMU/magY", -2.0, 0.05, 20.0, 0.0)
- , m_fakeIMUMagZ(CONFIG_PARAM_PATH + "fakeIMU/magZ", -2.0, 0.05, 20.0, 0.0)
+ , m_fakeIMUMagX(CONFIG_PARAM_PATH + "fakeIMU/magX", -2.0, 0.02, 2.0, 0.5)
+ , m_fakeIMUMagY(CONFIG_PARAM_PATH + "fakeIMU/magY", -2.0, 0.02, 2.0, 0.0)
+ , m_fakeIMUMagZ(CONFIG_PARAM_PATH + "fakeIMU/magZ", -2.0, 0.02, 2.0, 0.0)
  , m_fakeAttFusedX(CONFIG_PARAM_PATH + "fakeAttitude/fusedX", -M_PI_2, 0.01, M_PI_2, 0.0)
  , m_fakeAttFusedY(CONFIG_PARAM_PATH + "fakeAttitude/fusedY", -M_PI_2, 0.01, M_PI_2, 0.0)
  , m_dataBuf(5) // Note: This is the size of the circular data buffer, which determines the delay (number of cycles) introduced by the dummy
@@ -53,9 +53,10 @@ bool DummyInterface::init(RobotModel* model)
 
 void DummyInterface::getDiagnostics(robotcontrol::DiagnosticsPtr ptr)
 {
-	ptr->header.stamp = ros::Time::now();
 	ptr->batteryVoltage = 14.0;
 	ptr->servoTemperature = 30.0;
+	ptr->commsOk = true;
+	ptr->servos.clear();
 }
 
 boost::shared_ptr< Joint > DummyInterface::createJoint(const std::string& name)
@@ -104,6 +105,7 @@ bool DummyInterface::readJointStates()
 	m_model->setAccelerationVector(acc);
 	m_model->setMagneticFieldVector(mag);
 	m_model->setRobotAngularVelocity(gyro);
+	m_model->setTemperature(35.0);
 
 	// Return success
 	return true;

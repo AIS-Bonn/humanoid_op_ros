@@ -59,15 +59,10 @@ public:
 
 	//! Initialization
 	bool init();
+	void deinit();
 
 	//! One step of the real-time loop
 	void step();
-
-	//!@name External subscriptions
-	//@{
-	void handleJointStateCommand(const sensor_msgs::JointStatePtr& cmd);
-	void handleRawJointCommand(const sensor_msgs::JointStatePtr& cmd);
-	//@}
 
 	//! Send a diagnostics message including e.g. battery information
 	void sendDiagnostics(const ros::TimerEvent&);
@@ -77,12 +72,9 @@ public:
 
 	void setTimerDuration(float sec) { m_robotModel.setTimerDuration(sec); }
 
-	boost::shared_ptr<HardwareInterface> hardwareInterface()
-	{ return m_hw; }
-private:
-	//! Helper for handling joint state messages
-	void doHandleJSCommand(const sensor_msgs::JointStatePtr& cmd, bool raw = false);
+	boost::shared_ptr<HardwareInterface> hardwareInterface() { return m_hw; }
 
+private:
 	//! Initialize the motion modules
 	bool initModules();
 

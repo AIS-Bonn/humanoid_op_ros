@@ -129,7 +129,7 @@
    <item>
     <widget class="QLabel" name="label">
      <property name="text">
-       <string>Mouse: L = Set cursor/Pan, M = Reset view, R = Unset cursor/Vert Scale, Shift+L/M/R = Set/unset range, A: Step bwd, S: Step fwd, D: Data points</string>
+       <string>Mouse: {L = Set cursor/Pan, M = Reset view, R = Unset cursor/Vert Scale, Shift+L/M/R = Set/unset range}, A: Step bwd, S: Step fwd, D: Data points</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>

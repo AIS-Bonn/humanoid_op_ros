@@ -1,0 +1,12 @@
+<library path="lib/libcontrol_widget">
+	<class name="control_widget/ControlWidget" type="control_widget::ControlWidget" base_class_type="rqt_gui_cpp::Plugin">
+		<description>
+			Widget to execute servise calls
+		</description>
+		<qtgui>
+			<label>Control Widget</label>
+			<icon type="theme">hwinfo</icon>
+			<statustip>tip</statustip>
+		</qtgui>
+	</class>
+</library>

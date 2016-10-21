@@ -9,10 +9,13 @@
 #include <vision_module/Vision.hpp>
 #include <vision_module/Tools/VisoinRate.hpp>
 #include <vision_module/Tools/General.hpp>
-#include <vision_module/Tools/ObjectContainer.hpp>
 #include <vision_module/Tools/LineSegmentTester.hpp>
 #include <vision_module/Tools/ContourTester.hpp>
 #include <math.h>
 #include <vision_module/Tools/General.hpp>
+#include <vision_module/Tools/VisionTimer.hpp>
+#include <vision_module/Tools/LinearInterpolator.hpp>
 #include <vision_module/Projections/DistortionModel.hpp>
+#include <nimbro_op_interface/Buzzer.h>
+#include <walk_and_kick/BehaviourState.h>
 int main(int,char**);

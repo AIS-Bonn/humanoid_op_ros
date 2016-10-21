@@ -20,14 +20,6 @@ The igus Humanoid Open Platform ROS soccer package is detailed in the following 
 > igus Humanoid Open Platform," in _Proceedings of the 15th IEEE-RAS Int.
 > Conference on Humanoid Robots (Humanoids)_, Seoul, Korea, 2015.
 
-With the foundations being laid (for a previous generation of the release) by the paper:
-
-> P. Allgeuer, M. Schwarz, J. Pastrana, S. Schueller, M. Missura, and
-> S. Behnke, “A ROS-based software framework for the NimbRo-OP
-> humanoid open platform,” in _Proceedings of the 8th Workshop on
-> Humanoid Soccer Robots, IEEE-RAS Int. Conference on Humanoid
-> Robots_, Atlanta, USA, 2013.
-
 We ask you to cite this paper if you use this framework on your robot or for academic work.
 
 	@Conference{Allgeuer2015,
@@ -47,5 +39,3 @@ For more information, please refer to the following webpages:
 
 * igus Humanoid Open Platform: http://nimbro.net/OP
 * Autonomous Intelligent Systems: http://ais.uni-bonn.de
-
-@defgroup nodes List of Documented Nodes

@@ -16,6 +16,7 @@
 #include <config_server/Save.h>
 #include <config_server/Load.h>
 #include <config_server/ShowDeadVars.h>
+#include <std_msgs/Time.h>
 
 namespace YAML { class Node; }
 
@@ -26,6 +27,11 @@ struct Parameter
 {
 	ParameterDescription desc;
 	std::string value;
+
+	// Do we already have a value for this parameter?
+	// This may be false if we just have subscribers who
+	// are interested in updates.
+	bool hasValue;
 
 	pthread_mutex_t mutex;
 	std::vector<std::string> subscribers;
@@ -39,11 +45,12 @@ public:
 	ConfigServer();
 	virtual ~ConfigServer();
 
-	bool handleSave(SaveRequest& req, SaveResponse& resp);
+	void finalise();
 
-	bool load(const std::string& filename);
-	bool handleLoad(LoadRequest& req, LoadResponse& resp);
 private:
+	static const std::string fileExtension;
+	static const std::string defaultBackupDir;
+
 	typedef std::map<std::string, Parameter> ParameterMap;
 	ParameterMap m_params;
 
@@ -55,9 +62,16 @@ private:
 	ros::ServiceServer m_srv_showDeadVars;
 	ros::Publisher m_pub_paramList;
 	ros::Publisher m_pub_currentValues;
+	ros::Publisher m_pub_uid;
+	ros::Publisher m_pub_loadTime;
 
 	ros::ServiceServer m_srv_save;
 	ros::ServiceServer m_srv_load;
+
+	bool load(const std::string& filename = std::string());
+
+	bool handleLoad(LoadRequest& req, LoadResponse& resp);
+	bool handleSave(SaveRequest& req, SaveResponse& resp);
 
 	bool handleSetParameter(SetParameterRequest& req, SetParameterResponse& resp);
 	bool handleGetParameter(GetParameterRequest& req, GetParameterResponse& resp);
@@ -72,16 +86,30 @@ private:
 	void planValueUpdate();
 	void updateParameterList();
 	void updateParameterValueList();
+	void updateUid();
 
 	void insertFromYAML(const YAML::Node& n, const std::string& path);
 
 	std::string defaultConfigName();
+
+	std::string m_configPath;
+	std::string m_robotName;
 
 	ros::WallTimer m_publishParamsTimer;
 	int m_publishParamsCounter;
 
 	ros::WallTimer m_publishValuesTimer;
 	int m_publishValuesCounter;
+
+	std_msgs::Time m_uid;
+
+	void initBackups();
+	bool ensureBackupDir();
+	void handleBackup();
+	std::string m_backupDir;
+	bool m_saveBackups;
+	ros::WallTimer m_backupTimer;
+	bool m_changed;
 };
 
 }

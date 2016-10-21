@@ -35,6 +35,14 @@ public:
 	virtual bool init(RobotModel* model) = 0;
 
 	/**
+	 * @brief Deinitialization
+	 * 
+	 * Do everything here that needs to be cleaned up when the hardware interface
+	 * is being decommissioned from use.
+	 **/
+	virtual void deinit() {}
+
+	/**
 	 * @brief Joint factory method
 	 *
 	 * Should create a robotcontrol::Joint object for the specified joint name.
@@ -48,6 +56,19 @@ public:
 	 * @return a robotcontrol::Joint instance
 	 **/
 	virtual boost::shared_ptr<Joint> createJoint(const std::string& name) = 0;
+
+	/**
+	 * @brief Process joint commands
+	 *
+	 * Will often not require any action from the hardware interface, but is
+	 * provided so that any required processing action for the joint commands
+	 * can be performed between when they are computed and when they are first
+	 * used (i.e. between the motion modules and the inverse dynamics). The
+	 * default implementation just returns true.
+	 *
+	 * @return true on success
+	 **/
+	virtual bool processJointCommands() { return true; }
 
 	/**
 	 * @brief Send position feedback
@@ -90,9 +111,9 @@ public:
 	 * @brief Query emergency stop state
 	 * 
 	 * If this function returns true, execution of motion modules is halted.
-	 * Note: the default implementati
+	 * Note: The default implementation returns false.
 	 **/
-	virtual bool emergencyStopActive();
+	virtual bool emergencyStopActive() { return false; }
 };
 
 }

@@ -1,0 +1,2 @@
+string sourceNode
+bool enableLogging

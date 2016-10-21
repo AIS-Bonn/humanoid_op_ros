@@ -1,0 +1,10 @@
+<launch>
+  <node name="config_server" pkg="config_server" type="config_server" output="screen" required="true">
+    <param name="config_path" value="CONFIGPATH" />
+    <param name="robot_name" value="ROBOTNAME" />
+    <param name="save_backups" value="false" />
+    <param name="backup_path" value="/tmp/config_server" />
+    <param name="max_backup_uids" value="3" />
+    <param name="backup_interval" value="60.0" />
+  </node>
+</launch>

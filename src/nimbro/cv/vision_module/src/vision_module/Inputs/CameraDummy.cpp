@@ -10,16 +10,17 @@ bool CameraDummy::InitCameraDevice(bool first)
 
 double CameraDummy::TakeCapture()
 {
-	if(capNumber <=1)
+	if(capNumber <1)
 	{
 		return -1;
 	}
 
 	if (rawImage.empty())
 	{
-		ROS_WARN_THROTTLE(10, "Failed to get capture!");
+		HAF_WARN_THROTTLE(10, "Failed to get capture!");
 		return -1;
 	}
 
-	return 1;
+	return 1; // TODO: it should correspond with gyro!
 }
+

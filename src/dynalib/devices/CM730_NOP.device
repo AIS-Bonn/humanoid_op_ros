@@ -26,11 +26,12 @@ reg 42  2 ACC_Z               signed
 reg 44  2 MAG_X               signed
 reg 46  2 MAG_Y               signed
 reg 48  2 MAG_Z               signed
-reg 50  2 ADC0_BATTERY        hidden
-reg 52  2 ADC1_MIC1           hidden
-reg 54  2 ADC2_MIC2           hidden
-reg 82  1 BUZZER_DATA         hidden
+reg 50  1 TEMPERATURE         signed
+reg 51  2 ADC0_BATTERY        hidden
+reg 53  2 ADC1_MIC1           hidden
+reg 55  2 ADC2_MIC2           hidden
 reg 83  1 BUZZER_PLAY_LENGTH  hidden
+reg 84  1 BUZZER_DATA         hidden
 reg 91  2 DXLRX_PACKET_CNT    hidden
 reg 93  2 DXLRX_OVERFLOW_CNT  
 reg 95  2 DXLRX_BUFERROR_CNT  hidden

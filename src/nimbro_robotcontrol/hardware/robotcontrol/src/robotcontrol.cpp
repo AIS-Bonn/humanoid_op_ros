@@ -10,6 +10,7 @@
 #include <sched.h>
 #include <signal.h>
 #include <sstream>
+#include <cstdlib>
 #include <sys/timerfd.h>
 
 #include <pluginlib/class_loader.h>
@@ -34,6 +35,9 @@
 
 #define IOPRIO_CLASS_SHIFT      13
 
+// Namespaces
+using namespace robotcontrol;
+
 static inline int ioprio_set(int which, int who, int ioprio)
 {
         return syscall(__NR_ioprio_set, which, who, ioprio);
@@ -57,10 +61,6 @@ enum {
         IOPRIO_WHO_USER,
 };
 
-// RobotControl namespace
-namespace robotcontrol
-{
-
 // RobotControl constructor
 RobotControl::RobotControl()
  : m_nh("~")
@@ -77,10 +77,6 @@ RobotControl::RobotControl()
  , m_plotRobotControlData("plotRobotControlData", false)
  , m_fadeInMaxDelta("fadeInMaxDelta", 0, 0.0001, 1.0, 0.005)
 {
-	// Subscribe to topics
-	m_sub_js = m_nh.subscribe("/joint_state_cmds", 1, &RobotControl::handleJointStateCommand, this);
-	m_sub_js_raw = m_nh.subscribe("raw_cmds", 1, &RobotControl::handleRawJointCommand, this);
-
 	// Advertise topics to publish on
 	m_pub_js = m_nh.advertise<sensor_msgs::JointState>("/joint_states", 10);
 	m_pub_js_cmd = m_nh.advertise<plot_msgs::JointCommand>("/joint_commands", 10);
@@ -125,6 +121,23 @@ RobotControl::RobotControl()
 // RobotControl destructor
 RobotControl::~RobotControl()
 {
+}
+
+// Deinitialise robotcontrol
+void RobotControl::deinit()
+{
+	// Stop the diagnostics timer
+	m_diagnosticsTimer.stop();
+
+	// Deinitialise the motion modules
+	for(size_t i = 0; i < m_modules.size(); i++)
+		m_modules[i]->deinit();
+
+	// Deinitialise the hardware interface
+	m_hw->deinit();
+
+	// Shut down the fade torque server
+	m_fadeTorqueServer.shutdown();
 }
 
 /**
@@ -300,9 +313,7 @@ bool RobotControl::init()
 	double defaultEffort;
 	m_nh.param("default_effort", defaultEffort, 0.2);
 	for(size_t i = 0; i < m_robotModel.numJoints(); ++i)
-	{
 		m_robotModel.joint(i)->cmd.effort = defaultEffort;
-	}
 
 	// Initialize all loaded motion modules
 	if(!initModules())
@@ -318,70 +329,6 @@ bool RobotControl::init()
 	ROS_INFO("Initialization finished.");
 
 	return true;
-}
-
-/**
- * This gets called when a JointState message arrives on the /joint_state_cmds
- * topic. This topic is mainly used for quick tests (e.g. quickly send a
- * position to a single joint) and is not recommended for real robot operation.
- *
- * Use a MotionModule instead.
- *
- * @param cmd the command in JointState format
- * @param raw set the Joint::Command::raw flag, which indicates that the servo
- *   command should not be translated by the HardwareInterface
- **/
-void RobotControl::doHandleJSCommand(const sensor_msgs::JointStatePtr& cmd, bool raw)
-{
-	for(size_t i = 0; i < cmd->name.size(); ++i)
-	{
-		boost::shared_ptr<Joint> joint = m_robotModel.getJoint(cmd->name[i]);
-		if(!joint)
-		{
-			ROS_WARN("Got joint state command for unknown joint: '%s'", cmd->name[i].c_str());
-			continue;
-		}
-
-		double pos = cmd->position[i];
-
-		// Have a quick look at the URDF limits
-		boost::shared_ptr<urdf::JointLimits> limits = joint->modelJoint->limits;
-		if(!raw && limits)
-		{
-			if(pos > limits->upper)
-			{
-				ROS_WARN("Joint '%s' is above upper limit: %5.3lf > %5.3lf",
-					joint->name.c_str(), pos, limits->upper
-				);
-				pos = limits->upper;
-			}
-			else if(pos < limits->lower)
-			{
-				ROS_WARN("Joint '%s' is below lower limit: %5.3lf < %5.3lf",
-					joint->name.c_str(), pos, limits->lower
-				);
-				pos = limits->lower;
-			}
-		}
-
-		joint->cmd.raw = raw;
-
-		// If we got velocity information, use it.
-		if(cmd->velocity.size() > i)
-			joint->cmd.setFromPosVel(m_robotModel.timerDuration(), pos, cmd->velocity[i]);
-		else
-			joint->cmd.setFromPos(m_robotModel.timerDuration(), pos);
-	}
-}
-
-void RobotControl::handleJointStateCommand(const sensor_msgs::JointStatePtr& cmd)
-{
-	doHandleJSCommand(cmd, false);
-}
-
-void RobotControl::handleRawJointCommand(const sensor_msgs::JointStatePtr& cmd)
-{
-	doHandleJSCommand(cmd, true);
 }
 
 void RobotControl::handleFadeTorque()
@@ -401,7 +348,7 @@ void RobotControl::handleFadeTorque()
 		{
 			if(!m_modules[i]->isSafeToFadeIn())
 			{
-				ROS_WARN("MotionModule '%s' prevents us from fading in...", m_modules[i]->name().c_str());
+				ROS_WARN("Motion module '%s' is preventing us from fading in...", m_modules[i]->name().c_str());
 
 				FadeTorqueResult res;
 				res.torque = m_fadeTorqueState;
@@ -471,15 +418,19 @@ void RobotControl::step()
 	// Handle torque fade requests
 	if(m_robotModel.isRelaxed())
 	{
-		ROS_WARN_THROTTLE(3.0, "RobotModel is artificially relaxed by motion module request");
+		ROS_WARN_THROTTLE(3.0, "Robot is artificially relaxed by robot model request");
 		m_hw->setStiffness(0.0);
 		m_fadeTorqueState = 0.0;
+		if(m_fadeTorqueServer.isActive())
+		{
+			ROS_INFO("Aborted fade due to robot model relax request");
+			if(m_fadeTorqueGoal->torque <= 0.5)
+				m_robotModel.setState(m_state_relaxed);
+			m_fadeTorqueServer.setAborted();
+		}
 	}
-
 	if(m_fadeTorqueServer.isActive()) // If we have a fade torque goal...
-	{
 		handleFadeTorque();
-	}
 	else if(m_fadeTorqueServer.isNewGoalAvailable())
 	{
 		m_fadeTorqueGoal = m_fadeTorqueServer.acceptNewGoal();
@@ -491,36 +442,32 @@ void RobotControl::step()
 			plotEvent("Fade out");
 	}
 
-	// Ask all loaded motion modules for their input.
-	bool triggered = false;
+	// Start the joint command update phase
+	for(size_t i = 0; i < m_robotModel.numJoints(); i++)
+		m_robotModel.joint(i)->cmd.startUpdatePhase();
+
+	// Ask all loaded motion modules for their input
 	if(!m_hw->emergencyStopActive())
 	{
 		for(size_t i = 0; i < m_modules.size(); i++)
 		{
 			if(m_modules[i]->isTriggered())
-			{
 				m_modules[i]->step();
-				triggered = true;
-			}
 		}
 	}
 	else
 	{
 		ROS_WARN_THROTTLE(1.0, "Emergency stop active! All motion stopped.");
-
 		for(size_t i = 0; i < m_modules.size(); ++i)
 			m_modules[i]->handleEmergencyStop();
 	}
 
-	// If no motion module triggered then just reassert the current position command
-	if(!triggered) // TODO: Mechanism to detect which joints were written to, to make sure that joint position reassertion is more thorough
-	{
-		for(size_t i = 0; i < m_robotModel.numJoints(); i++)
-		{
-			Joint::Ptr joint = m_robotModel.joint(i);
-			joint->cmd.setFromPos(m_robotModel.timerDuration(), joint->lastCmd.pos);
-		}
-	}
+	// Stop the joint command update phase
+	for(size_t i = 0; i < m_robotModel.numJoints(); i++)
+		m_robotModel.joint(i)->cmd.stopUpdatePhase(m_robotModel.timerDuration());
+
+	// Allow the hardware interface to process the joint commands from the motion modules
+	m_hw->processJointCommands();
 
 	// Calculate the inverse dynamics (i.e. the needed torques) on our robot model
 	m_robotModel.doInverseDynamics();
@@ -614,7 +561,7 @@ void RobotControl::publishJointStates()
 		const Joint& joint = *m_robotModel[i];
 		js->name[i] = joint.modelJoint->name.c_str();
 		js->position[i] = (m_publishCommand() ? joint.cmd.pos : joint.feedback.pos);
-		js->velocity[i] = 0.0; // TODO: Always returning zero velocity for now
+		js->velocity[i] = 0.0; // Always returning zero velocity for now
 		js->effort[i] = joint.feedback.torque;
 	}
 
@@ -713,28 +660,43 @@ void RobotControl::printJointCommands()
 	ROS_INFO("The joint commands currently being returned by the motion modules are:\n\n%s", ss.str().c_str());
 }
 
-}
-
+// Global variables
 bool g_shouldShutdown = false;
 
+// Custom SIGINT handler
 void signal_handler(int sig)
 {
+	// Signal via a global variable that the main loop should exit
 	g_shouldShutdown = true;
 }
 
+// Print time diagnostics
+void robotcontrol::RobotControl::printTimeDiagnostics()
+{
+	// Print the required diagnostics
+	ROS_INFO("Robotcontrol step timings: Motion %.6lfs, TX %.6lfs, RX %.6lfs", m_dur_motion.toSec(), m_dur_tx.toSec(), m_dur_rx.toSec());
+}
+
+// Main function
 int main(int argc, char** argv)
 {
+	// Initialise the ROS node
 	ros::init(argc, argv, "robotcontrol", ros::init_options::NoSigintHandler);
 
 	// Make sure that the timer duration is available on the config server
 	config_server::Parameter<float> duration("timerDuration", MIN_TIMER_DURATION, 0.0001, MAX_TIMER_DURATION, DEFAULT_TIMER_DURATION);
 
+	// Create an instance of the main robotcontrol class
 	robotcontrol::RobotControl ctrl;
+
+	// Seed the random number generation function drand48()
+	srand48((long int) ros::Time::now().nsec);
 
 	// Inform the internal RobotModel of the nominal loop rate
 	ROS_INFO("Using nominal loop rate of %.4fs (%.1fHz)", duration(), 1.0/duration());
 	ctrl.setTimerDuration(duration());
 
+	// Initialise the robotcontrol object
 	if(!ctrl.init())
 	{
 		ROS_ERROR("Could not initialize RobotControl");
@@ -744,7 +706,7 @@ int main(int argc, char** argv)
 	// Handle SIGINT ourselves for a clean and controlled shutdown
 	signal(SIGINT, signal_handler);
 
-	// Get realtime priority
+	// Get real-time priority
 	sched_param schedparm;
 	memset(&schedparm, 0, sizeof(schedparm));
 	schedparm.sched_priority = 1;
@@ -754,64 +716,74 @@ int main(int argc, char** argv)
 		ROS_ERROR("I'm going to run without realtime priority!");
 	}
 
-	// Set I/O priority to realtime
+	// Set I/O priority to real-time
 	ioprio_set(IOPRIO_WHO_PROCESS, getpid(), (IOPRIO_CLASS_RT << 13) | 0);
 
+	// Configure the motion timer for the required nominal loop rate
 	MotionTimer timer(duration());
 	ros::Rate rate = ros::Rate(1.0 / duration());
 
+	// Initialise variables
 	config_server::Parameter<bool> pause("pause", false);
 	bool use_sim_time = ros::Time::isSimTime();
 
+	// Timing variables
 	ros::WallTime checkpointA, checkpointB, checkpointC;
 	double TimeAB = -1.0, TimeBC = -1.0, TimeCA = -1.0;
 
+	// Main robotcontrol loop
 	while(!g_shouldShutdown)
 	{
+		// Checkpoint A: Between step execution and ROS spin
 		checkpointA = ros::WallTime::now();
 		TimeCA = (checkpointA - checkpointC).toSec();
 
-		ros::spinOnce(); // Do all ROS callbacks before sleeping, so the next step() iteration starts right after the next timer tick
+		// Handle ROS callbacks (Note: We do all ROS callbacks before sleeping, so that the next step() iteration starts right after the next timer tick)
+		ros::spinOnce();
 
+		// Checkpoint B: Between ROS spin and sleeping
 		checkpointB = ros::WallTime::now();
 		TimeAB = (checkpointB - checkpointA).toSec();
 
+		// Sleep for the required duration
 		uint64_t expirations = 0;
 		if(use_sim_time)
 			rate.sleep();
 		else
 			expirations = timer.sleep();
 
+		// Checkpoint C: Between sleeping and step execution
 		checkpointC = ros::WallTime::now();
 		TimeBC = (checkpointC - checkpointB).toSec();
 
-		if(expirations > 1)
+		// Handle case of missed timer cycles
+		if(expirations > 2)
 		{
-			if(expirations > 2)
+			ctrl.printTimeDiagnostics();
+			ROS_WARN("Missed %u timer cycles: Step %.6lfs -> Spin %.6lfs -> Sleep %.6lfs -> Now (%.3f)", (unsigned int) expirations-1, TimeCA, TimeAB, TimeBC, checkpointC.toSec());
+			if(expirations >= 6)
 			{
-				ctrl.printTimeDiagnostics();
-				ROS_WARN("Missed %u timer cycles: Step %.6lfs -> Spin %.6lfs -> Sleep %.6lfs -> Now (%.3f)", (unsigned int) expirations-1, TimeCA, TimeAB, TimeBC, checkpointC.toSec());
-				if(expirations >= 6)
-				{
-					std::ostringstream ss;
-					ss << "Missed " << expirations-1 << " cycles";
-					ctrl.plotEvent(ss.str());
-					ctrl.plotEvent("Missed cycles"); // Trigger an event with a common name so that all cycle misses can be viewed in a single plot event topic
-				}
+				std::ostringstream ss;
+				ss << "Missed " << expirations-1 << " cycles";
+				ctrl.plotEvent(ss.str());
+				ctrl.plotEvent("Missed cycles"); // Trigger an event with a common name so that all cycle misses can be viewed in a single plot event topic
 			}
-			else
-				ROS_INFO_THROTTLE(0.1, "Missed a timer cycle: Step %.6lfs -> Spin %.6lfs -> Sleep %.6lfs -> Now (%.3f)", TimeCA, TimeAB, TimeBC, checkpointC.toSec());
 		}
+		else if(expirations > 1)
+			ROS_INFO_THROTTLE(10.0, "Missed a timer cycle: Step %.6lfs -> Spin %.6lfs -> Sleep %.6lfs -> Now (%.3f)", TimeCA, TimeAB, TimeBC, checkpointC.toSec());
 
+		// Execute a step of robotcontrol
 		if(!pause())
 			ctrl.step();
 	}
 
-	return 0;
-}
+	// Deinitialise the robotcontrol object
+	ctrl.deinit();
 
-void robotcontrol::RobotControl::printTimeDiagnostics()
-{
-	ROS_INFO("Robotcontrol step timings: Motion %.6lfs, TX %.6lfs, RX %.6lfs", m_dur_motion.toSec(), m_dur_tx.toSec(), m_dur_rx.toSec());
+	// Notification that robotcontrol is shutting down
+	ROS_INFO("Robotcontrol is exiting cleanly...");
+
+	// Return success
+	return 0;
 }
 // EOF

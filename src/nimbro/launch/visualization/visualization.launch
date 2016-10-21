@@ -1,10 +1,22 @@
-<launch>
-	<node name="tw" pkg="timewarp" type="timewarp" output="screen" />
+<launch rosmon-name="rosmon_visualization">
+	<include file="$(find launch)/config/robot_param.launch" />
 
 	<param name="/vis/use_sim_time" value="true" />
+	
+	<param name="/vis/button_name" value="Retrieve" />
+	<param name="/vis/custom_command" value="xterm -e bash -i -c 'nimbro config retrieve ^^/robot_name$$.local; bash'" />
 
-	<env name="ROS_NAMESPACE" value="vis" />
-	<env name="ROS_ARGUMENTS" value="/tf:=/vis/tf /use_sim_time:=/vis/use_sim_time /clock:=/vis/clock /joint_states:=/vis/joint_states" />
+	<node name="tw" pkg="timewarp" type="timewarp" output="screen">
+<rosparam>
+extra_topics:
+  - /vision/webImg
+  - /vision/takenImg
+</rosparam>
+	</node>
 
-	<node name="rqt" pkg="rqt_gui" type="rqt_gui" required="true" respawn="false" output="screen" />
+	<arg name="pname" default="." />
+	<node name="rqt_base" pkg="launch" type="rqt_base.sh" required="true" respawn="false" args="$(arg pname)" output="screen">
+		<env name="ROS_NAMESPACE" value="vis" />
+		<env name="ROS_ARGUMENTS" value="/tf:=/vis/tf /use_sim_time:=/vis/use_sim_time /joint_states:=/vis/joint_states /clock:=/vis/clock" />
+	</node>
 </launch>

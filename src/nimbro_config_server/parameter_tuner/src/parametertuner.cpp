@@ -1,8 +1,14 @@
 //rqt plugin for tuning parameters
 //Author: Sebastian Schüller
 
+#include <QMouseEvent>
+#include <QFileDialog>
+
+#include <stdlib.h>
+
 #include <pluginlib/class_list_macros.h>
 #include <boost/iterator/iterator_concepts.hpp>
+#include <boost/thread.hpp>
 
 #include <config_server/Save.h>
 #include <config_server/Load.h>
@@ -10,9 +16,8 @@
 
 #include <ros/this_node.h>
 
-#include "parametertuner.h"
-#include "parameteritem.h"
-
+#include <parameter_tuner/parametertuner.h>
+#include <parameter_tuner/parameteritem.h>
 
 namespace parametertuner
 {
@@ -42,10 +47,15 @@ void Parametertuner::initPlugin(qt_gui_cpp::PluginContext& context)
 	m_ui.setupUi(w);
 	
 	qRegisterMetaType<std::string>("std::string");
+	
+	m_ui.reset_button->installEventFilter(this);
 
 	connect(m_ui.joystick_button, SIGNAL(toggled(bool)), this, SLOT(handleJoystickButton()));
 	connect(m_ui.reset_button, SIGNAL(clicked(bool)), this, SLOT(reset()));
 	connect(m_ui.save_button, SIGNAL(clicked(bool)), this, SLOT(save()));
+	
+	connect(m_ui.searchButton, SIGNAL(clicked(bool)), this, SLOT(handleSearchClicked()));
+	connect(m_ui.searchInput, SIGNAL(returnPressed()), this, SLOT(handleEnterPressed()));
 
 	connect(this, SIGNAL(updateRequested()), this, SLOT(update()), Qt::QueuedConnection);
 	m_sub_paramList = getNodeHandle().subscribe("/config_server/parameter_list", 1, &Parametertuner::handleList, this);
@@ -60,14 +70,301 @@ void Parametertuner::initPlugin(qt_gui_cpp::PluginContext& context)
 
 	context.addWidget(w);
 	
+	isSearchTurn = true;
+	
 	m_updateCounter = 0;
-	m_updateTimer = m_nh.createWallTimer(ros::WallDuration(1.0), boost::bind(&Parametertuner::handleUpdateTimer, this), true, false);
+	m_updateTimer = m_nh.createWallTimer(ros::WallDuration(0.6), boost::bind(&Parametertuner::handleUpdateTimer, this), true, false);
+
+	// Init custom command button
+	std::string button_name;
+	
+	if(!m_nh.getParam("/vis/button_name", button_name))
+		ROS_ERROR("Failed to get param '/vis/button_name'");
+	else
+		m_ui.custom_command_button->setText(QString::fromStdString(button_name));
+	
+	parseCustomCommand();
+	
+	connect(m_ui.custom_command_button, SIGNAL(clicked(bool)), this, SLOT(customButtonClicked()));
+}
+
+void Parametertuner::parseCustomCommand()
+{
+	std::string command_raw;
+	
+	if(!m_nh.getParam("/vis/custom_command", command_raw))
+	{
+		ROS_ERROR("Failed to get param '/vis/custom_command'");
+		return;
+	}
+	
+	// Parse parameters
+	const std::string start_symbol = "^^";
+	const std::string end_symbol = "$$";
+	
+	size_t start_pos = command_raw.find(start_symbol);
+	size_t end_pos = command_raw.find(end_symbol);
+	
+	int length;
+	std::string param_name;
+	std::string param_value;
+	
+	while(start_pos != std::string::npos && end_pos != std::string::npos)
+	{
+		if(start_pos+2 >= command_raw.length() || (start_pos > end_pos))
+		{
+			ROS_ERROR("Bad '/vis/custom_command'");
+			return;
+		}
+		
+		length = end_pos - start_pos - 2;
+		param_name = command_raw.substr(start_pos+2, length);
+		command_raw.erase(start_pos, length+4);
+		
+		// Try get param
+		if(!m_nh.getParam(param_name, param_value))
+		{
+			ROS_ERROR("Failed to get param '%s'", param_name.c_str());
+			return;
+		}
+		
+		// Inser param value
+		command_raw.insert(start_pos, param_value);
+		
+		start_pos = command_raw.find(start_symbol);
+		end_pos = command_raw.find(end_symbol);
+	}
+
+	m_custom_command = command_raw;
 }
 
 void Parametertuner::shutdownPlugin()
 {
+	m_updateTimer.stop();
 	m_sub_joystick.shutdown();
 	m_sub_paramList.shutdown();
+}
+
+void Parametertuner::handleSearchClicked()
+{
+	if(isSearchTurn == true)
+	{
+		isSearchTurn = false;
+		
+		if(m_ui.searchInput->text().isEmpty())
+		{
+			m_ui.searchButton->setText("0 items");
+			return;
+		}
+		
+		search(m_ui.searchInput->text());
+		m_ui.searchButton->setText(QString::number(m_items_found.size()) + " items");
+	}
+	else
+	{
+		isSearchTurn = true;
+		
+		m_ui.searchButton->setText("Search");
+		unsearch();
+	}
+}
+
+void Parametertuner::handleEnterPressed()
+{
+	m_ui.searchButton->click();
+}
+
+void Parametertuner::unsearch()
+{
+	// Collapse items which were found
+	for(int i = 0; i < m_items_found.size(); i++)
+		expandCollapseParents(m_items_found.at(i), false);
+	
+	// Clear current selection
+	m_ui.parameter_root_widget->selectionModel()->clearSelection();
+	
+	restoreExpanded_and_Selected();
+	m_items_found.clear();
+}
+
+void Parametertuner::search(QString text)
+{
+	m_items_found.clear();
+	
+	// Save current state of tree
+	saveExpanded_and_Selected(m_ui.parameter_root_widget->invisibleRootItem());
+	
+	// Clear current selection
+	m_ui.parameter_root_widget->selectionModel()->clearSelection();
+	
+	// Perform search
+	m_items_found = m_ui.parameter_root_widget->findItems(text, Qt::MatchContains | Qt::MatchRecursive);
+	
+	// Show items which were found
+	for(int i = 0; i < m_items_found.size(); i++)
+	{
+		expandCollapseParents(m_items_found.at(i), true);
+		m_items_found.at(i)->setSelected(true);
+	}
+	
+	// Scroll to first found item if exists
+	if(m_items_found.size() > 0)
+		m_ui.parameter_root_widget->scrollToItem(m_items_found.at(0));
+}
+
+void Parametertuner::saveBranches()
+{
+	QList<QTreeWidgetItem*> expanded;
+	
+	for(int i = 0; i < m_ui.parameter_root_widget->invisibleRootItem()->childCount(); i++)
+		getExpandedItems(m_ui.parameter_root_widget->invisibleRootItem()->child(i), expanded);
+	
+	for(int i = 0; i < expanded.size(); i++)
+	{
+		m_branches.push_back(QVector<SavedTreeNode>());
+		saveBranch(expanded.at(i), m_branches.last());
+	}
+}
+
+void Parametertuner::restoreBranches()
+{
+	//printf("Restore\n");
+	
+	for(int i = 0; i < m_branches.size(); i++)
+	{
+		/*printf("Branch:\n");
+		for(int j = 0; j < branches.at(i).size(); j++)
+			printf("%s\n", branches.at(i).at(j).toStdString().c_str());
+		printf("\n");*/
+		
+		QList<QTreeWidgetItem*> items;
+		items = m_ui.parameter_root_widget->findItems(m_branches.at(i).last().name, Qt::MatchContains | Qt::MatchRecursive);
+	
+		for(int j = 0; j < items.size(); j++)
+		{
+			if(checkBranch(items.at(j), m_branches.at(i), m_branches.at(i).size()-1))
+			{
+				expandCollapseParents(items.at(j), true);
+				restoreSelection(items.at(j), m_branches.at(i), m_branches.at(i).size()-1);
+			}
+		}
+	}
+}
+
+void Parametertuner::restoreSelection(QTreeWidgetItem* item, const QVector< SavedTreeNode >& branch, int index)
+{
+	if(!item)
+		return;
+
+	if(index < 0)
+		return;
+
+	item->setSelected(branch.at(index).selected);
+	restoreSelection(item->parent(), branch, --index);
+}
+
+bool Parametertuner::checkBranch(QTreeWidgetItem* item, const QVector<SavedTreeNode> &branch, int index)
+{
+	if(!item)
+		return false;
+	
+	if(index < 0)
+		return false;
+	
+	if(item->text(0) != branch.at(index).name)
+		return false;
+	
+	if(index == 0)
+		return true;
+	else
+		return checkBranch(item->parent(), branch, --index);
+}
+
+void Parametertuner::saveBranch(QTreeWidgetItem* item, QVector<SavedTreeNode> &branch)
+{
+	if(!item)
+		return;
+	
+	SavedTreeNode node;
+	node.name = item->text(0);
+	node.selected = item->isSelected();
+	
+	branch.push_front(node);
+	saveBranch(item->parent(), branch);
+}
+
+void Parametertuner::getExpandedItems(QTreeWidgetItem* item, QList<QTreeWidgetItem*> &list)
+{
+	if(!item)
+		return;
+	
+	if(item->isExpanded() == false)
+		return;
+	
+	bool noExpanded = true;
+	
+	for(int i = 0; i < item->childCount(); i++)
+	{
+		if(item->child(i)->isExpanded())
+			noExpanded = false;
+	}
+	
+	if(noExpanded)
+		list.push_back(item);
+	else
+	{
+		for(int i = 0; i < item->childCount(); i++)
+			getExpandedItems(item->child(i), list);
+	}
+}
+
+void Parametertuner::restoreExpanded_and_Selected()
+{
+	// Restore expanded items
+	for(int i = 0; i < m_items_expanded.size(); i++)
+		expandCollapseParents(m_items_expanded.at(i), true);
+	
+	// Restore selection
+	for(int i = 0; i < m_items_selected.size(); i++)
+		m_ui.parameter_root_widget->setItemSelected(m_items_selected.at(i), true);
+	
+	// Scroll to selection if exist
+	if(m_items_selected.size() > 0)
+		m_ui.parameter_root_widget->scrollToItem(m_items_selected.at(0));
+	
+	m_items_expanded.clear();
+	m_items_selected.clear();
+}
+
+void Parametertuner::saveExpanded_and_Selected(QTreeWidgetItem *item)
+{
+	if(!item)
+		return;
+	
+	if(item->isExpanded())
+		m_items_expanded.push_back(item);
+	
+	if(item->isSelected())
+		m_items_selected.push_back(item);
+	
+	for(int i = 0; i < item->childCount(); i++)
+		saveExpanded_and_Selected(item->child(i));
+}
+
+void Parametertuner::expandCollapseParents(QTreeWidgetItem *item, bool expand)
+{
+	if(!item)
+		return;
+	
+	if(expand)
+		m_ui.parameter_root_widget->expandItem(item);
+	else
+		m_ui.parameter_root_widget->collapseItem(item);
+	
+	if(item->parent() == NULL)
+		return;
+	
+	expandCollapseParents(item->parent(), expand);
 }
 
 void Parametertuner::handleList(const config_server::ParameterListConstPtr& list)
@@ -75,7 +372,7 @@ void Parametertuner::handleList(const config_server::ParameterListConstPtr& list
 	QMutexLocker locker(&m_mutex);
 	m_list = list;
 	m_updateCounter++;
-	if(m_updateCounter >= 20)
+	if(m_updateCounter >= 50)
 	{
 		emit updateRequested();
 		m_updateCounter = 0;
@@ -101,27 +398,47 @@ void Parametertuner::deleteWidget(QTreeWidgetItem* item)
 	if(w)
 		delete w;
 
+	if(!item)
+		return;
+
 	for(int i = 0; i < item->childCount(); ++i)
 		deleteWidget(item->child(i));
 }
 
 void Parametertuner::update()
 {
+	m_branches.clear();
+	
+	m_items_expanded.clear();
+	m_items_selected.clear();
+	m_items_found.clear();
+	
+	m_ui.searchButton->setText("Search");
+	isSearchTurn = true;
+	
+	// Save current state
+	saveBranches();
+	
 	deleteWidget(m_ui.parameter_root_widget->invisibleRootItem());
 	m_ui.parameter_root_widget->clear();
 
 	config_server::ParameterClient* client = config_server::ParameterClient::instance();
 
-	client->cork();
+	if(client)
+		client->cork();
 
 	QMutexLocker locker (&m_mutex);
 	for(size_t i = 0; i < m_list->parameters.size(); i++)
 	{
 		QString param = QString::fromStdString(m_list->parameters[i].name);
-		insertParameter(param, 0, m_list->parameters[i]);
+		insertParameter(param, NULL, m_list->parameters[i]);
 	}
 
-	client->uncork();
+	if(client)
+		client->uncork();
+	
+	// Restore saved state
+	restoreBranches();
 }
 
 void Parametertuner::insertParameter(QString param, QTreeWidgetItem* ancestor, const config_server::ParameterDescription& description)
@@ -136,7 +453,6 @@ void Parametertuner::insertParameter(QString param, QTreeWidgetItem* ancestor, c
 	isLeaf = strippedParam.isEmpty();
 	if (!isLeaf)
 		strippedParam = "/" + strippedParam;
-
 
 	QTreeWidgetItem* nextItem = 0;
 	if (!ancestor)
@@ -188,13 +504,13 @@ QTreeWidgetItem* Parametertuner::insertParameterNode(const config_server::Parame
 	QWidget* newWidget = 0;
 	QString type = QString::fromStdString(description.type);
 	if (type == "int")
-		newWidget = new IntParameterWidget(getNodeHandle(), description);
+		newWidget = new IntParameterWidget(newItem, getNodeHandle(), description);
 	else if (type == "string")
-		newWidget = new StringParameterWidget(getNodeHandle(), description);
+		newWidget = new StringParameterWidget(newItem, getNodeHandle(), description);
 	else if (type == "float")
-		newWidget = new FloatParameterWidget(getNodeHandle(), description);
+		newWidget = new FloatParameterWidget(newItem, getNodeHandle(), description);
 	else if (type == "bool")
-		newWidget = new BoolParameterWidget(getNodeHandle(), description);
+		newWidget = new BoolParameterWidget(newItem, getNodeHandle(), description);
 
 	if (newWidget != 0)
 		m_ui.parameter_root_widget->setItemWidget(newItem, 1, newWidget);
@@ -226,6 +542,56 @@ void Parametertuner::reset()
 		ROS_WARN("Could not call config_server service 'load'!");
 	}
 	m_ui.reset_button->setText("Reset Config");
+}
+
+void Parametertuner::load(std::string path)
+{
+	config_server::Load srv;
+	srv.request.filename = path;
+
+	if(!ros::service::call("/config_server/load", srv))
+	{
+		m_ui.reset_button->setText("Load Failed");
+		ROS_WARN("Could not call config_server service 'load'!");
+	}
+	m_ui.reset_button->setText("Reset Config");
+}
+
+// Propose to choose file (only if 'ROS_MASTER_URI' env var is 'localhost') to open and try load it
+void Parametertuner::handleResetRightClick()
+{
+	// Check 'ROS_MASTER_URI' env var
+	char* ros_master_uri;
+	ros_master_uri = getenv("ROS_MASTER_URI");
+	
+	if(ros_master_uri == NULL)
+	{
+		ROS_WARN("Failed to get env var ROS_MASTER_URI");
+		return;
+	}
+	
+	if(strcmp(ros_master_uri, "http://localhost:11311") != 0)
+	{
+		ROS_WARN("Env var ROS_MASTER_URI != 'http://localhost:11311'. Can't load config");
+		return;
+	}
+	
+	// Try get path to currently opened config
+	QString dir("/");
+	std::string path_to_config;
+	
+	if(m_nh.getParam("/config_server/config_path", path_to_config))
+		dir = QString::fromStdString(path_to_config);
+	else
+		ROS_WARN("Failed to get param '/config_server/config_path'");
+	
+	// Get path of file to load
+    QString path = QFileDialog::getOpenFileName(0, tr("Load config"), dir, QString("*.yaml"));
+	
+	if(path.isEmpty())
+		return;
+	
+	load(path.toStdString());
 }
 
 void Parametertuner::handleJoystickButton()
@@ -276,6 +642,8 @@ void Parametertuner::handleJoystickInput(const sensor_msgs::JoyConstPtr& joy)
 // Get the parent of a tree item, including if it is a top level or root item already
 QTreeWidgetItem* Parametertuner::itemGetParent(const QTreeWidgetItem* item)
 {
+	if(!item)
+		return m_ui.parameter_root_widget->invisibleRootItem();
 	QTreeWidgetItem* parentItem = item->parent();
 	if(!parentItem)
 		parentItem = m_ui.parameter_root_widget->invisibleRootItem();
@@ -285,6 +653,9 @@ QTreeWidgetItem* Parametertuner::itemGetParent(const QTreeWidgetItem* item)
 // Get whether an item has a parent tree item (i.e. is not top level or root)
 bool Parametertuner::itemHasParent(const QTreeWidgetItem* item)
 {
+	if(!item)
+		return false;
+	
 	// If an item has no parent then NULL is returned, evaluating to a return value of false...
 	return item->parent();
 }
@@ -320,6 +691,8 @@ void Parametertuner::moveSelection(int dir)
 	{
 		// Go to the previous item in the tree
 		parentItem = itemGetParent(thisItem);
+		if(!parentItem)
+			return;
 		itemIndex = parentItem->indexOfChild(thisItem);
 		tmpItem = parentItem->child(itemIndex + UP);
 		if(tmpItem)
@@ -353,6 +726,8 @@ void Parametertuner::moveSelection(int dir)
 		while(true)
 		{
 			parentItem = itemGetParent(item);
+			if(!parentItem)
+				return;
 			itemIndex = parentItem->indexOfChild(item);
 			tmpItem = parentItem->child(itemIndex + DOWN);
 			if(tmpItem)
@@ -411,9 +786,9 @@ void Parametertuner::changeValue(int dir)
 		return;
 
 	if (dir == LEFT)
-		param->DecValue();
+		param->decValue();
 	else
-		param->IncValue();
+		param->incValue();
 }
 
 void Parametertuner::handleExpansion(int dir)
@@ -443,6 +818,31 @@ void Parametertuner::handleExpansion(int dir)
 		// Done
 		return;
 	}
+}
+
+int execute_command(const std::string command)
+{
+	return system(command.c_str());
+}
+
+void Parametertuner::customButtonClicked()
+{
+	parseCustomCommand();
+	ROS_INFO("Will execute: %s", m_custom_command.c_str());
+	boost::thread(execute_command, m_custom_command);
+}
+
+bool Parametertuner::eventFilter(QObject* obj, QEvent* event)
+{
+	if (obj == m_ui.reset_button && event->type() == QEvent::MouseButtonRelease)
+    {
+		QMouseEvent *mouse_event = (QMouseEvent*)event;
+		
+		if(mouse_event->button() == Qt::RightButton)
+			handleResetRightClick();
+    }
+	
+	return QObject::eventFilter(obj, event);
 }
 
 }

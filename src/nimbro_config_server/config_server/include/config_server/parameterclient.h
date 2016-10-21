@@ -7,13 +7,15 @@
 #include <config_server/SetParameter.h>
 #include <config_server/ParameterDescription.h>
 #include <config_server/SubscribeList.h>
+#include <std_msgs/Time.h>
 
 #include <map>
 #include <string>
 
-#include <ros/service_server.h>
 #include <ros/timer.h>
+#include <ros/subscriber.h>
 #include <ros/node_handle.h>
+#include <ros/service_server.h>
 
 #include <boost/thread/recursive_mutex.hpp>
 
@@ -30,6 +32,7 @@ public:
 
 	void registerParameter(ParameterBase* param, const ParameterDescription& desc);
 	void unregisterParameter(ParameterBase* param);
+	void registerAllParametersAgain();
 
 	void notify(ParameterBase* param, const std::string& value);
 
@@ -37,10 +40,13 @@ public:
 	void uncork();
 
 	void sync();
+
+	ros::Time serverUid() const { return m_serverUid; }
+
 private:
 	ParameterClient();
 	ParameterClient(ros::NodeHandle& nh);
-	~ParameterClient();
+	virtual ~ParameterClient();
 
 	void init(ros::NodeHandle& nh);
 
@@ -53,6 +59,12 @@ private:
 
 	ros::ServiceServer m_srv;
 	std::string m_srv_name;
+
+	ros::Time m_serverUid;
+	ros::Subscriber m_sub_serverUid;
+	void handleUid(const std_msgs::TimeConstPtr& msg);
+	ros::Time m_registeredUid;
+	bool m_haveUidDiscrepancy;
 
 	int m_corked;
 	config_server::SubscribeList m_subscribe;

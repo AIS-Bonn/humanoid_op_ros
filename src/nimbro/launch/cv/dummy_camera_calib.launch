@@ -1,0 +1,5 @@
+<launch>
+	<node pkg="vision_module" name="camera_calibration_node" type="camera_calibration_node" output="screen" args="dummy">
+		<param name="config_server/wait_duration" value="-1" />
+	</node>
+</launch>

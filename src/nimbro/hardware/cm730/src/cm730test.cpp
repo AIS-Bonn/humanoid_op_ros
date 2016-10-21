@@ -8,6 +8,7 @@
 #include "cm730/dynamixel.h"
 
 using namespace std;
+using namespace cm730;
 
 int main(int argc, char** argv)
 {

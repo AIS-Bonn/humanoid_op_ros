@@ -9,6 +9,7 @@
 
 #include <QLabel>
 #include <QDockWidget>
+#include <QPushButton>
 
 namespace diagnostics
 {
@@ -49,12 +50,15 @@ void Diagnostics::initPlugin(qt_gui_cpp::PluginContext& context)
 		foreach(QObject* child, titleBarWidget->children())
 		{
 			QPushButton* btn = qobject_cast<QPushButton*>(child);
-
-			// Nobody needs those buttons anyway.
-			if(btn)
+			if(btn && btn->icon().name() != "window-close")
 				btn->hide();
 		}
 	}
+}
+
+void Diagnostics::shutdownPlugin()
+{
+	m_sub_diag.shutdown();
 }
 
 void Diagnostics::handleDiagnostics(const robotcontrol::DiagnosticsPtr& diag)

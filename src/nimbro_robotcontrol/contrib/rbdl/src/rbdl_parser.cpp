@@ -48,7 +48,10 @@ static RigidBodyDynamics::Joint toRBDL(const urdf::Joint& joint)
 		case urdf::Joint::CONTINUOUS:
 		case urdf::Joint::REVOLUTE:
 			return RigidBodyDynamics::Joint(RigidBodyDynamics::JointTypeRevolute, toRBDL(joint.axis));
+		case urdf::Joint::PRISMATIC:
+			return RigidBodyDynamics::Joint(RigidBodyDynamics::JointTypePrismatic, toRBDL(joint.axis));
 		default:
+			ROS_WARN("Unknown joint type on joint '%s', using fixed joint", joint.name.c_str());
 			return RigidBodyDynamics::Joint(RigidBodyDynamics::JointTypeFixed);
 	}
 }

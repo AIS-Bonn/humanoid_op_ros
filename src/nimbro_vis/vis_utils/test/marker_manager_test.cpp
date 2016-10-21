@@ -155,7 +155,7 @@ TEST(MarkersTest, test_GenMarker)
 	MM.clear();
 	EXPECT_TRUE(MM.willPublish());
 	EXPECT_EQ(0, MM.getNumMarkers());
-	GM2.update();
+	GM2.updateAdd();
 	EXPECT_EQ(1, MM.getNumMarkers());
 	MM.publish();
 	MM.clear();
@@ -284,7 +284,7 @@ int main(int argc, char **argv)
 {
 	// Initialise ROS node
 	ros::init(argc, argv, "marker_manager_test");
-	
+
 	// Run the required tests
 	testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();

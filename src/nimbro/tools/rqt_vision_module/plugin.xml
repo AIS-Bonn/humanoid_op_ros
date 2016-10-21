@@ -1,0 +1,17 @@
+<library path="lib/librqt_vision_module">
+  <class name="rqt_vision_module/ImageView" type="rqt_vision_module::ImageView" base_class_type="rqt_gui_cpp::Plugin">
+    <description>
+      A GUI plugin for vision_module.
+    </description>
+    <qtgui>
+      <group>
+        <label>Visualization</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins related to visualization.</statustip>
+      </group>
+      <label>Vision Module</label>
+      <icon type="theme">image-x-generic</icon>
+      <statustip>A GUI plugin for vision_module.</statustip>
+    </qtgui>
+  </class>
+</library>

@@ -14,10 +14,12 @@
 // Includes - Robotcontrol
 #include <robotcontrol/hw/dynamiccommandgenerator.h>
 #include <robotcontrol/model/robotmodel.h>
-#include <robotcontrol/hw/slopelimited.h>
 
 // Includes - Packages
 #include <cm730/dynamixel.h>
+#include <rot_conv/rot_conv.h>
+#include <rc_utils/ros_time.h>
+#include <rc_utils/slopelimited.h>
 #include <nimbro_op_interface/Button.h>
 #include <servomodel/servocommandgenerator.h>
 
@@ -69,9 +71,14 @@
 #define COMMS_SUSPEND_CHECK_TIME   2.5   // Time over which to count comms suspensions for the purpose of comms suspension disabling
 #define COMMS_SUSPEND_CHECK_COUNT  4     // Number of comms suspensions required within COMMS_SUSPEND_CHECK_TIME in order to trigger comms suspension disabling
 #define COMMS_SUSPEND_RECOV_TIME   5.0   // Suspension request-free recovery time required for automatic re-enabling of comms suspensions
+#define BUTTON0_RELAX_TIME         2.0   // The time until a long press of button 0 relaxes the robot
+#define BUTTON0_UNRELAX_TIME       1.0   // The time after BUTTON0_RELAX_TIME until a continued long press of button 0 unrelaxes the robot
+#define BUTTON0_RECOVER_PERIOD     0.1   // The regular time period after BUTTON0_RELAX_TIME (inclusive) at which CM730 recovery packets are sent
+#define BUTTON1_LONG_TIME          2.0   // The time that button 1 needs to be pressed until it registers as a long press
 
 // Namespaces
 using namespace robotcontrol;
+using namespace cm730;
 
 // NimbRo-OP interface namespace
 namespace nimbro_op_interface
@@ -82,7 +89,7 @@ namespace nimbro_op_interface
  * for the joint.
  **/
 RobotInterface::DXLJoint::DXLJoint(const std::string& _name)
- : CONFIG_PARAM_PATH("nopInterface/DXLJoint/")
+ : CONFIG_PARAM_PATH("/nimbro_op_interface/DXLJoint/")
  , type(CONFIG_PARAM_PATH + "joints/" + _name + "/type", "default_type")
  , id(CONFIG_PARAM_PATH + "joints/" + _name + "/id", 1, 1, 253, 1)
  , tickOffset(CONFIG_PARAM_PATH + "offsets/" + _name, 0, 1, 4095, 2048)
@@ -101,7 +108,7 @@ RobotInterface::DXLJoint::DXLJoint(const std::string& _name)
  **/
 RobotInterface::RobotInterface()
  : m_model(NULL)
- , CONFIG_PARAM_PATH("nopInterface/")
+ , CONFIG_PARAM_PATH("/nimbro_op_interface/")
  , m_haveHardware(false)
  , m_buttonPress0(CONFIG_PARAM_PATH + "button/pressButton0", false)
  , m_buttonPress1(CONFIG_PARAM_PATH + "button/pressButton1", false)
@@ -109,30 +116,97 @@ RobotInterface::RobotInterface()
  , m_relaxed(true)
  , m_statIndex(0)
  , m_statVoltage(15.0)
+ , m_resetGyroAccOffset(CONFIG_PARAM_PATH + "imuOffsets/resetGyroAccOffset", false)
+ , m_resetMagOffset(CONFIG_PARAM_PATH + "imuOffsets/resetMagOffset", false)
+ , m_gyroAccFusedYaw(CONFIG_PARAM_PATH + "imuOffsets/gyroAccFusedYaw", -M_PI, 0.01, M_PI, 0.0)
+ , m_gyroAccTiltAngle(CONFIG_PARAM_PATH + "imuOffsets/gyroAccTiltAngle", -M_PI, 0.01, M_PI, 0.0)
+ , m_gyroAccTiltAxisAngle(CONFIG_PARAM_PATH + "imuOffsets/gyroAccTiltAxisAngle", -M_PI, 0.01, M_PI, 0.0)
+ , m_magFlip(CONFIG_PARAM_PATH + "imuOffsets/magFlip", false)
+ , m_magFusedYaw(CONFIG_PARAM_PATH + "imuOffsets/magFusedYaw", -M_PI, 0.01, M_PI, 0.0)
+ , m_magTiltAngle(CONFIG_PARAM_PATH + "imuOffsets/magTiltAngle", -M_PI, 0.01, M_PI, 0.0)
+ , m_magTiltAxisAngle(CONFIG_PARAM_PATH + "imuOffsets/magTiltAxisAngle", -M_PI, 0.01, M_PI, 0.0)
+ , m_gyroAccMaxRelAccScale(CONFIG_PARAM_PATH + "imuOffsets/calibMaxRelAccScale", 0.0, 0.01, 0.9, 0.4)
+ , m_gyroAccMinYawAgreement(CONFIG_PARAM_PATH + "imuOffsets/calibMinYawAgreement", 0.5, 0.01, 1.0, 0.8)
+ , m_imuOffsetsGACalib(false)
  , m_attEstUseFusedMethod(CONFIG_PARAM_PATH + "attEstUseFusedMethod", true)
  , m_attEstKp(CONFIG_PARAM_PATH + "attEstPIGains/Kp", 0.05, 0.01, 30.0, 2.20)
  , m_attEstTi(CONFIG_PARAM_PATH + "attEstPIGains/Ti", 0.05, 0.01, 10.0, 2.65)
  , m_attEstKpQuick(CONFIG_PARAM_PATH + "attEstPIGains/KpQuick", 0.05, 0.01, 30.0, 10.0)
  , m_attEstTiQuick(CONFIG_PARAM_PATH + "attEstPIGains/TiQuick", 0.05, 0.01, 10.0, 1.25)
+ , m_attEstKpYaw(CONFIG_PARAM_PATH + "attEstPIGains/KpYaw", 0.05, 0.01, 30.0, 2.0)
+ , m_attEstKpYawQuick(CONFIG_PARAM_PATH + "attEstPIGains/KpYawQuick", 0.05, 0.01, 30.0, 2.0)
  , m_attEstMagCalibX(CONFIG_PARAM_PATH + "attEstMagCalib/x", -1.5, 0.01, 1.5, 1.0)
  , m_attEstMagCalibY(CONFIG_PARAM_PATH + "attEstMagCalib/y", -1.5, 0.01, 1.5, 0.0)
  , m_attEstMagCalibZ(CONFIG_PARAM_PATH + "attEstMagCalib/z", -1.5, 0.01, 1.5, 0.0)
+ , m_attEstGyroBiasX(CONFIG_PARAM_PATH + "attEstGyroCalib/gyroBiasX", -0.15, 0.001, 0.15, 0.0)
+ , m_attEstGyroBiasY(CONFIG_PARAM_PATH + "attEstGyroCalib/gyroBiasY", -0.15, 0.001, 0.15, 0.0)
+ , m_attEstGyroBiasZ(CONFIG_PARAM_PATH + "attEstGyroCalib/gyroBiasZ", -0.15, 0.001, 0.15, 0.0)
+ , m_attEstGyroBiasUpdate(CONFIG_PARAM_PATH + "attEstGyroCalib/forceUpdateGyroBias", false)
+ , m_attEstGyroBiasSetFM(CONFIG_PARAM_PATH + "attEstGyroCalib/setGyroBiasFromMean", false)
+ , m_attEstGyroBiasSetFSM(CONFIG_PARAM_PATH + "attEstGyroCalib/setGyroBiasFromSmoothMean", false)
+ , m_attEstGyroBiasLast(Eigen::Vector3f::Zero())
+ , m_temperatureLowPassTs(CONFIG_PARAM_PATH + "temperature/lowPassTs", 1.0, 0.2, 20.0, 10.0)
+ , m_temperature(0.0)
+ , m_voltageLowPassTs(CONFIG_PARAM_PATH + "voltage/lowPassTs", 5.0, 1.0, 50.0, 15.0)
+ , m_voltage(0.0)
+ , m_accLowPassMeanTs(CONFIG_PARAM_PATH + "acc/lowPassMeanTs", 0.05, 0.05, 5.0, 1.0)
+ , m_accMean(Eigen::Vector3d::Zero())
+ , m_fir_accX(rc_utils::FIRFilterType::FT_AVERAGE)
+ , m_fir_accY(rc_utils::FIRFilterType::FT_AVERAGE)
+ , m_fir_accZ(rc_utils::FIRFilterType::FT_AVERAGE)
+ , m_gyroEnableAutoCalib(CONFIG_PARAM_PATH + "gyroAutoCalib/enable", false)
+ , m_gyroScaleFactorHT(CONFIG_PARAM_PATH + "gyro/scaleFactorHT", 0.5, 0.01, 2.0, 1.0)
+ , m_gyroScaleFactorLT(CONFIG_PARAM_PATH + "gyro/scaleFactorLT", 0.5, 0.01, 2.0, 1.0)
+ , m_gyroTemperatureHigh(CONFIG_PARAM_PATH + "gyro/temperatureHigh", 15.0, 0.5, 60.0, 50.0)
+ , m_gyroTemperatureLow(CONFIG_PARAM_PATH + "gyro/temperatureLow", 15.0, 0.5, 60.0, 30.0)
+ , m_gyroLowPassMeanTs(CONFIG_PARAM_PATH + "gyro/lowPassMeanTs", 0.05, 0.05, 10.0, 2.0)
+ , m_gyroLowPassMeanTsHigh(CONFIG_PARAM_PATH + "gyro/lowPassMeanTsHigh", 2.0, 0.2, 20.0, 8.0)
+ , m_gyroStabilityBound(CONFIG_PARAM_PATH + "gyroAutoCalib/stabilityBound", 0.0, 0.0005, 0.04, 0.02)
+ , m_gyroCalibFadeTimeStart(CONFIG_PARAM_PATH + "gyroAutoCalib/fadeTimeStart", 0.5, 0.05, 5.0, 1.0)
+ , m_gyroCalibFadeTimeDur(CONFIG_PARAM_PATH + "gyroAutoCalib/fadeTimeDuration", 0.5, 0.02, 3.0, 1.2)
+ , m_gyroCalibTsSlow(CONFIG_PARAM_PATH + "gyroAutoCalib/biasTsSlow", 0.1, 0.05, 5.0, 1.5)
+ , m_gyroCalibTsFast(CONFIG_PARAM_PATH + "gyroAutoCalib/biasTsFast", 0.1, 0.05, 5.0, 0.2)
+ , m_gyroMean(Eigen::Vector3d::Zero())
+ , m_gyroMeanSmooth(Eigen::Vector3d::Zero())
+ , m_gyroStableCount(0)
+ , m_gyroBiasAdjusting(false)
+ , m_gyroCalibrating(0)
+ , m_gyroCalibType(0)
+ , m_gyroCalibNumTurns(0)
+ , m_gyroCalibLoopCount(0)
+ , m_gyroCalibLoopCountFirst(0)
+ , m_gyroCalibUpdateCount(0)
+ , m_gyroCalibUpdateCountFirst(0)
+ , m_gyroCalibScaleFactor(-1.0)
+ , m_gyroCalibInitYaw(0.0)
+ , m_gyroCalibInitTemp(35.0)
+ , m_gyroCalibMiddleYaw(0.0)
+ , m_gyroCalibMiddleTemp(35.0)
+ , m_gyroCalibCurYaw(0.0)
  , m_useMagnetometer(CONFIG_PARAM_PATH + "useMagnetometer", false)
  , m_magSpikeMaxDelta(CONFIG_PARAM_PATH + "magSpikeMaxDelta", 0.0, 0.001, 0.20, 0.07)
  , m_magSpikeFilterX()
  , m_magSpikeFilterY()
  , m_magSpikeFilterZ()
- , m_magFirFilterX(FIRFilterType::FT_AVERAGE)
- , m_magFirFilterY(FIRFilterType::FT_AVERAGE)
- , m_magFirFilterZ(FIRFilterType::FT_AVERAGE)
- , m_magHardIronFilter(CONFIG_PARAM_PATH + "magFilter")
+ , m_magFirFilterX(rc_utils::FIRFilterType::FT_AVERAGE)
+ , m_magFirFilterY(rc_utils::FIRFilterType::FT_AVERAGE)
+ , m_magFirFilterZ(rc_utils::FIRFilterType::FT_AVERAGE)
+ , m_magHardIronFilter(CONFIG_PARAM_PATH + "magFilter", DEFAULT_TIMER_DURATION)
  , m_useModel(CONFIG_PARAM_PATH + "useModel", false)
  , m_effortSlopeLimit(CONFIG_PARAM_PATH + "effortSlopeLimit", 0.0, 0.01, 1.0, 0.02)
  , m_rawStateSlopeLimit(CONFIG_PARAM_PATH + "rawStateSlopeLimit", 0.0, 0.01, 1.0, 0.02)
- , m_PM(PM_COUNT)
+ , m_useServos(CONFIG_PARAM_PATH + "useServos", true)
+ , m_PM(PM_COUNT, CONFIG_PARAM_PATH)
  , m_plotRobotInterfaceData(CONFIG_PARAM_PATH + "plotData", false)
- , m_lastButtons(0)
  , m_act_fadeTorque("fade_torque")
+ , m_lastButtons(0)
+ , m_buttonTime0(0, 0)
+ , m_buttonTime1(0, 0)
+ , m_buttonLastRec0(0, 0)
+ , m_buttonState0(BPS_RELEASED)
+ , m_buttonState1(BPS_RELEASED)
+ , m_showButtonPresses(CONFIG_PARAM_PATH + "showButtonPresses", false)
+ , m_commsOk(true)
  , m_totalFailCount(0)
  , m_consecFailCount(0)
  , m_commsSuspCount(0)
@@ -149,50 +223,93 @@ RobotInterface::RobotInterface()
  , m_cm730Suspend(false)
  , m_lastSensorTime(0, 0)
  , m_lastCM730Time(0, 0)
+ , m_hadRX(false)
+ , m_hadTX(false)
  , m_robPause("pause", false) // See main() in robotcontrol.cpp for the main use of this config variable
- , m_fir_accX(FIRFilterType::FT_AVERAGE)
- , m_fir_accY(FIRFilterType::FT_AVERAGE)
- , m_fir_accZ(FIRFilterType::FT_AVERAGE)
  , m_fadeTorqueClient("/robotcontrol/fade_torque")
  , m_fadingIsTriggered(false)
 {
 	// Retrieve the node handle
 	ros::NodeHandle nh("~");
 
+	// Retrieve the name and type of the robot
+	nh.param<std::string>("/robot_name", m_robotNameStr, std::string());
+	nh.param<std::string>("/robot_type", m_robotTypeStr, std::string());
+
+	// Initialise logger heartbeat message
+	m_loggerMsg.sourceNode = "robotcontrol";
+	m_loggerMsg.enableLogging = false;
+	m_loggerStamp.fromNSec(0);
+
 	// Initialize statistics timer
-	m_statisticsTimer = nh.createTimer(ros::Duration(0.5), &RobotInterface::handleStatistics, this);
-	m_statisticsTimer.stop();
+	m_statisticsTimer = nh.createTimer(ros::Duration(0.1), &RobotInterface::handleStatistics, this, false, false);
 
 	// Advertise topics
 	m_pub_buttons = nh.advertise<nimbro_op_interface::Button>("/button", 1);
 	m_pub_led_state = nh.advertise<nimbro_op_interface::LEDCommand>("/led_state", 1);
+	m_pub_logger = nh.advertise<rrlogger::LoggerHeartbeat>("/rclogger/heartbeat", 1);
 
 	// Subscribe topics
-	m_sub_led = nh.subscribe("/led", 2, &RobotInterface::handleLEDCommand, this);
+	m_sub_led = nh.subscribe("/led", 5, &RobotInterface::handleLEDCommand, this);
 
-	// Initialise the board voltage
+	// Set up the buzzer
+	m_sub_buzzer = nh.subscribe(CONFIG_PARAM_PATH + "buzzer", 1, &RobotInterface::handleBuzzerCommand, this);
+	m_buzzerData.playLength = 0xFF;
+	m_buzzerData.data = 0;
+	m_haveBuzzerData = false;
+
+	// Configure the temperature processing
+	m_temperatureLowPassTs.setCallback(boost::bind(&RobotInterface::updateTempLowPassTs, this), true);
+
+	// Configure the voltage processing
 	m_boardData.voltage = (unsigned char)((15.0 / INT_TO_VOLTS) + 0.5); // Note: The 0.5 is for rounding purposes
-	
-	// Configure the magnetometer filtering
-	m_magSpikeMaxDelta.setCallback(boost::bind(&RobotInterface::updateMagSpikeMaxDelta, this));
-	updateMagSpikeMaxDelta();
+	m_voltageLowPassTs.setCallback(boost::bind(&RobotInterface::updateVoltageLowPassTs, this), true);
+	m_voltageLowPass.setValue(INT_TO_VOLTS * m_boardData.voltage);
+	m_initedVoltage = false;
 
-	// Configure the attitude estimator
+	// Configure the IMU offsets
+	m_resetGyroAccOffset.set(false);
+	m_resetGyroAccOffset.setCallback(boost::bind(&RobotInterface::handleResetGyroAccOffset, this), false);
+	m_resetMagOffset.set(false);
+	m_resetMagOffset.setCallback(boost::bind(&RobotInterface::handleResetMagOffset, this), false);
+
+	// Configure the acc data processing
+	m_accLowPassMeanTs.setCallback(boost::bind(&RobotInterface::updateAccLowPassMeanTs, this), true);
+
+	// Configure the gyro data processing
+	m_gyroLowPassMeanTs.setCallback(boost::bind(&RobotInterface::updateGyroLowPassMeanTs, this), true);
+	m_gyroLowPassMeanTsHigh.setCallback(boost::bind(&RobotInterface::updateGyroVeryLowPassMeanTs, this), true);
+
+	// Configure the magnetometer data processing
+	m_magSpikeMaxDelta.setCallback(boost::bind(&RobotInterface::updateMagSpikeMaxDelta, this), true);
+
+	// Configure the attitude estimators
 	boost::function<void()> updateCallbackME = boost::bind(&RobotInterface::updateAttEstMethod, this);
 	m_attEstUseFusedMethod.setCallback(boost::bind(updateCallbackME));
-	updateAttEstMethod(); // Calls m_attitudeEstimator.setAccMethod() internally
+	updateAttEstMethod(); // Calls AttitudeEstimator::setAccMethod() internally
 	boost::function<void()> updateCallbackPI = boost::bind(&RobotInterface::updateAttEstPIGains, this);
 	m_attEstKp.setCallback(boost::bind(updateCallbackPI));
 	m_attEstTi.setCallback(boost::bind(updateCallbackPI));
 	m_attEstKpQuick.setCallback(boost::bind(updateCallbackPI));
 	m_attEstTiQuick.setCallback(boost::bind(updateCallbackPI));
-	updateAttEstPIGains(); // Calls m_attitudeEstimator.setPIGains() internally
+	m_attEstKpYaw.setCallback(boost::bind(updateCallbackPI));
+	m_attEstKpYawQuick.setCallback(boost::bind(updateCallbackPI));
+	updateAttEstPIGains(); // Calls AttitudeEstimator::setPIGains() internally
 	boost::function<void()> updateCallbackMC = boost::bind(&RobotInterface::updateAttEstMagCalib, this);
 	m_attEstMagCalibX.setCallback(boost::bind(updateCallbackMC));
 	m_attEstMagCalibY.setCallback(boost::bind(updateCallbackMC));
 	m_attEstMagCalibZ.setCallback(boost::bind(updateCallbackMC));
-	updateAttEstMagCalib(); // Calls m_attitudeEstimator.setMagCalib() internally
-	
+	updateAttEstMagCalib(); // Calls AttitudeEstimator::setMagCalib() internally
+	boost::function<void()> updateCallbackGC = boost::bind(&RobotInterface::updateAttEstGyroCalib, this);
+	setAttEstGyroCalib(Eigen::Vector3f::Zero());
+	m_attEstGyroBiasX.setCallback(boost::bind(updateCallbackGC));
+	m_attEstGyroBiasY.setCallback(boost::bind(updateCallbackGC));
+	m_attEstGyroBiasZ.setCallback(boost::bind(updateCallbackGC));
+	m_attEstGyroBiasUpdate.setCallback(boost::bind(updateCallbackGC));
+	updateAttEstGyroCalib(); // Calls AttitudeEstimator::setGyroBias() internally
+	m_attEstGyroBiasSetFM.set(false);
+	m_attEstGyroBiasSetFSM.set(false);
+
 	// Reset the button press config parameters just in case
 	m_buttonPress0.set(false);
 	m_buttonPress1.set(false);
@@ -202,50 +319,16 @@ RobotInterface::RobotInterface()
 	m_srv_readOffsets = nh.advertiseService(CONFIG_PARAM_PATH + "readOffsets", &RobotInterface::handleReadOffsets, this);
 	m_srv_readOffset = nh.advertiseService(CONFIG_PARAM_PATH + "readOffset", &RobotInterface::handleReadOffset, this);
 	m_srv_attEstCalibrate = nh.advertiseService(CONFIG_PARAM_PATH + "attEstCalibrate", &RobotInterface::handleAttEstCalibrate, this);
+	m_srv_calibrateGyroStart = nh.advertiseService(CONFIG_PARAM_PATH + "calibrateGyroStart", &RobotInterface::handleCalibrateGyroStart, this);
+	m_srv_calibrateGyroReturn = nh.advertiseService(CONFIG_PARAM_PATH + "calibrateGyroReturn", &RobotInterface::handleCalibrateGyroReturn, this);
+	m_srv_calibrateGyroStop = nh.advertiseService(CONFIG_PARAM_PATH + "calibrateGyroStop", &RobotInterface::handleCalibrateGyroStop, this);
+	m_srv_calibrateGyroAbort = nh.advertiseService(CONFIG_PARAM_PATH + "calibrateGyroAbort", &RobotInterface::handleCalibrateGyroAbort, this);
+	m_srv_imuOffsetsCalibGyroAccStart = nh.advertiseService(CONFIG_PARAM_PATH + "imuOffsets/calibGyroAccStart", &RobotInterface::handleCalibGyroAccStart, this);
+	m_srv_imuOffsetsCalibGyroAccNow = nh.advertiseService(CONFIG_PARAM_PATH + "imuOffsets/calibGyroAccNow", &RobotInterface::handleCalibGyroAccNow, this);
+	m_srv_imuOffsetsCalibGyroAccStop = nh.advertiseService(CONFIG_PARAM_PATH + "imuOffsets/calibGyroAccStop", &RobotInterface::handleCalibGyroAccStop, this);
 
-	// Configure the plot manager variable names
-	m_PM.setName(PM_ANGEST_PPITCH, "Estimation/AngleEstimator/ProjPitch");
-	m_PM.setName(PM_ANGEST_PROLL,  "Estimation/AngleEstimator/ProjRoll");
-	m_PM.setName(PM_ATTEST_FYAW,   "Estimation/AttitudeEstimator/FusedYaw");
-	m_PM.setName(PM_ATTEST_FPITCH, "Estimation/AttitudeEstimator/FusedPitch");
-	m_PM.setName(PM_ATTEST_FROLL,  "Estimation/AttitudeEstimator/FusedRoll");
-	m_PM.setName(PM_ATTEST_FHEMI,  "Estimation/AttitudeEstimator/FusedHemi");
-	m_PM.setName(PM_ATTEST_BIAS_X, "Estimation/AttitudeEstimator/GyroBiasX");
-	m_PM.setName(PM_ATTEST_BIAS_Y, "Estimation/AttitudeEstimator/GyroBiasY");
-	m_PM.setName(PM_ATTEST_BIAS_Z, "Estimation/AttitudeEstimator/GyroBiasZ");
-	m_PM.setName(PM_ATTEST_NOMAG_FYAW,   "Estimation/AttitudeEstimatorNoMag/FusedYaw");
-	m_PM.setName(PM_ATTEST_NOMAG_FPITCH, "Estimation/AttitudeEstimatorNoMag/FusedPitch");
-	m_PM.setName(PM_ATTEST_NOMAG_FROLL,  "Estimation/AttitudeEstimatorNoMag/FusedRoll");
-	m_PM.setName(PM_ATTEST_NOMAG_FHEMI,  "Estimation/AttitudeEstimatorNoMag/FusedHemi");
-	m_PM.setName(PM_ATTEST_NOMAG_BIAS_X, "Estimation/AttitudeEstimatorNoMag/GyroBiasX");
-	m_PM.setName(PM_ATTEST_NOMAG_BIAS_Y, "Estimation/AttitudeEstimatorNoMag/GyroBiasY");
-	m_PM.setName(PM_ATTEST_NOMAG_BIAS_Z, "Estimation/AttitudeEstimatorNoMag/GyroBiasZ");
-	m_PM.setName(PM_GYRO_X,     "Estimation/Gyro/x");
-	m_PM.setName(PM_GYRO_Y,     "Estimation/Gyro/y");
-	m_PM.setName(PM_GYRO_Z,     "Estimation/Gyro/z");
-	m_PM.setName(PM_GYRO_N,     "Estimation/Gyro/norm");
-	m_PM.setName(PM_ACC_XRAW,   "Estimation/Acc/Raw x");
-	m_PM.setName(PM_ACC_YRAW,   "Estimation/Acc/Raw y");
-	m_PM.setName(PM_ACC_ZRAW,   "Estimation/Acc/Raw z");
-	m_PM.setName(PM_ACC_NRAW,   "Estimation/Acc/Raw norm");
-	m_PM.setName(PM_ACC_X,      "Estimation/Acc/x");
-	m_PM.setName(PM_ACC_Y,      "Estimation/Acc/y");
-	m_PM.setName(PM_ACC_Z,      "Estimation/Acc/z");
-	m_PM.setName(PM_ACC_N,      "Estimation/Acc/norm");
-	m_PM.setName(PM_MAG_XRAW,   "Estimation/Mag/Raw x");
-	m_PM.setName(PM_MAG_YRAW,   "Estimation/Mag/Raw y");
-	m_PM.setName(PM_MAG_ZRAW,   "Estimation/Mag/Raw z");
-	m_PM.setName(PM_MAG_XSPIKE, "Estimation/Mag/No spike x");
-	m_PM.setName(PM_MAG_YSPIKE, "Estimation/Mag/No spike y");
-	m_PM.setName(PM_MAG_ZSPIKE, "Estimation/Mag/No spike z");
-	m_PM.setName(PM_MAG_XIRON,  "Estimation/Mag/Biased x");
-	m_PM.setName(PM_MAG_YIRON,  "Estimation/Mag/Biased y");
-	m_PM.setName(PM_MAG_ZIRON,  "Estimation/Mag/Biased z");
-	m_PM.setName(PM_MAG_X,      "Estimation/Mag/Filt x");
-	m_PM.setName(PM_MAG_Y,      "Estimation/Mag/Filt y");
-	m_PM.setName(PM_MAG_Z,      "Estimation/Mag/Filt z");
-	m_PM.setName(PM_MAG_N,      "Estimation/Mag/Filt norm");
-	m_PM.setName(PM_SENSOR_DT,  "Estimation/Sensor dT");
+	// Configure the plot manager
+	configurePlotManager();
 }
 
 /**
@@ -253,6 +336,18 @@ RobotInterface::RobotInterface()
  **/
 RobotInterface::~RobotInterface()
 {
+}
+
+/**
+ * Deinitialisation function.
+ **/
+void RobotInterface::deinit()
+{
+	// Stop the statistics timer
+	m_statisticsTimer.stop();
+
+	// Send a final logger heartbeat
+	sendLoggerHeartbeat(false);
 }
 
 /**
@@ -344,6 +439,7 @@ bool RobotInterface::init(RobotModel* model)
 
 	// Get a state reference for the relaxed state
 	m_state_relaxed = m_model->registerState("relaxed");
+	m_state_setting_pose = m_model->registerState("setting_pose");
 
 	// Find the largest servo ID in the RobotModel joint struct array (needed to set the size of m_servoData below)
 	int max_addr = 0;
@@ -363,20 +459,27 @@ bool RobotInterface::init(RobotModel* model)
 	// Sort the queryset (nice for debugging)
 	std::sort(m_cm730_queryset.begin(), m_cm730_queryset.end());
 
+	// Set the cycle time of the magnetometer filter
+	m_magHardIronFilter.setCycleTime(m_model->timerDuration());
+
+	// Initialise the low pass mean filter Ts values (requires m_model to retrieve the true timer duration)
+	updateTempLowPassTs();
+	updateAccLowPassMeanTs();
+	updateGyroLowPassMeanTs();
+	updateGyroVeryLowPassMeanTs();
+
 	// Reset the golay filters
 	m_fir_accX.setBuf(0.0);
 	m_fir_accY.setBuf(0.0);
 	m_fir_accZ.setBuf(9.81);
 
-	// Initialise the LED command (RGB5 gets overridden anyway on the CM730 to display the USB connection state)
+	// Initialise the LED command (RGB6 gets overridden on the CM730 to display the USB connection state)
 	m_ledCommand.mask = 0x07;
 	m_ledCommand.state = 0x00;
 	m_ledCommand.rgb5.r = 0.0;
-	m_ledCommand.rgb5.g = 1.0;
+	m_ledCommand.rgb5.g = 0.0;
 	m_ledCommand.rgb5.b = 0.0;
-	m_ledCommand.rgb6.r = 0.0;
-	m_ledCommand.rgb6.g = 0.0;
-	m_ledCommand.rgb6.b = 1.0;
+	m_ledCommand.rgb5Blink = false;
 
 	// Attempt to initialise the CM730
 	if(!initCM730())
@@ -406,11 +509,240 @@ bool RobotInterface::initCM730()
 	// Enable power for the arms (there is a power MOSFET on the CM730 board that controls this)
 	m_board->setDynamixelPower(CM730::DYNPOW_ON);
 
+	// Wait for the robot's servos to be relaxed
+	if(m_robotNameStr == "xs0")
+	{
+		ROS_WARN("Robot is xs0 => Automatically disabling use of servos...");
+		m_useServos.set(false);
+	}
+	else
+		waitForRelaxedServos();
+
 	// Indicate that we have real hardware at our disposal
 	m_haveHardware = true;
 
 	// Return that the CM730 was successfully initialised
 	return true;
+}
+
+// Wait for relaxed servos (turns on and verifies the dynamixel power register of the CM730)
+void RobotInterface::waitForRelaxedServos()
+{
+	// Constants
+	static const double dT = 0.6;
+
+	// Initialise variables
+	ros::Time startTime = ros::Time::now(), lastBeep = startTime, now;
+	bool hadSuccessfulRun = false, allowFadeButton = false, playedSound = false;
+	int numCM730Reads = 0, numCM730ReadFail = 0, numCM730Writes = 0, numCM730WriteFail = 0;
+
+	// Set up a vector to store how often we have heard from each joint
+	int numAttempts = 0;
+	std::vector<int> numHeard;
+	numHeard.resize(m_model->numJoints(), 0);
+
+	// Display an explanatory message to the user
+	ROS_INFO("Waiting for all servos to be relaxed...");
+
+	// Wait until no servo that we know about has its torque enabled
+	do
+	{
+		// Sleep a little to give the CM730 and servos a chance
+		usleep(10000);
+
+		// Make a noise if this loop is taking too long
+		now = ros::Time::now();
+		if((now - lastBeep).toSec() > dT)
+		{
+			int ret = CM730::RET_SUCCESS;
+			bool haveFailure = false, criticalFailure = false;
+			if(numCM730ReadFail == numCM730Reads && numCM730Reads > 0)
+			{
+				criticalFailure = true;
+				ROS_ERROR("Critical failure: All reads of the CM730 have failed!");
+			}
+			else if(numAttempts > 0)
+			{
+				size_t minHeardIndex = 0;
+				int minHeard = numAttempts;
+				std::ostringstream ss;
+				for(size_t i = 0; i < m_model->numJoints(); i++)
+				{
+					if(numHeard[i] < 0) continue;
+					if(numHeard[i] < minHeard)
+					{
+						minHeard = numHeard[i];
+						minHeardIndex = i;
+					}
+					if(numHeard[i] == 0)
+					{
+						DXLJoint* joint = dxlJoint(i);
+						const std::string& servoName = joint->name;
+						int servoID = joint->id();
+						if(haveFailure)
+							ss << ", ";
+						ss << servoName << " (" << servoID << ")";
+						haveFailure = true;
+						bool isArmServo = (servoName == "left_shoulder_pitch" || servoName == "left_shoulder_roll" || servoName == "left_elbow_pitch" || servoName == "right_shoulder_pitch" || servoName == "right_shoulder_roll" || servoName == "right_elbow_pitch");
+						if(!isArmServo)
+							criticalFailure = true;
+					}
+				}
+				if(criticalFailure)
+					ROS_ERROR("Critical failure: All reads have failed for %s", ss.str().c_str());
+				else if(haveFailure)
+					ROS_ERROR("Failure: All reads have failed for %s", ss.str().c_str());
+				else if(minHeard < numAttempts)
+				{
+					DXLJoint* joint = dxlJoint(minHeardIndex);
+					int numFail = numAttempts - minHeard;
+					ROS_INFO("Every servo has been successfully read at least once => Worst servo is %s (%d) with %d of %d failures (%.0f%%)", joint->name.c_str(), joint->id(), numFail, numAttempts, (100.0 * numFail) / numAttempts);
+				}
+				else
+					ROS_INFO("Every servo has been successfully read every time");
+			}
+			if(criticalFailure)
+				ret = m_board->sound(7);
+			else if(haveFailure)
+				ret = m_board->sound(11);
+			else
+				ret = m_board->sound(14);
+			numCM730Writes++;
+			if(ret != CM730::RET_SUCCESS)
+			{
+				ROS_ERROR("Failed to write a sound command to the CM730! (Error: %d)", ret);
+				numCM730WriteFail++;
+			}
+			lastBeep = now;
+			playedSound = true;
+		}
+
+		// Read and verify the dynamixel power state
+		CM730::DynPowState state = CM730::DYNPOW_UNKNOWN;
+		int ret = m_board->getDynamixelPower(state);
+		numCM730Reads++;
+		if(ret != CM730::RET_SUCCESS)
+		{
+			ROS_ERROR_THROTTLE(dT, "Failed to read the CM730 dynamixel power register! (Error: %d)", ret);
+			numCM730ReadFail++;
+			continue;
+		}
+		else if(state != CM730::DYNPOW_ON)
+		{
+			ROS_WARN_THROTTLE(dT, "CM730 state is currently %d => Setting it to %d...", state, CM730::DYNPOW_ON);
+			numCM730Writes++;
+			if(!m_board->setDynamixelPower(CM730::DYNPOW_ON))
+				numCM730WriteFail++;
+			continue;
+		}
+
+		// Query the fade button and continue with robotcontrol if the user thereby says it is ok
+		int button = 0;
+		ret = m_board->getButtonState(button);
+		numCM730Reads++;
+		if(ret == CM730::RET_SUCCESS)
+		{
+			if((button & 0x01) == 0)
+				allowFadeButton = true;
+			else if(allowFadeButton) // Fade button is currently pressed
+			{
+				ROS_INFO("The user pressed the fade button to manually indicate that it is ok to continue...");
+				break;
+			}
+		}
+		else
+		{
+			ROS_ERROR_THROTTLE(dT, "Failed to read the CM730 button state! (Error %d)", ret);
+			numCM730ReadFail++;
+		}
+
+		// Read the torque enabled state of each servo
+		bool allServosRelaxed = true, readAtLeastOneServo = (m_model->numJoints() == 0);
+		numAttempts++;
+		std::ostringstream ss;
+		ss << "Servos with torque enabled: ";
+		for(size_t i = 0; i < m_model->numJoints(); i++)
+		{
+			int servoID = dxlJoint(i)->id();
+			if(servoID >= CM730::ID_MIN && servoID <= CM730::ID_MAX && servoID != CM730::ID_CM730)
+			{
+				int value = 0;
+				if(m_board->readByte(servoID, DynamixelMX::P_TORQUE_ENABLE, &value) == CM730::RET_SUCCESS)
+				{
+					numHeard[i]++;
+					readAtLeastOneServo = true;
+					if(value != 0)
+					{
+						if(!allServosRelaxed)
+							ss << ", ";
+						ss << servoID;
+						allServosRelaxed = false;
+					}
+				}
+			}
+			else
+				numHeard[i] = -1;
+		}
+
+		// Display a warning if we have some servos that are not relaxed
+		if(!allServosRelaxed)
+			ROS_WARN_THROTTLE(dT, "%s", ss.str().c_str());
+		if(!readAtLeastOneServo)
+			ROS_WARN_THROTTLE(dT, "Failed to read from any servos just then...");
+
+		// Check whether everything is ok and we can quit
+		if(allServosRelaxed && readAtLeastOneServo)
+		{
+			if(hadSuccessfulRun)
+				break;
+			else
+				hadSuccessfulRun = true;
+		}
+	}
+	while(true);
+
+	// Calculate the time that was waited
+	double elapsed = (ros::Time::now() - startTime).toSec();
+
+	// Display some diagnostics about dynamixel communications health
+	if(playedSound)
+	{
+		if(numCM730WriteFail > 0)
+		{
+			if(numCM730WriteFail >= numCM730Writes)
+				ROS_ERROR("%d of %d writes failed for the CM730", numCM730WriteFail, numCM730Writes);
+			else
+				ROS_WARN("%d of %d writes failed for the CM730", numCM730WriteFail, numCM730Writes);
+		}
+		if(numCM730ReadFail > 0)
+		{
+			if(numCM730ReadFail >= numCM730Reads)
+				ROS_ERROR("%d of %d reads failed for the CM730", numCM730ReadFail, numCM730Reads);
+			else
+				ROS_WARN("%d of %d reads failed for the CM730", numCM730ReadFail, numCM730Reads);
+		}
+		for(size_t i = 0; i < m_model->numJoints(); i++)
+		{
+			if(numHeard[i] < 0) continue;
+			int numFailed = numAttempts - numHeard[i];
+			if(numFailed > 0)
+			{
+				RobotInterface::DXLJoint* joint = dxlJoint(i);
+				if(numFailed >= numAttempts)
+					ROS_ERROR("%d of %d reads failed for ID %d (%s)", numFailed, numAttempts, joint->id(), joint->name.c_str());
+				else
+					ROS_WARN("%d of %d reads failed for ID %d (%s)", numFailed, numAttempts, joint->id(), joint->name.c_str());
+			}
+		}
+	}
+
+	// Display an explanatory message to the user
+	ROS_INFO("All servos are relaxed (took %.2fs)", elapsed);
+
+	// Stop any currently playing buzzer sound
+	int ret = m_board->stopSound();
+	if(ret != CM730::RET_SUCCESS)
+		ROS_ERROR("Failed to write to the CM730 to stop the buzzer! (Error: %d)", ret);
 }
 
 // Function to set the feedback timestamps in the joint structs
@@ -428,7 +760,7 @@ bool RobotInterface::readJointStates()
 {
 	// Our initial intentions are to do a full bulk read, not just query the CM730 for its registers (and thereby leave the electrical dynamixel bus void of packets)
 	bool onlyTryCM730 = false;
-	
+
 	// Skip one step if requested (helps to establish stable communication again after RX_CORRUPT or RX_TIMEOUT)
 	if(m_skipStep)
 	{
@@ -449,9 +781,16 @@ bool RobotInterface::readJointStates()
 		m_cm730Suspend = false;
 	}
 
+	// Only communicate with the CM730 if we are not using the servos
+	if(!m_useServos())
+		onlyTryCM730 = true;
+
 	//
 	// Bulk read from CM730
 	//
+
+	// Communications are occurring PC --> CM730
+	m_hadTX = true;
 
 	// Read feedback data from the CM730 and servos
 	int ret = readFeedbackData(onlyTryCM730); // Should update m_servoData and m_boardData (only the latter however if onlyTryCM730 is true)
@@ -463,6 +802,10 @@ bool RobotInterface::readJointStates()
 		// Reset the consecutive failure count
 		if(!onlyTryCM730)
 			m_consecFailCount = 0;
+		
+		// Communications have occurred DXL --> CM730
+		m_hadRX = !onlyTryCM730;
+		m_commsOk = true;
 	}
 	else if(onlyTryCM730)
 	{
@@ -569,6 +912,7 @@ bool RobotInterface::readJointStates()
 					ROS_ERROR_THROTTLE(2.0, "Severe servo death cycle (ID %d) => NOT suspending servo comms as this is happening too often!", id);
 					if(m_showServoFailures())
 						ROS_ERROR_THROTTLE(2.0, "Total severe servo death cycle count at %d", m_commsSuspCount);
+					m_commsOk = false;
 				}
 				m_timeLastCommsSusp = bulkReadTime;
 			}
@@ -686,7 +1030,7 @@ bool RobotInterface::readJointStates()
 				int pValue = joint->realEffort * FULL_EFFORT;
 				if(pValue < 2) pValue = 2;
 				joint->commandGenerator->setPValue(pValue);
-				joint->commandGenerator->setVoltage(INT_TO_VOLTS * m_boardData.voltage); // Note: This could use m_statVoltage, but as statistics are disabled this is a decent drop-in replacement
+				joint->commandGenerator->setVoltage(m_voltage); // Note: This could use m_statVoltage, but as statistics are disabled this is a decent drop-in replacement
 
 				// Estimate the produced torque using the position displacement
 				joint->feedback.torque = joint->commandGenerator->servoTorqueFromCommand(joint->cmd.rawPos, joint->feedback.pos, joint->cmd.vel);
@@ -709,7 +1053,8 @@ bool RobotInterface::readJointStates()
 
 	// Calculate the time since sensor data was last processed
 	double dT;
-	if(m_lastSensorTime.isZero())
+	bool firstSensorData = m_lastSensorTime.isZero();
+	if(firstSensorData)
 		dT = nominaldT;
 	else
 	{
@@ -720,7 +1065,7 @@ bool RobotInterface::readJointStates()
 			dT = MAX_SENSOR_DT * nominaldT;
 	}
 	m_lastSensorTime = bulkReadTime;
-	
+
 	// Reset certain data if no data has been received from the CM730 for a while
 	bool firstCM730Data = m_lastCM730Time.isZero();
 	double cm730dT = (firstCM730Data ? nominaldT : (bulkReadTime - m_lastCM730Time).toSec());
@@ -733,16 +1078,98 @@ bool RobotInterface::readJointStates()
 	}
 
 	//
+	// Temperature
+	//
+
+	// Retrieve and filter the board temperature
+	double temperature = m_boardData.temp;
+	if(firstSensorData)
+		m_temperatureLowPass.setValue(temperature);
+	else
+		m_temperatureLowPass.put(temperature);
+	m_temperature = m_temperatureLowPass.value();
+	m_model->setTemperature(m_temperature);
+
+	//
+	// Voltage
+	//
+
+	// Retrieve and filter the board voltage
+	double voltage = INT_TO_VOLTS * m_boardData.voltage;
+	if(!m_initedVoltage)
+	{
+		m_voltageLowPass.setValue(voltage);
+		m_initedVoltage = (voltage != 0.0);
+	}
+	else
+		m_voltageLowPass.put(voltage);
+	m_voltage = m_voltageLowPass.value();
+	m_model->setVoltage(m_voltage);
+
+	//
+	// IMU orientation offsets
+	//
+
+	// Gyroscope/accelerometer orientation offset
+	Eigen::Quaterniond orientGyroAcc = rot_conv::QuatFromTilt(m_gyroAccFusedYaw(), m_gyroAccTiltAxisAngle(), m_gyroAccTiltAngle());
+	Eigen::Quaterniond orientMag = rot_conv::QuatFromTilt(m_magFusedYaw(), m_magTiltAxisAngle(), m_magTiltAngle() + (m_magFlip() ? M_PI : 0.0));
+
+	//
 	// Gyroscope sensor
 	//
 
+	// Decide on an appropriate scale factor for the gyro
+	double gyroScaleFactor = rc_utils::coerce(rc_utils::interpolateCoerced<double>(m_gyroTemperatureLow(), m_gyroTemperatureHigh(), m_gyroScaleFactorLT(), m_gyroScaleFactorHT(), m_temperature), 0.2, 5.0);
+	if(m_gyroCalibrating != 0)
+	{
+		if(m_gyroCalibScaleFactor <= 0.0)
+		{
+			m_gyroCalibScaleFactor = gyroScaleFactor; // Note: scaleFactor cannot be zero or negative so this logic works!
+			ROS_INFO("Keeping a constant gyro scale factor %.3f and disabling automatic gyro bias calibration...", m_gyroCalibScaleFactor);
+		}
+		else
+			gyroScaleFactor = m_gyroCalibScaleFactor;
+	}
+
 	// Retrieve and correct the gyroscope data to be in rad/s
-	double gyroX = m_boardData.gyroX * GYRO_SCALE;
-	double gyroY = m_boardData.gyroY * GYRO_SCALE;
-	double gyroZ = m_boardData.gyroZ * GYRO_SCALE;
+	double gyroX = m_boardData.gyroX * GYRO_SCALE * gyroScaleFactor;
+	double gyroY = m_boardData.gyroY * GYRO_SCALE * gyroScaleFactor;
+	double gyroZ = m_boardData.gyroZ * GYRO_SCALE * gyroScaleFactor;
+
+	// Correct for the mounting orientation of the gyroscope
+	Eigen::Vector3d gyro(gyroX, gyroY, gyroZ);
+	gyro = orientGyroAcc * gyro;
 
 	// Update the robot angular velocity in the robot model
-	m_model->setRobotAngularVelocity(Eigen::Vector3d(gyroX, gyroY, gyroZ));
+	m_model->setRobotAngularVelocity(gyro);
+
+	// Calculate the heavily smoothed mean of the gyro measurements
+	if(firstSensorData)
+	{
+		m_gyroLowPassMean.setValue(gyro);
+		m_gyroVeryLowPassMean.setValue(gyro);
+	}
+	else
+	{
+		m_gyroLowPassMean.put(gyro);
+		m_gyroVeryLowPassMean.put(gyro);
+	}
+	m_gyroMean = m_gyroLowPassMean.value();
+	m_gyroMeanSmooth = m_gyroVeryLowPassMean.value();
+
+	// See for how many cycles the gyro value has been within close range of the gyro mean (i.e. more or less stable)
+	double gyroMeanOffset = (gyro - m_gyroMean).norm();
+	if(gyroMeanOffset > m_gyroStabilityBound() || firstSensorData)
+		m_gyroStableCount = 0;
+	else
+		m_gyroStableCount++;
+	double gyroStableTime = m_gyroStableCount * nominaldT; // We intentionally calculate this time based on cycles and not a difference in ROS time (as the latter doesn't necessitate that there were any measurements inbetween)
+
+	// Set the gyro bias configs to the gyro mean if required
+	if(m_attEstGyroBiasSetFM())
+		setAttEstGyroBiasFromMean();
+	if(m_attEstGyroBiasSetFSM())
+		setAttEstGyroBiasFromSmoothMean();
 
 	//
 	// Accelerometer sensor
@@ -752,37 +1179,60 @@ bool RobotInterface::readJointStates()
 	double rawAccX = m_boardData.accX * ACC_SCALE;
 	double rawAccY = m_boardData.accY * ACC_SCALE;
 	double rawAccZ = m_boardData.accZ * ACC_SCALE;
+	Eigen::Vector3d rawAcc(rawAccX, rawAccY, rawAccZ);
+
+	// Calculate the heavily smoothed mean of the raw acc measurements (for gyro/acc orientation offset calibration only)
+	if(firstSensorData)
+		m_accLowPassMean.setValue(rawAcc);
+	else
+		m_accLowPassMean.put(rawAcc);
+	m_accMean = m_accLowPassMean.value();
+
+	// Correct for the mounting orientation of the accelerometer
+	rawAcc = orientGyroAcc * rawAcc;
 
 	// Filter the accelerometer data
-	m_fir_accX.put(rawAccX);
-	m_fir_accY.put(rawAccY);
-	m_fir_accZ.put(rawAccZ);
-	double accX = m_fir_accX.value();
-	double accY = m_fir_accY.value();
-	double accZ = m_fir_accZ.value();
+	m_fir_accX.put(rawAcc.x());
+	m_fir_accY.put(rawAcc.y());
+	m_fir_accZ.put(rawAcc.z());
+	Eigen::Vector3d acc(m_fir_accX.value(), m_fir_accY.value(), m_fir_accZ.value());
 
 	// Update the measured acceleration vector in the robot model
-	m_model->setAccelerationVector(Eigen::Vector3d(accX, accY, accZ));
+	m_model->setAccelerationVector(acc);
 
 	//
 	// Magnetometer sensor
 	//
 
 	// Retrieve and scale the magnetometer data to be in gauss
-	double magX = m_boardData.magX * MAG_SCALE;
-	double magY = m_boardData.magY * MAG_SCALE;
-	double magZ = m_boardData.magZ * MAG_SCALE;
+	double magRawX = m_boardData.magX * MAG_SCALE;
+	double magRawY = m_boardData.magY * MAG_SCALE;
+	double magRawZ = m_boardData.magZ * MAG_SCALE;
+
+	// Correct for the mounting orientation of the magnetometer
+	Eigen::Vector3d magRaw(magRawX, magRawY, magRawZ);
+	magRaw = orientMag * magRaw; // Rotates the magnetometer vector into the robot frame
 
 	// Initialise the spike filter values if this is the first time we are getting data
 	if(firstCM730Data)
 	{
-		m_magSpikeFilterX.setValue(magX);
-		m_magSpikeFilterY.setValue(magY);
-		m_magSpikeFilterZ.setValue(magZ);
+		m_magSpikeFilterX.setValue(magRaw.x());
+		m_magSpikeFilterY.setValue(magRaw.y());
+		m_magSpikeFilterZ.setValue(magRaw.z());
+	}
+
+	// Update the last known robot orientation inside the magnetometer filter
+	if(m_attEstYaw.QLActive())
+		m_magHardIronFilter.clearOrientation();
+	else
+	{
+		double quatTmp[4]; // Format is (w,x,y,z)
+		m_attEstYaw.getAttitude(quatTmp);
+		m_magHardIronFilter.setOrientation(Eigen::Quaterniond(quatTmp[0], quatTmp[1], quatTmp[2], quatTmp[3]));
 	}
 
 	// Pass spike-filtered magnetometer data through the magnetometer filter to account for hard iron effects
-	m_magHardIronFilter.update(m_magSpikeFilterX.put(magX), m_magSpikeFilterY.put(magY), m_magSpikeFilterZ.put(magZ));
+	m_magHardIronFilter.update(m_magSpikeFilterX.put(magRaw.x()), m_magSpikeFilterY.put(magRaw.y()), m_magSpikeFilterZ.put(magRaw.z()));
 
 	// Apply an averaging FIR filter to the corrected magnetometer measurements
 	m_magFirFilterX.put(m_magHardIronFilter.valueX());
@@ -800,54 +1250,201 @@ bool RobotInterface::readJointStates()
 	// Attitude estimation
 	//
 
+	// Auto-calibration of the gyro bias for attitude estimators without yaw feedback
+	double gyroBiasTs = 0.0;
+	double gyroBiasAlpha = 0.0;
+	double gyroStableTimeSinceFade = gyroStableTime - m_gyroCalibFadeTimeStart();
+	if(gyroStableTimeSinceFade >= 0.0 && m_gyroEnableAutoCalib() && m_gyroCalibrating == 0)
+	{
+		if(!m_gyroBiasAdjusting)
+		{
+			m_gyroVeryLowPassMean.setValue(m_gyroMean);
+			m_gyroMeanSmooth = m_gyroVeryLowPassMean.value();
+		}
+		m_gyroBiasAdjusting = true;
+		gyroBiasTs = rc_utils::interpolateCoerced<double>(0.0, m_gyroCalibFadeTimeDur(), m_gyroCalibTsSlow(), m_gyroCalibTsFast(), gyroStableTimeSinceFade);
+		gyroBiasAlpha = rc_utils::LowPassFilter::computeAlpha(gyroBiasTs, nominaldT);
+		double u = rc_utils::interpolateCoerced<double>(0.0, m_gyroLowPassMeanTsHigh(), 0.0, 1.0, gyroStableTimeSinceFade);
+		Eigen::Vector3d gyroBiasTarget = u*m_gyroMeanSmooth + (1.0 - u)*m_gyroMean;
+		double b[3] = {0.0};
+		m_attEstYaw.getGyroBias(b);
+		b[0] += gyroBiasAlpha*(gyroBiasTarget.x() - b[0]);
+		b[1] += gyroBiasAlpha*(gyroBiasTarget.y() - b[1]);
+		b[2] += gyroBiasAlpha*(gyroBiasTarget.z() - b[2]);
+		m_attEstYaw.setGyroBias(b);
+		m_attEstNoMag.getGyroBias(b);
+		b[0] += gyroBiasAlpha*(gyroBiasTarget.x() - b[0]);
+		b[1] += gyroBiasAlpha*(gyroBiasTarget.y() - b[1]);
+		b[2] += gyroBiasAlpha*(gyroBiasTarget.z() - b[2]);
+		m_attEstNoMag.setGyroBias(b);
+	}
+	else
+		m_gyroBiasAdjusting = false;
+
 	// Update the attitude estimator
-	m_attitudeEstimator.update(dT, gyroX, gyroY, gyroZ, accX, accY, accZ, mag.x(), mag.y(), mag.z()); // We use the filtered magnetometer values here...
-	m_attEstNoMag.update(dT, gyroX, gyroY, gyroZ, accX, accY, accZ, 0.0, 0.0, 0.0);                   // We use no magnetometer values at all here...
+	m_attitudeEstimator.update(dT, gyro.x(), gyro.y(), gyro.z(), acc.x(), acc.y(), acc.z(), mag.x(), mag.y(), mag.z()); // We use the filtered magnetometer values here...
+	m_attEstNoMag.update(dT, gyro.x(), gyro.y(), gyro.z(), acc.x(), acc.y(), acc.z(), 0.0, 0.0, 0.0);                   // We use no magnetometer values at all here...
+	m_attEstYaw.update(dT, gyro.x(), gyro.y(), gyro.z(), acc.x(), acc.y(), acc.z(), 0.0, 0.0, 0.0);                     // We use no magnetometer values at all here...
 
 	// Retrieve the current robot orientation (attitude) estimate
-	double quatAtt[4], quatAttNoMag[4]; // Format is (w,x,y,z)
+	double quatAtt[4], quatAttNoMag[4], quatAttYaw[4]; // Format is (w,x,y,z)
 	m_attitudeEstimator.getAttitude(quatAtt);
 	m_attEstNoMag.getAttitude(quatAttNoMag);
+	m_attEstYaw.getAttitude(quatAttYaw);
 
 	// Make available the robot orientation estimates
-	m_model->setRobotOrientation(Eigen::Quaterniond(quatAtt[0], quatAtt[1], quatAtt[2], quatAtt[3]), Eigen::Quaterniond(quatAttNoMag[0], quatAttNoMag[1], quatAttNoMag[2], quatAttNoMag[3]));
+	m_model->setRobotOrientation(Eigen::Quaterniond(quatAtt[0], quatAtt[1], quatAtt[2], quatAtt[3]), Eigen::Quaterniond(quatAttYaw[0], quatAttYaw[1], quatAttYaw[2], quatAttYaw[3])); // The choice of m_attEstYaw vs m_attEstNoMag here should be consistent with the same choice (above) in setting the quaternion orientation inside m_magHardIronFilter!
+
+	//
+	// Gyroscope calibration
+	//
+
+	// Update variables required for the gyroscope calibration
+	if(m_gyroCalibrating != 0)
+	{
+		double curYaw = m_attEstYaw.fusedYaw();
+		if(fabs(curYaw - m_gyroCalibCurYaw) >= M_PI)
+		{
+			if(curYaw > m_gyroCalibCurYaw)
+				m_gyroCalibLoopCount--;
+			else
+				m_gyroCalibLoopCount++;
+		}
+		m_gyroCalibCurYaw = curYaw;
+		m_gyroCalibUpdateCount++;
+	}
 
 	//
 	// Fused angle estimation
 	//
 
 	// Perform the prediction and correction cycles of the angle estimator
-	m_angleEstimator.predict(dT, gyroX, gyroY);
-	m_angleEstimator.update(accX, accY, accZ); // Note: After this line the fused angle can be retrieved using m_angleEstimator.projPitch() and m_angleEstimator.projRoll()
+	m_angleEstimator.predict(dT, gyro.x(), gyro.y());
+	m_angleEstimator.update(acc.x(), acc.y(), acc.z());
 
 	//
 	// Button presses
 	//
 
 	// Check which buttons have been pressed and publish appropriate messages
-	for(int i = 0; i <= 2; i++)
+	for(int i = 0; i < 3; i++)
 	{
 		// Determine the old and new button states
 		bool state = (m_boardData.button & (1 << i));
 		bool lastState = m_lastButtons & (1 << i);
-		
+		bool justReleased = (!state && lastState);
+		bool ignorePress = false;
+		bool longPress = false;
+
+		// Detect long presses of button 0 to recover from a CM730 reset
+		if(i == 0 && m_haveHardware)
+		{
+			if(state)
+			{
+				double timeElapsed = (m_buttonTime0.isZero() ? -1.0 : (bulkReadTime - m_buttonTime0).toSec());
+				double timeData = ((m_buttonTime0.isZero() || m_lastCM730Time.isZero()) ? -1.0 : (m_lastCM730Time - m_buttonTime0).toSec());
+				double timeSinceRec = (m_buttonLastRec0.isZero() ? BUTTON0_RECOVER_PERIOD : (bulkReadTime - m_buttonLastRec0).toSec());
+				if(m_buttonState0 <= BPS_RELEASED || m_buttonState0 == BPS_LONG_PRESS || m_buttonState0 >= BPS_COUNT) // Note: BPS_LONG_PRESS is an invalid state for button 0, so it is treated like the other invalid or released states
+				{
+					m_buttonState0 = BPS_SHORT_PRESS;
+					m_buttonTime0 = bulkReadTime;
+				}
+				else if(m_buttonState0 == BPS_SHORT_PRESS && timeElapsed >= BUTTON0_RELAX_TIME && timeData >= BUTTON0_RELAX_TIME)
+				{
+					m_buttonState0 = BPS_DO_RELAX;
+					m_buttonTime0 = bulkReadTime;
+					longPress = true;
+				}
+				else if(m_buttonState0 == BPS_DO_RELAX && timeElapsed >= BUTTON0_UNRELAX_TIME && timeData >= BUTTON0_UNRELAX_TIME)
+				{
+					m_buttonState0 = BPS_DO_UNRELAX;
+					m_buttonTime0 = bulkReadTime;
+					if(!m_model->relaxedWasSet())
+					{
+						m_model->setRelaxed(false);
+						sendFadeTorqueGoal(1.0);
+					}
+				}
+				if(m_buttonState0 == BPS_DO_RELAX || m_buttonState0 == BPS_DO_UNRELAX)
+				{
+					if(timeSinceRec >= BUTTON0_RECOVER_PERIOD)
+					{
+						m_board->setDynamixelPower(CM730::DYNPOW_ON);
+						m_buttonLastRec0 = bulkReadTime;
+					}
+				}
+				else
+					rc_utils::zeroRosTime(m_buttonLastRec0);
+				if(m_buttonState0 == BPS_DO_RELAX)
+				{
+					m_model->setRelaxed(true);
+					if(m_model->state() != m_state_relaxed && m_model->state() != m_state_setting_pose)
+						m_model->setState(m_state_relaxed);
+				}
+			}
+			else if(justReleased)
+			{
+				if(m_buttonState0 == BPS_DO_RELAX || m_buttonState0 == BPS_DO_UNRELAX)
+				{
+					ignorePress = true;
+					if(!m_model->relaxedWasSet())
+						m_model->setRelaxed(false);
+				}
+				m_buttonState0 = BPS_RELEASED;
+				rc_utils::zeroRosTime(m_buttonTime0);
+				rc_utils::zeroRosTime(m_buttonLastRec0);
+			}
+			if(!longPress && (m_buttonState0 == BPS_SHORT_PRESS || m_buttonState0 == BPS_DO_RELAX || m_buttonState0 == BPS_DO_UNRELAX))
+				ignorePress = true;
+		}
+
+		// Detect long presses of button 1
+		if(i == 1 && m_haveHardware)
+		{
+			if(state)
+			{
+				double timeElapsed = (m_buttonTime1.isZero() ? -1.0 : (bulkReadTime - m_buttonTime1).toSec());
+				if(m_buttonState1 != BPS_SHORT_PRESS && m_buttonState1 != BPS_LONG_PRESS)
+				{
+					m_buttonState1 = BPS_SHORT_PRESS;
+					m_buttonTime1 = bulkReadTime;
+				}
+				else if(m_buttonState1 == BPS_SHORT_PRESS && timeElapsed >= BUTTON1_LONG_TIME)
+				{
+					m_buttonState1 = BPS_LONG_PRESS;
+					m_buttonTime1 = bulkReadTime;
+					longPress = true;
+				}
+			}
+			else if(justReleased)
+			{
+				if(m_buttonState1 == BPS_LONG_PRESS)
+					ignorePress = true;
+				m_buttonState1 = BPS_RELEASED;
+				rc_utils::zeroRosTime(m_buttonTime1);
+			}
+			if(!longPress && (m_buttonState1 == BPS_SHORT_PRESS || m_buttonState1 == BPS_LONG_PRESS))
+				ignorePress = true;
+		}
+
 		// Determine whether this button has been fake pressed by the config server
 		bool fakePressed0 = (i == 0 && m_buttonPress0());
 		bool fakePressed1 = (i == 1 && m_buttonPress1());
 		bool fakePressed2 = (i == 2 && m_buttonPress2());
 
 		// If the button was just released...
-		if((!state && lastState) || fakePressed0 || fakePressed1 || fakePressed2)
+		if((justReleased || longPress || fakePressed0 || fakePressed1 || fakePressed2) && !ignorePress)
 		{
 			// Publish on a ROS topic that the button was pressed
 			Button btn;
 			btn.button = i;
 			btn.time = bulkReadTime;
+			btn.longPress = longPress;
 			m_pub_buttons.publish(btn);
 
 			// We react to some buttons directly ourselves
-			handleButton(i);
-			
+			handleButton(i, longPress);
+
 			// Reset button press config variable
 			if(fakePressed0) m_buttonPress0.set(false);
 			if(fakePressed1) m_buttonPress1.set(false);
@@ -882,25 +1479,51 @@ bool RobotInterface::readJointStates()
 		m_PM.plotScalar(m_attEstNoMag.fusedRoll(), PM_ATTEST_NOMAG_FROLL);
 		m_PM.plotScalar((m_attEstNoMag.fusedHemi() ? 1.0 : -1.0), PM_ATTEST_NOMAG_FHEMI);
 		double attEstNoMagBias[3] = {0.0};
-		m_attitudeEstimator.getGyroBias(attEstNoMagBias);
+		m_attEstNoMag.getGyroBias(attEstNoMagBias);
 		m_PM.plotScalar(attEstNoMagBias[0], PM_ATTEST_NOMAG_BIAS_X);
 		m_PM.plotScalar(attEstNoMagBias[1], PM_ATTEST_NOMAG_BIAS_Y);
 		m_PM.plotScalar(attEstNoMagBias[2], PM_ATTEST_NOMAG_BIAS_Z);
-		m_PM.plotScalar(gyroX, PM_GYRO_X);
-		m_PM.plotScalar(gyroY, PM_GYRO_Y);
-		m_PM.plotScalar(gyroZ, PM_GYRO_Z);
-		m_PM.plotScalar(sqrt(gyroX*gyroX + gyroY*gyroY + gyroZ*gyroZ), PM_GYRO_N);
-		m_PM.plotScalar(rawAccX, PM_ACC_XRAW);
-		m_PM.plotScalar(rawAccY, PM_ACC_YRAW);
-		m_PM.plotScalar(rawAccZ, PM_ACC_ZRAW);
-		m_PM.plotScalar(sqrt(rawAccX*rawAccX + rawAccY*rawAccY + rawAccZ*rawAccZ), PM_ACC_NRAW);
-		m_PM.plotScalar(accX, PM_ACC_X);
-		m_PM.plotScalar(accY, PM_ACC_Y);
-		m_PM.plotScalar(accZ, PM_ACC_Z);
-		m_PM.plotScalar(sqrt(accX*accX + accY*accY + accZ*accZ), PM_ACC_N);
-		m_PM.plotScalar(magX, PM_MAG_XRAW);
-		m_PM.plotScalar(magY, PM_MAG_YRAW);
-		m_PM.plotScalar(magZ, PM_MAG_ZRAW);
+		m_PM.plotScalar(m_attEstYaw.fusedYaw(), PM_ATTEST_YAW_FYAW);
+		m_PM.plotScalar(m_attEstYaw.fusedPitch(), PM_ATTEST_YAW_FPITCH);
+		m_PM.plotScalar(m_attEstYaw.fusedRoll(), PM_ATTEST_YAW_FROLL);
+		m_PM.plotScalar((m_attEstYaw.fusedHemi() ? 1.0 : -1.0), PM_ATTEST_YAW_FHEMI);
+		double attEstYawBias[3] = {0.0};
+		m_attEstYaw.getGyroBias(attEstYawBias);
+		m_PM.plotScalar(attEstYawBias[0], PM_ATTEST_YAW_BIAS_X);
+		m_PM.plotScalar(attEstYawBias[1], PM_ATTEST_YAW_BIAS_Y);
+		m_PM.plotScalar(attEstYawBias[2], PM_ATTEST_YAW_BIAS_Z);
+		m_PM.plotScalar(gyro.x(), PM_GYRO_X);
+		m_PM.plotScalar(gyro.y(), PM_GYRO_Y);
+		m_PM.plotScalar(gyro.z(), PM_GYRO_Z);
+		m_PM.plotScalar(gyro.norm(), PM_GYRO_N);
+		m_PM.plotScalar(m_gyroMean.x(), PM_GYROMEAN_X);
+		m_PM.plotScalar(m_gyroMean.y(), PM_GYROMEAN_Y);
+		m_PM.plotScalar(m_gyroMean.z(), PM_GYROMEAN_Z);
+		m_PM.plotScalar(m_gyroMean.norm(), PM_GYROMEAN_N);
+		m_PM.plotScalar(m_gyroMeanSmooth.x(), PM_GYROMEAN_SMOOTH_X);
+		m_PM.plotScalar(m_gyroMeanSmooth.y(), PM_GYROMEAN_SMOOTH_Y);
+		m_PM.plotScalar(m_gyroMeanSmooth.z(), PM_GYROMEAN_SMOOTH_Z);
+		m_PM.plotScalar(m_gyroMeanSmooth.norm(), PM_GYROMEAN_SMOOTH_N);
+		m_PM.plotScalar(gyroMeanOffset, PM_GYRO_MEAN_OFFSET);
+		m_PM.plotScalar(gyroStableTime, PM_GYRO_STABLE_TIME);
+		m_PM.plotScalar(gyroBiasTs, PM_GYRO_BIAS_TS);
+		m_PM.plotScalar(gyroBiasAlpha, PM_GYRO_BIAS_ALPHA);
+		m_PM.plotScalar(gyroScaleFactor, PM_GYRO_SCALE_FACTOR);
+		m_PM.plotScalar(rawAcc.x(), PM_ACC_XRAW);
+		m_PM.plotScalar(rawAcc.y(), PM_ACC_YRAW);
+		m_PM.plotScalar(rawAcc.z(), PM_ACC_ZRAW);
+		m_PM.plotScalar(rawAcc.norm(), PM_ACC_NRAW);
+		m_PM.plotScalar(acc.x(), PM_ACC_X);
+		m_PM.plotScalar(acc.y(), PM_ACC_Y);
+		m_PM.plotScalar(acc.z(), PM_ACC_Z);
+		m_PM.plotScalar(acc.norm(), PM_ACC_N);
+		m_PM.plotScalar(m_accMean.x(), PM_ACCMEAN_X);
+		m_PM.plotScalar(m_accMean.y(), PM_ACCMEAN_Y);
+		m_PM.plotScalar(m_accMean.z(), PM_ACCMEAN_Z);
+		m_PM.plotScalar(m_accMean.norm(), PM_ACCMEAN_N);
+		m_PM.plotScalar(magRaw.x(), PM_MAG_XRAW);
+		m_PM.plotScalar(magRaw.y(), PM_MAG_YRAW);
+		m_PM.plotScalar(magRaw.z(), PM_MAG_ZRAW);
 		m_PM.plotScalar(m_magSpikeFilterX.value(), PM_MAG_XSPIKE);
 		m_PM.plotScalar(m_magSpikeFilterY.value(), PM_MAG_YSPIKE);
 		m_PM.plotScalar(m_magSpikeFilterZ.value(), PM_MAG_ZSPIKE);
@@ -911,6 +1534,8 @@ bool RobotInterface::readJointStates()
 		m_PM.plotScalar(mag.y(), PM_MAG_Y);
 		m_PM.plotScalar(mag.z(), PM_MAG_Z);
 		m_PM.plotScalar(mag.norm(), PM_MAG_N);
+		m_PM.plotScalar(m_temperature * 0.01, PM_TEMPERATURE);
+		m_PM.plotScalar(m_voltage, PM_VOLTAGE);
 		m_PM.plotScalar(dT, PM_SENSOR_DT);
 		m_PM.publish();
 	}
@@ -953,25 +1578,28 @@ CommandGeneratorPtr RobotInterface::commandGenerator(const std::string& type)
 /**
  * Callback that processes commands for the LED display.
  **/
-void RobotInterface::handleLEDCommand(const LEDCommand& cmd)
+void RobotInterface::handleLEDCommand(const LEDCommandConstPtr& cmd)
 {
 	// Update the individual LED states
 	for(int i = 0; i < 3; i++)
 	{
 		// Only update the LED if the corresponding bit is set
-		if(cmd.mask & (1 << i))
+		if(cmd->mask & (1 << i))
 		{
 			// Set/reset the bit so it matches the bit in m_ledCommand.state
-			if(cmd.state & (1 << i))
+			if(cmd->state & (1 << i))
 				m_ledCommand.state |= (1 << i);
 			else
 				m_ledCommand.state &= ~(1 << i);
 		}
 	}
 
-	// Update the RGB LED colors if requested
-// 	if(cmd.mask & LEDCommand::LED5) m_ledCommand.rgb5 = cmd.rgb5; // Note: RGBLED5 is set by the CM730 firmware and will always be green as long as the PC is connected
-	if(cmd.mask & LEDCommand::LED6) m_ledCommand.rgb6 = cmd.rgb6;
+	// Update the RGBLED colors if requested (Note: RGBLED6 is set by the CM730 firmware and cannot be set in software)
+	if(cmd->mask & LEDCommand::LED5)
+	{
+		m_ledCommand.rgb5 = cmd->rgb5;
+		m_ledCommand.rgb5Blink = cmd->rgb5Blink;
+	}
 }
 
 /**
@@ -986,7 +1614,7 @@ void RobotInterface::sendCM730LedCommand()
 		std::vector<uint8_t> params(sizeof(CM730LedWriteData));
 		CM730LedWriteData* paramData = (CM730LedWriteData*)&params[0];
 
-		// Set thie ID of the target CM730
+		// Set the ID of the target CM730
 		paramData->id = CM730::ID_CM730;
 
 		// Transcribe the current LED commands (on/off) to the paramData struct
@@ -995,24 +1623,23 @@ void RobotInterface::sendCM730LedCommand()
 
 		// Set the desired colors of the RGB LEDs
 		// The 16-bit rgbled value is <0-4> = Red, <5-9> = Green, <10-14> = Blue, <15> = 0
-		paramData->rgbled5 =
-			(((int)(m_ledCommand.rgb5.r * 31) & 0x1F) << 0)
-			| (((int)(m_ledCommand.rgb5.g * 31) & 0x1F) << 5)
-			| (((int)(m_ledCommand.rgb5.b * 31) & 0x1F) << 10);
-		paramData->rgbled6 =
-			(((int)(m_ledCommand.rgb6.r * 31) & 0x1F) << 0)
-			| (((int)(m_ledCommand.rgb6.g * 31) & 0x1F) << 5)
-			| (((int)(m_ledCommand.rgb6.b * 31) & 0x1F) << 10);
+		paramData->rgbled5 = (((int)(m_ledCommand.rgb5.r * 31) & 0x1F) << 0)
+		                   | (((int)(m_ledCommand.rgb5.g * 31) & 0x1F) << 5)
+		                   | (((int)(m_ledCommand.rgb5.b * 31) & 0x1F) << 10)
+		                   | (m_ledCommand.rgb5Blink != 0 ? 1 << 15 : 0);
 
 		// Perform a write of the LED data to the CM730
 		if(m_board->writeData(paramData->id, CM730::P_LED_PANEL, &params[1], sizeof(CM730LedWriteData)-1) != CM730::RET_SUCCESS) // Note: We use &params[1] as we wish to skip the first byte that just contains the target ID
-			ROS_ERROR("Write of LED command to CM730 failed!");
+			ROS_ERROR_THROTTLE(0.4, "Write of LED command to CM730 failed!");
 	}
 	
 	// Publish the current LED state on a topic
 	nimbro_op_interface::LEDCommand ledState = m_ledCommand;
-	ledState.mask = 0x7F; // MNG => 0x01, EDIT => 0x02, PLAY => 0x04, RGBLED5 => 0x08, RGBLED6 => 0x10, RX => 0x20, TX => 0x40
-	ledState.state |= LEDCommand::LED0 | LEDCommand::LED1; // TODO: Just turn RX/TX LEDs on for now (can later be simulated based on what we know we're sending/receiving)
+	ledState.mask = 0x3F; // MNG => 0x01, EDIT => 0x02, PLAY => 0x04, RGBLED5 => 0x08, RX => 0x10, TX => 0x20
+	ledState.state &= ~(LEDCommand::LED0 | LEDCommand::LED1);
+	if(m_hadRX) ledState.state |= LEDCommand::LED0;
+	if(m_hadTX) ledState.state |= LEDCommand::LED1;
+	m_hadRX = m_hadTX = false;
 	ledState.state &= ledState.mask;
 	m_pub_led_state.publish(ledState);
 }
@@ -1022,6 +1649,21 @@ void RobotInterface::sendCM730LedCommand()
  **/
 bool RobotInterface::sendJointTargets()
 {
+	// Send the buzzer command if we have one
+	if(m_haveBuzzerData && m_haveHardware)
+	{
+		if(m_board->writeData(CM730::ID_CM730, CM730::P_BUZZER_PLAY_LENGTH, &m_buzzerData, sizeof(m_buzzerData)) != CM730::RET_SUCCESS)
+			ROS_ERROR_THROTTLE(0.4, "Write of buzzer command to CM730 failed!");
+		m_haveBuzzerData = false;
+	}
+
+	// Don't send anything if we aren't using the servos
+	if(!m_useServos())
+		return true;
+
+	// Communications are occurring PC --> CM730
+	m_hadTX = true;
+
 	// Allocate memory for the packet data and map an array of JointCmdSyncWriteData structs onto it
 	std::vector<uint8_t> params(m_model->numJoints() * sizeof(JointCmdSyncWriteData));
 	JointCmdSyncWriteData* paramData = (JointCmdSyncWriteData*) &params[0];
@@ -1036,7 +1678,7 @@ bool RobotInterface::sendJointTargets()
 		JointCmdSyncWriteData* data = &paramData[i];
 
 		// Slope-limit the servo effort to avoid large instantaneous steps
-		joint->realEffort = slopeLimited<double>(joint->realEffort, joint->cmd.effort, m_effortSlopeLimit());
+		joint->realEffort = rc_utils::slopeLimited<double>(joint->realEffort, joint->cmd.effort, m_effortSlopeLimit());
 		if(joint->realEffort < 0.0) joint->realEffort = 0.0;
 		else if(joint->realEffort > 4.0) joint->realEffort = 4.0;
 
@@ -1047,14 +1689,14 @@ bool RobotInterface::sendJointTargets()
 		int pValue = realpValue;
 		if(pValue < 2) pValue = 2;
 		joint->commandGenerator->setPValue(pValue);
-		joint->commandGenerator->setVoltage(INT_TO_VOLTS * m_boardData.voltage); // Note: This could use m_statVoltage, but as statistics are disabled this is a decent drop-in replacement
+		joint->commandGenerator->setVoltage(m_voltage); // Note: This could use m_statVoltage, but as statistics are disabled this is a decent drop-in replacement
 
 		// If requested, use the servo model to generate the final position command
 		// We create a linear mix between the raw command (goal position) and
 		// the command generated by the servo model. The slope of the coefficient
 		// is limited by the m_rawStateSlopeLimit().
 		double rawGoal = ((!joint->cmd.raw && useModel()) ? 1 : 0);
-		joint->rawState = slopeLimited<double>(joint->rawState, rawGoal, m_rawStateSlopeLimit()); // joint->rawState is a dimensionless parameter used to interpolate between a given raw command and servo model based command
+		joint->rawState = rc_utils::slopeLimited<double>(joint->rawState, rawGoal, m_rawStateSlopeLimit()); // joint->rawState is a dimensionless parameter used to interpolate between a given raw command and servo model based command
 		double modelCmd = joint->commandGenerator->servoCommandFor(joint->cmd.pos, joint->cmd.vel, joint->cmd.acc, joint->feedback.modelTorque);
 		double rawPosCmd = joint->cmd.pos;
 		rawPosCmd = joint->rawState * modelCmd + (1.0 - joint->rawState) * rawPosCmd;
@@ -1109,7 +1751,8 @@ bool RobotInterface::syncWriteJointTargets(size_t numDevices, const uint8_t* dat
 bool RobotInterface::setStiffness(float torque)
 {
 	// Display a throttled info message that fading is active
-	ROS_INFO_THROTTLE(0.4, "Fading is active (%.3f)", torque);
+	if(!(m_relaxed && torque == 0.0))
+		ROS_INFO_THROTTLE(0.4, "Fading is active (%.3f)", torque);
 
 	// If zero torque has been requested, then send a packet to disable all the servo torques altogether (really relax everything)
 	if(torque <= 0.0)
@@ -1225,6 +1868,17 @@ void RobotInterface::handleStatistics(const ros::TimerEvent&)
 		// Send the latest LED commands
 		sendCM730LedCommand();
 	}
+	else // Robotcontrol is paused or we have hardware and the board is suspended
+	{
+		// Turn off the simulated RX/TX led states
+		nimbro_op_interface::LEDCommand ledState;
+		ledState.mask = 0x30; // MNG => 0x01, EDIT => 0x02, PLAY => 0x04, RGBLED5 => 0x08, RX => 0x10, TX => 0x20
+		ledState.state = 0x00;
+		m_pub_led_state.publish(ledState);
+	}
+
+	// Update the logger heartbeat
+	sendLoggerHeartbeat();
 }
 
 /**
@@ -1234,7 +1888,8 @@ void RobotInterface::handleStatistics(const ros::TimerEvent&)
 void RobotInterface::getDiagnostics(robotcontrol::DiagnosticsPtr diag)
 {
 	// Retrieve the battery voltage as measured by the CM730
-	diag->batteryVoltage = INT_TO_VOLTS * m_boardData.voltage; // Note: m_boardData.voltage must be initialised in the constructor, just in case, so this never references an indeterminate value
+	diag->batteryVoltage = m_voltage; // Note: m_voltage must be initialised in the constructor, just in case, so this never references an indeterminate value
+	diag->commsOk = m_commsOk;
 
 	// Retrieve the maximum servo temperature, and compile a vector of the individual joint statistics (e.g. timeouts, checksum errors, etc...)
 	diag->servos.clear();
@@ -1332,14 +1987,245 @@ bool RobotInterface::handleReadOffset(ReadOffsetRequest& req, ReadOffsetResponse
 	return true;
 }
 
+// Handle reset of gyro/acc orientation offset
+void RobotInterface::handleResetGyroAccOffset()
+{
+	// Reset the offset if required
+	if(m_resetGyroAccOffset())
+	{
+		m_resetGyroAccOffset.set(false);
+		m_gyroAccFusedYaw.set(0.0);
+		m_gyroAccTiltAngle.set(0.0);
+		m_gyroAccTiltAxisAngle.set(0.0);
+	}
+}
+
+// Handle reset of mag orientation offset
+void RobotInterface::handleResetMagOffset()
+{
+	// Reset the offset if required
+	if(m_resetMagOffset())
+	{
+		m_resetMagOffset.set(false);
+		m_magFlip.set(false);
+		m_magFusedYaw.set(0.0);
+		m_magTiltAngle.set(0.0);
+		m_magTiltAxisAngle.set(0.0);
+	}
+}
+
+/**
+ * Handler for the calibrate gyro/acc IMU offsets start service.
+ **/
+bool RobotInterface::handleCalibGyroAccStart(std_srvs::EmptyRequest& req, std_srvs::EmptyResponse& resp)
+{
+	// Inform the user that a calibration has started
+	if(m_imuOffsetsGACalib)
+		ROS_WARN("A gyro/acc offsets calibration was already running => Aborting and starting again...");
+	else
+		ROS_WARN("Starting a gyro/acc offsets calibration...");
+
+	// Set the calibrating flag
+	m_imuOffsetsGACalib = true;
+
+	// Reset the calibration data points
+	m_imuOffsetsGAData.clear();
+
+	// Return that the service was successfully handled
+	return true;
+}
+
+/**
+ * Handler for the calibrate gyro/acc IMU offsets now service.
+ **/
+bool RobotInterface::handleCalibGyroAccNow(CalibGyroAccNowRequest& req, CalibGyroAccNowResponse& resp)
+{
+	// Don't do anything if a calibration is not running
+	if(!m_imuOffsetsGACalib)
+	{
+		ROS_ERROR("Ignoring CalibGyroAccNow service call: No gyro/acc calibration is running!");
+		return false;
+	}
+
+	// Error checking
+	if(req.poseType < 0 || req.poseType >= GAOMT_COUNT)
+	{
+		ROS_ERROR("Ignoring CalibGyroAccNow service call: Invalid pose type (%d)!", (int)req.poseType);
+		return false;
+	}
+
+	// Add the data point to our list
+	GyroAccOffsetMeas gaom;
+	gaom.type = (GyroAccOffsetMeasType) req.poseType;
+	gaom.acc = m_accMean;
+	m_imuOffsetsGAData.push_back(gaom);
+
+	// Inform the user that a data point was received
+	ROS_INFO("Added gyro/acc calib data point: Type %d, Acc(%.2f, %.2f, %.2f)", (int)gaom.type, gaom.acc.x(), gaom.acc.y(), gaom.acc.z());
+
+	// Populate the service response
+	resp.numDataPoints = m_imuOffsetsGAData.size();
+	resp.accX = gaom.acc.x();
+	resp.accY = gaom.acc.y();
+	resp.accZ = gaom.acc.z();
+
+	// Return that the service was successfully handled
+	return true;
+}
+
+/**
+ * Handler for the calibrate gyro/acc IMU offsets stop service.
+ **/
+bool RobotInterface::handleCalibGyroAccStop(CalibGyroAccStopRequest& req, CalibGyroAccStopResponse& resp)
+{
+	// Don't do anything if a calibration is not running
+	if(!m_imuOffsetsGACalib)
+	{
+		ROS_ERROR("Ignoring CalibGyroAccStop service call: No gyro/acc calibration is running!");
+		return false;
+	}
+
+	// Reset the calibrating flag
+	m_imuOffsetsGACalib = false;
+
+	// Indicate to the user that this service call has been received
+	ROS_INFO("Stopping gyro/acc calibration with %d data points...", (int)m_imuOffsetsGAData.size());
+
+	// Average out the readings of each type
+	size_t numData[GAOMT_COUNT] = {0};
+	Eigen::Vector3d meanData[GAOMT_COUNT];
+	for(size_t i = 0; i < GAOMT_COUNT; i++)
+		meanData[i].setZero();
+	for(size_t i = 0; i < m_imuOffsetsGAData.size(); i++)
+	{
+		const GyroAccOffsetMeas& data = m_imuOffsetsGAData[i];
+		if(data.type < 0 || data.type >= GAOMT_COUNT || data.acc.isZero()) continue;
+		meanData[data.type] += (data.acc - meanData[data.type]) / (++numData[data.type]);
+	}
+
+	// Check the validity of the averaged upright measurement
+	double uprightAccNorm = meanData[GAOMT_UPRIGHT].norm();
+	if(numData[GAOMT_UPRIGHT] <= 0 || uprightAccNorm <= 0.0)
+	{
+		if(numData[GAOMT_UPRIGHT] <= 0)
+			ROS_ERROR("Computation of gyro/acc calibration failed: No data for the upright pose!");
+		else
+			ROS_ERROR("Computation of gyro/acc calibration failed: Upright data points are invalid!");
+		return false;
+	}
+
+	// Calibrate the gyro/acc tilt angle and tilt axis angle
+	Eigen::Vector3d SzB = meanData[GAOMT_UPRIGHT] / uprightAccNorm; // Positive z axis of the robot (body-fixed frame B) in the coordinates of the sensor (frame S)
+	double tiltAxisAngle, tiltAngle;                                // Tilt axis angle and tilt angle of the rotation from B to S
+	rot_conv::TiltFromZVec(SzB, tiltAxisAngle, tiltAngle);
+
+	// Compute the purported x directions as supported by the various types of data
+	size_t dirnCount = 0;
+	Eigen::Vector3d SxB = Eigen::Vector3d::Zero();
+	double minNorm = uprightAccNorm*(1.0 - m_gyroAccMaxRelAccScale());
+	double maxNorm = uprightAccNorm*(1.0 + m_gyroAccMaxRelAccScale());
+	for(size_t type = GAOMT_UPRIGHT + 1; type < GAOMT_COUNT; type++)
+	{
+		// Ignore this data type if no measurements of that type were made
+		if(numData[type] <= 0) continue;
+
+		// Normalise the averaged data for this data type
+		double norm = meanData[type].norm();
+		if(norm <= 0.0 || norm < minNorm || norm > maxNorm)
+		{
+			ROS_WARN("Ignored measurements of type %d as the AVERAGED measurement value had a norm %.2f out of the range [%.2f,%.2f]!", (int)type, norm, minNorm, maxNorm);
+			continue;
+		}
+
+		// Project the averaged data to the plane perpendicular to the accepted robot "up" direction
+		double dotProd = meanData[type].dot(SzB);
+		Eigen::Vector3d projData = meanData[type] - dotProd*SzB;
+
+		// Adjust the projected vector to point to the purported positive x axis
+		if(type == GAOMT_FRONT)
+			projData = -projData;
+		else if(type == GAOMT_RIGHT)
+			projData = projData.cross(SzB);
+		else if(type == GAOMT_LEFT)
+			projData = SzB.cross(projData);
+		else if(type != GAOMT_BACK)
+		{
+			ROS_WARN("Encountered unexpected type %d!", (int)type);
+			continue;
+		}
+
+		// Normalise the purported x direction calculated for this data type
+		double projNorm = projData.norm();
+		if(projNorm <= 0.0 || projNorm < minNorm || projNorm > maxNorm)
+		{
+			ROS_WARN("Ignored measurements of type %d as the PROJECTED averaged measurement value had a norm %.2f out of the range [%.2f,%.2f] (projection angle %.3f)!", (int)type, projNorm, minNorm, maxNorm, fabs(asin(rc_utils::coerceAbs(dotProd/norm, 1.0))));
+			continue;
+		}
+		projData /= projNorm; // Unit vector pointing in the purported x direction
+
+		// Sum up the projected data
+		SxB += projData;
+		dirnCount++;
+	}
+
+	// Calibrate the gyro/acc fused yaw
+	double fusedYaw = 0.0;
+	if(dirnCount <= 0)
+		ROS_WARN("Could not calibrate a value for the gyro/acc fused yaw orientation because only type 0 upright data was available => Setting it to zero!");
+	else
+	{
+		// Compute the circular mean of the purported x directions
+		SxB /= dirnCount;
+
+		// Calculate the fused yaw orientation of the gyro/acc sensors
+		double SxBnorm = SxB.norm();
+		if(SxBnorm < m_gyroAccMinYawAgreement() || SxBnorm <= 0.0)
+			ROS_WARN("Could not calibrate a value for the gyro/acc fused yaw orientation because the %d directions disagreed too much (%.3f < %.2f) => Setting it to zero!", (int)dirnCount, SxBnorm, m_gyroAccMinYawAgreement());
+		else
+		{
+			ROS_INFO("Direction agreement for fused yaw (%d directions): %.1f%%", (int)dirnCount, 100.0*SxBnorm);
+			SxB /= SxBnorm;
+			Eigen::Vector3d SyB = SzB.cross(SxB);
+			Eigen::Matrix3d BRS;
+			BRS << SxB.x(), SxB.y(), SxB.z(), SyB.x(), SyB.y(), SyB.z(), SzB.x(), SzB.y(), SzB.z(); // BRS = Matrix with rows SxB, SyB, SzB
+			double tmpTiltAxisAngle = 0.0, tmpTiltAngle = 0.0;
+			rot_conv::TiltFromRotmat(BRS, fusedYaw, tmpTiltAxisAngle, tmpTiltAngle);
+			double tiltAxisAngleErr = fabs(tmpTiltAxisAngle - tiltAxisAngle);
+			double tiltAngleErr = fabs(tmpTiltAngle - tiltAngle);
+			if(tiltAxisAngleErr > 1e-14 || tiltAngleErr > 1e-14)
+				ROS_WARN("Disagreement in calculation of the tilt rotation (%.2g, %.2g) => Should never happen!", tiltAxisAngleErr, tiltAngleErr); 
+		}
+	}
+
+	// Update the parameters on the config server
+	m_gyroAccFusedYaw.set(fusedYaw);
+	m_gyroAccTiltAxisAngle.set(tiltAxisAngle);
+	m_gyroAccTiltAngle.set(tiltAngle);
+
+	// Populate the service response
+	resp.numDataPoints = m_imuOffsetsGAData.size();
+	resp.numDirections = dirnCount;
+	resp.gyroAccFusedYaw = fusedYaw;
+	resp.gyroAccTiltAxisAngle = tiltAxisAngle;
+	resp.gyroAccTiltAngle = tiltAngle;
+
+	// Report the results of the calibration
+	ROS_INFO("Calibrated tilt angles orientation of the gyro/acc: (%.4f, %.4f, %.4f)", fusedYaw, tiltAxisAngle, tiltAngle);
+
+	// Return that the service was successfully handled
+	return true;
+}
+
 /**
  * Transcribe the value of the acc-only method flag on the config server to the internals of the attitude estimator
  **/
 void RobotInterface::updateAttEstMethod()
 {
 	// Update the acc-only resolution method
-	m_attitudeEstimator.setAccMethod(m_attEstUseFusedMethod() ? stateestimation::AttitudeEstimator::ME_FUSED_YAW : stateestimation::AttitudeEstimator::ME_ZYX_YAW);
-	m_attEstNoMag.setAccMethod(m_attEstUseFusedMethod() ? stateestimation::AttitudeEstimator::ME_FUSED_YAW : stateestimation::AttitudeEstimator::ME_ZYX_YAW);
+	stateestimation::AttitudeEstimator::AccMethodEnum method = (m_attEstUseFusedMethod() ? stateestimation::AttitudeEstimator::ME_FUSED_YAW : stateestimation::AttitudeEstimator::ME_ZYX_YAW);
+	m_attitudeEstimator.setAccMethod(method);
+	m_attEstNoMag.setAccMethod(method);
+	m_attEstYaw.setAccMethod(method);
 }
 
 /**
@@ -1350,6 +2236,7 @@ void RobotInterface::updateAttEstPIGains()
 	// Update the attitude estimator parameters
 	m_attitudeEstimator.setPIGains(m_attEstKp(), m_attEstTi(), m_attEstKpQuick(), m_attEstTiQuick());
 	m_attEstNoMag.setPIGains(m_attEstKp(), m_attEstTi(), m_attEstKpQuick(), m_attEstTiQuick());
+	m_attEstYaw.setPIGains(m_attEstKpYaw(), 1e12, m_attEstKpYawQuick(), 1e12);
 }
 
 /**
@@ -1360,6 +2247,58 @@ void RobotInterface::updateAttEstMagCalib()
 	// Update the attitude estimator parameters
 	m_attitudeEstimator.setMagCalib(m_attEstMagCalibX(), m_attEstMagCalibY(), m_attEstMagCalibZ());
 	m_attEstNoMag.setMagCalib(m_attEstMagCalibX(), m_attEstMagCalibY(), m_attEstMagCalibZ());
+	m_attEstYaw.setMagCalib(m_attEstMagCalibX(), m_attEstMagCalibY(), m_attEstMagCalibZ());
+}
+
+/**
+ * Update the attitude estimator gyro bias based on the config parameters, but only if this will set it
+ * to a value that is different to the last time the attitude estimator's gyro bias was set.
+ **/
+void RobotInterface::updateAttEstGyroCalib()
+{
+	// Update the attitude estimator parameters only if something has changed
+	Eigen::Vector3f configBias(m_attEstGyroBiasX(), m_attEstGyroBiasY(), m_attEstGyroBiasZ());
+	if(configBias != m_attEstGyroBiasLast || m_attEstGyroBiasUpdate())
+	{
+		setAttEstGyroCalib(configBias);
+		m_attEstGyroBiasUpdate.set(false);
+	}
+}
+
+/**
+ * Set the gyro biases of the attitude estimators to @p bias.
+ **/
+void RobotInterface::setAttEstGyroCalib(const Eigen::Vector3f& bias)
+{
+	// Update the attitude estimator parameters
+	m_attitudeEstimator.setGyroBias(bias.x(), bias.y(), bias.z());
+	m_attEstNoMag.setGyroBias(bias.x(), bias.y(), bias.z());
+	m_attEstYaw.setGyroBias(bias.x(), bias.y(), bias.z());
+	m_attEstGyroBiasLast = bias;
+}
+
+/**
+ * Writes the current gyro mean into the attitude estimator gyro bias config variables.
+ **/
+void RobotInterface::setAttEstGyroBiasFromMean()
+{
+	// Update the required config variables
+	m_attEstGyroBiasX.set(m_gyroMean.x());
+	m_attEstGyroBiasY.set(m_gyroMean.y());
+	m_attEstGyroBiasZ.set(m_gyroMean.z());
+	m_attEstGyroBiasSetFM.set(false);
+}
+
+/**
+ * Writes the current gyro smooth mean into the attitude estimator gyro bias config variables.
+ **/
+void RobotInterface::setAttEstGyroBiasFromSmoothMean()
+{
+	// Update the required config variables
+	m_attEstGyroBiasX.set(m_gyroMeanSmooth.x());
+	m_attEstGyroBiasY.set(m_gyroMeanSmooth.y());
+	m_attEstGyroBiasZ.set(m_gyroMeanSmooth.z());
+	m_attEstGyroBiasSetFSM.set(false);
 }
 
 /**
@@ -1369,29 +2308,297 @@ void RobotInterface::updateAttEstMagCalib()
  * Nominally this is parallel to the field and facing the positive goal. While the robot is in exactly this
  * position (with as much free air around it as possible too), fire off a call to this service using:
  * @code
- * rosservice call /robotcontrol/nopInterface/attEstCalibrate
+ * rosservice call /nimbro_op_interface/attEstCalibrate
  * @endcode
  **/
-bool RobotInterface::handleAttEstCalibrate(nimbro_op_interface::AttEstMagCalibRequest& req, nimbro_op_interface::AttEstMagCalibResponse& resp)
+bool RobotInterface::handleAttEstCalibrate(nimbro_op_interface::AttEstCalibRequest& req, nimbro_op_interface::AttEstCalibResponse& resp)
 {
 	// Retrieve the current magnetic field vector
 	Eigen::Vector3d mag = m_model->magneticFieldVector();
 
 	// Update the config server parameters
-	m_attEstMagCalibX.set((float) mag.x());
-	m_attEstMagCalibY.set((float) mag.y());
-	m_attEstMagCalibZ.set((float) mag.z());
+	m_attEstMagCalibX.set(mag.x());
+	m_attEstMagCalibY.set(mag.y());
+	m_attEstMagCalibZ.set(mag.z());
+	setAttEstGyroBiasFromMean();
 
 	// Inform the user of the results of the calibration
 	ROS_INFO("Attitude estimation calibration: attEstMagCalib vector has been updated to be (%10.7lf, %10.7lf, %10.7lf)", mag.x(), mag.y(), mag.z());
+	ROS_INFO("Attitude estimation calibration: attEstGyroBias vector has been updated to be (%10.7lf, %10.7lf, %10.7lf)", m_gyroMean.x(), m_gyroMean.y(), m_gyroMean.z());
 
 	// Return the result of the calibration
 	resp.magCalibX = mag.x();
 	resp.magCalibY = mag.y();
 	resp.magCalibZ = mag.z();
+	resp.gyroBiasX = m_gyroMean.x();
+	resp.gyroBiasY = m_gyroMean.y();
+	resp.gyroBiasZ = m_gyroMean.z();
 
 	// Return that the service was successfully handled
 	return true;
+}
+
+/**
+ * @brief Start a scale factor calibration of the gyroscope.
+ **/
+bool RobotInterface::handleCalibrateGyroStart(nimbro_op_interface::CalibGyroStartRequest& req, nimbro_op_interface::CalibGyroStartResponse& resp)
+{
+	// Warn if we just aborted a previous calibration
+	if(m_gyroCalibrating != 0)
+	{
+		ROS_WARN("Aborting the running gyroscope calibration before starting the new one!");
+		std_srvs::Empty empty;
+		handleCalibrateGyroAbort(empty.request, empty.response);
+	}
+
+	// Inform the user that the gyro calibration has started
+	ROS_WARN("Starting gyroscope calibration...");
+	ROS_INFO("If the gyro bias is not currently accurate, and the yaw-estimating attitude estimator thereby has non-negligible drift, this calibration will not be accurate!");
+
+	// Update the gyro calibration state
+	m_gyroCalibrating = 1;
+
+	// Process the request
+	m_gyroCalibType = (req.type >= 0 && req.type <= 2 ? req.type : 0);
+	m_gyroCalibNumTurns = (req.turns >= 1 ? req.turns : 1);
+
+	// Capture the initial state
+	m_gyroCalibInitYaw = m_attEstYaw.fusedYaw();
+	m_gyroCalibInitTemp = m_temperature;
+
+	// Initialise the remaining variables
+	m_gyroCalibLoopCount = 0;
+	m_gyroCalibLoopCountFirst = 0;
+	m_gyroCalibUpdateCount = 0;
+	m_gyroCalibUpdateCountFirst = 0;
+	m_gyroCalibScaleFactor = -1.0;
+	m_gyroCalibMiddleYaw = m_gyroCalibInitYaw;
+	m_gyroCalibMiddleTemp = m_gyroCalibInitTemp;
+	m_gyroCalibCurYaw = m_gyroCalibInitYaw;
+
+	// More information for the user
+	std::string updateText;
+	if(m_gyroCalibType == 1)
+		updateText = "will update the low temperature scale factor";
+	else if(m_gyroCalibType == 2)
+		updateText = "will update the high temperature scale factor";
+	else
+		updateText = "will not automatically update any scale factors";
+	ROS_INFO("Required actions (%s):\n- Rotate the robot by exactly %d complete revolutions around its yaw axis\n- Call the calibrateGyroReturn service\n- Rotate the robot by exactly %d complete revolutions in the other direction\n- Call the calibrateGyroStop service\n- Call the calibrateGyroAbort service at any time to abort", updateText.c_str(), m_gyroCalibNumTurns, m_gyroCalibNumTurns);
+	ROS_INFO("Start state: Yaw %.4f, Temperature %.1f", m_gyroCalibInitYaw, m_gyroCalibInitTemp);
+
+	// Populate the service response
+	resp.initialYaw = m_gyroCalibInitYaw;
+	resp.initialTemp = m_gyroCalibInitTemp;
+
+	// Return that the service call was successfully handled
+	return true;
+}
+
+/**
+ * @brief Proceed to the return phase of a scale factor calibration of the gyroscope.
+ **/
+bool RobotInterface::handleCalibrateGyroReturn(nimbro_op_interface::CalibGyroReturnRequest& req, nimbro_op_interface::CalibGyroReturnResponse& resp)
+{
+	// Make sure this service call is expected
+	if(m_gyroCalibrating == 2)
+		ROS_WARN("The middle point was already set by calling this service: Updating the existing middle point values...");
+	else if(m_gyroCalibrating != 1)
+	{
+		ROS_WARN("Unexpected service call to calibrateGyroReturn: No calibration is running!");
+		return false;
+	}
+
+	// Update the gyro calibration state
+	m_gyroCalibrating = 2;
+
+	// Capture the middle state
+	m_gyroCalibMiddleYaw = m_gyroCalibCurYaw; // We use this variable to retrieve the yaw as it is guaranteed to be consistent with our loop count
+	m_gyroCalibMiddleTemp = m_temperature;
+	m_gyroCalibLoopCountFirst = m_gyroCalibLoopCount;
+	m_gyroCalibLoopCount = 0;
+	m_gyroCalibUpdateCountFirst = m_gyroCalibUpdateCount;
+	m_gyroCalibUpdateCount = 0;
+
+	// Inform the user as to the middle state
+	ROS_INFO("Middle state: Yaw %.4f, Temperature %.1f, %d loops detected, %d estimator updates made", m_gyroCalibMiddleYaw, m_gyroCalibMiddleTemp, m_gyroCalibLoopCountFirst, m_gyroCalibUpdateCountFirst);
+
+	// Populate the service response
+	resp.middleYaw = m_gyroCalibMiddleYaw;
+	resp.middleTemp = m_gyroCalibMiddleTemp;
+	resp.middleLoops = m_gyroCalibLoopCountFirst;
+
+	// Return that the service call was successfully handled
+	return true;
+}
+
+/**
+ * @brief Stop a scale factor calibration of the gyroscope.
+ **/
+bool RobotInterface::handleCalibrateGyroStop(nimbro_op_interface::CalibGyroStopRequest& req, nimbro_op_interface::CalibGyroStopResponse& resp)
+{
+	// Make sure this service call is expected
+	if(m_gyroCalibrating != 2)
+	{
+		if(m_gyroCalibrating == 1)
+			ROS_WARN("Unexpected service call to calibrateGyroStop: A calibration is running but calibrateGyroReturn hasn't been called yet to set the middle point!");
+		else
+			ROS_WARN("Unexpected service call to calibrateGyroStop: No calibration is running!");
+		return false;
+	}
+
+	// Update the gyro calibration state
+	m_gyroCalibrating = 0;
+
+	// Capture the final state
+	double gyroCalibFinalYaw = m_gyroCalibCurYaw; // We use this variable to retrieve the yaw as it is guaranteed to be consistent with our loop count
+	double gyroCalibFinalTemp = m_temperature;
+
+	// Inform the user as to the final state
+	ROS_INFO("Final state: Yaw %.4f, Temperature %.1f, %d loops detected, %d estimator updates made", gyroCalibFinalYaw, gyroCalibFinalTemp, m_gyroCalibLoopCount, m_gyroCalibUpdateCount);
+
+	// Compute the average temperature and the linear amount of change in yaw in the two calibration phases
+	double temperature = (m_gyroCalibInitTemp + m_gyroCalibMiddleTemp + gyroCalibFinalTemp)/3.0; // Average temperature during the calibration
+	double An = M_2PI*m_gyroCalibLoopCountFirst + m_gyroCalibMiddleYaw - m_gyroCalibInitYaw; // Linear change in yaw in the first calibration phase
+	double Am = M_2PI*m_gyroCalibLoopCount + gyroCalibFinalYaw - m_gyroCalibMiddleYaw;       // Linear change in yaw in the second calibration phase
+	double N = m_gyroCalibUpdateCountFirst; // Number of yaw updates in the first calibration phase
+	double M = m_gyroCalibUpdateCount;      // Number of yaw updates in the second calibration phase
+
+	// Error checking
+	if(m_gyroCalibNumTurns <= 0)
+	{
+		ROS_WARN("The required number of turns for the calibration was zero or negative, which should be impossible. How did that happen?");
+		return false;
+	}
+	if(m_gyroCalibScaleFactor <= 0.0)
+	{
+		ROS_WARN("The gyro scale factor used during the calibration has a mystical value of %.3f. How did that happen?", m_gyroCalibScaleFactor);
+		return false;
+	}
+	if(An*Am >= 0.0)
+	{
+		ROS_WARN("The robot was rotated in the same direction both times, so the calibration is not valid!");
+		return false;
+	}
+	if(N <= 0 || M <= 0)
+	{
+		ROS_WARN("One or both of the update counts are zero or negative, so the calibration is not valid!");
+		return false;
+	}
+
+	// Compute the expected linear amount of change in yaw for the two calibration phases
+	double Dn = rc_utils::sign(An) * m_gyroCalibNumTurns * M_2PI; // Desired linear change in yaw in the first calibration phase
+	double Dm = rc_utils::sign(Am) * m_gyroCalibNumTurns * M_2PI; // Desired linear change in yaw in the second calibration phase
+
+	// Calculate the scale factor and constant yaw drift rate that best explains the observed measurements
+	double yawDriftPerUpdate = (Dn*Am - Dm*An)/(Dn*M - Dm*N);       // Note: The denominator cannot be zero due to the error checking above
+	double yawDrift = yawDriftPerUpdate / m_model->timerDuration(); // Note: This is just a very broad estimate, and only meant for getting an idea of the order of magnitude of the assumed yaw drift
+	double scaleFactor = (Dn*M - Dm*N)/(An*M - Am*N);               // Note: The denominator cannot be zero due to the error checking above
+	scaleFactor *= m_gyroCalibScaleFactor;                          // While the calibration was being done the gyro measurements were already being scaled by a constant scale factor, so we must account for that
+
+	// Present the calibration results to the user
+	ROS_INFO("Calibration results: Temperature %.1f requires scale factor %.3f", temperature, scaleFactor);
+	ROS_INFO("                     A yaw drift of %.4f rad/s (%.3f deg/s) was approximated", yawDrift, yawDrift*180.0/M_PI);
+
+	// Warn if the scale factor is indicative of some kind of mistake
+	if(scaleFactor < 0.5 || scaleFactor > 2.0)
+		ROS_WARN("The calculated scale factor is very different to 1.0, so there is probably a problem with your gyro, the units it is expressed in, or your calibration procedure!");
+
+	// Update the config server if the type says so
+	if(m_gyroCalibType == 1) // Update low temperature calibration
+	{
+		m_gyroTemperatureLow.set(temperature);
+		m_gyroScaleFactorLT.set(scaleFactor);
+		ROS_INFO("Updated the low temperature gyro scale factor on the config server!");
+	}
+	else if(m_gyroCalibType == 2) // Update high temperature calibration
+	{
+		m_gyroTemperatureHigh.set(temperature);
+		m_gyroScaleFactorHT.set(scaleFactor);
+		ROS_INFO("Updated the high temperature gyro scale factor on the config server!");
+	}
+	else // Don't update any calibration automatically
+		ROS_INFO("No gyro scale factors were automatically updated by this calibration!");
+
+	// Indicate that gyroscope calibration is now over
+	ROS_WARN("End gyroscope calibration");
+
+	// Populate the service response
+	resp.finalYaw = gyroCalibFinalYaw;
+	resp.finalTemp = gyroCalibFinalTemp;
+	resp.finalLoops = m_gyroCalibLoopCount;
+	resp.temperature = temperature;
+	resp.type = m_gyroCalibType;
+	resp.scaleFactor = scaleFactor;
+	resp.yawDrift = yawDrift;
+
+	// Return that the service call was successfully handled
+	return true;
+}
+
+/**
+ * @brief Abort a scale factor calibration of the gyroscope.
+ **/
+bool RobotInterface::handleCalibrateGyroAbort(std_srvs::EmptyRequest& req, std_srvs::EmptyResponse& resp)
+{
+	// Inform the user that the gyro calibration has been aborted
+	ROS_INFO("Aborting gyroscope calibration...");
+
+	// Update the gyro calibration state
+	m_gyroCalibrating = 0;
+
+	// Return that the service call was successfully handled
+	return true;
+}
+
+/**
+ * Apply the config variable for the temperature low pass settling time.
+ **/
+void RobotInterface::updateTempLowPassTs()
+{
+	// Update the low pass filter
+	float dT = (m_model ? m_model->timerDuration() : DEFAULT_TIMER_DURATION);
+	m_temperatureLowPass.setTs(m_temperatureLowPassTs() / dT);
+}
+
+/**
+ * Apply the config variable for the voltage low pass settling time.
+ **/
+void RobotInterface::updateVoltageLowPassTs()
+{
+	// Update the low pass filter
+	float dT = (m_model ? m_model->timerDuration() : DEFAULT_TIMER_DURATION);
+	m_voltageLowPass.setTs(m_voltageLowPassTs() / dT);
+}
+
+/**
+ * Apply the config variable for the acc low pass mean settling time.
+ **/
+void RobotInterface::updateAccLowPassMeanTs()
+{
+	// Update the low pass mean filter
+	float dT = (m_model ? m_model->timerDuration() : DEFAULT_TIMER_DURATION);
+	m_accLowPassMean.setTs(m_accLowPassMeanTs() / dT);
+}
+
+/**
+ * Apply the config variable for the gyro low pass mean settling time.
+ **/
+void RobotInterface::updateGyroLowPassMeanTs()
+{
+	// Update the low pass mean filter
+	float dT = (m_model ? m_model->timerDuration() : DEFAULT_TIMER_DURATION);
+	m_gyroLowPassMean.setTs(m_gyroLowPassMeanTs() / dT);
+}
+
+/**
+ * Apply the config variable for the gyro very low pass mean settling time.
+ **/
+void RobotInterface::updateGyroVeryLowPassMeanTs()
+{
+	// Update the very low pass mean filter
+	float dT = (m_model ? m_model->timerDuration() : DEFAULT_TIMER_DURATION);
+	m_gyroVeryLowPassMean.setTs(m_gyroLowPassMeanTsHigh() / dT);
 }
 
 /**
@@ -1408,20 +2615,135 @@ void RobotInterface::updateMagSpikeMaxDelta()
 /**
  * Handler function for when we receive notification of a new button press.
  **/
-void RobotInterface::handleButton(int number) // Note: Calling this means that the number-th bit of the P_BUTTON byte (retrieved from the CM730) was set!
+void RobotInterface::handleButton(int number, bool longPress) // Note: Calling this means that the number-th bit of the P_BUTTON byte (retrieved from the CM730) was set!
 {
-	// If the leftmost button, fade in/out depending on the current robot state
-	if(number == 0) // Note: This corresponds to the leftmost button
+	// Indicate that a button was pressed if required
+	if(m_showButtonPresses())
+		ROS_INFO("Button %d was %s", number, (longPress ? "long-pressed" : "pressed"));
+
+	// If the leftmost button was pressed, fade in/out depending on the current robot state
+	if(number == 0 && !longPress)
+		sendFadeTorqueGoal(m_model->state() == m_state_relaxed ? 1.0 : 0.0);
+}
+
+// Configure the plot manager
+void RobotInterface::configurePlotManager()
+{
+	// Configure the plot manager variable names
+	m_PM.setName(PM_ANGEST_PPITCH,       "Estimation/AngleEstimator/ProjPitch");
+	m_PM.setName(PM_ANGEST_PROLL,        "Estimation/AngleEstimator/ProjRoll");
+	m_PM.setName(PM_ATTEST_FYAW,         "Estimation/AttitudeEstimator/FusedYaw");
+	m_PM.setName(PM_ATTEST_FPITCH,       "Estimation/AttitudeEstimator/FusedPitch");
+	m_PM.setName(PM_ATTEST_FROLL,        "Estimation/AttitudeEstimator/FusedRoll");
+	m_PM.setName(PM_ATTEST_FHEMI,        "Estimation/AttitudeEstimator/FusedHemi");
+	m_PM.setName(PM_ATTEST_BIAS_X,       "Estimation/AttitudeEstimator/GyroBiasX");
+	m_PM.setName(PM_ATTEST_BIAS_Y,       "Estimation/AttitudeEstimator/GyroBiasY");
+	m_PM.setName(PM_ATTEST_BIAS_Z,       "Estimation/AttitudeEstimator/GyroBiasZ");
+	m_PM.setName(PM_ATTEST_NOMAG_FYAW,   "Estimation/AttitudeEstimatorNoMag/FusedYaw");
+	m_PM.setName(PM_ATTEST_NOMAG_FPITCH, "Estimation/AttitudeEstimatorNoMag/FusedPitch");
+	m_PM.setName(PM_ATTEST_NOMAG_FROLL,  "Estimation/AttitudeEstimatorNoMag/FusedRoll");
+	m_PM.setName(PM_ATTEST_NOMAG_FHEMI,  "Estimation/AttitudeEstimatorNoMag/FusedHemi");
+	m_PM.setName(PM_ATTEST_NOMAG_BIAS_X, "Estimation/AttitudeEstimatorNoMag/GyroBiasX");
+	m_PM.setName(PM_ATTEST_NOMAG_BIAS_Y, "Estimation/AttitudeEstimatorNoMag/GyroBiasY");
+	m_PM.setName(PM_ATTEST_NOMAG_BIAS_Z, "Estimation/AttitudeEstimatorNoMag/GyroBiasZ");
+	m_PM.setName(PM_ATTEST_YAW_FYAW,     "Estimation/AttitudeEstimatorYaw/FusedYaw");
+	m_PM.setName(PM_ATTEST_YAW_FPITCH,   "Estimation/AttitudeEstimatorYaw/FusedPitch");
+	m_PM.setName(PM_ATTEST_YAW_FROLL,    "Estimation/AttitudeEstimatorYaw/FusedRoll");
+	m_PM.setName(PM_ATTEST_YAW_FHEMI,    "Estimation/AttitudeEstimatorYaw/FusedHemi");
+	m_PM.setName(PM_ATTEST_YAW_BIAS_X,   "Estimation/AttitudeEstimatorYaw/GyroBiasX");
+	m_PM.setName(PM_ATTEST_YAW_BIAS_Y,   "Estimation/AttitudeEstimatorYaw/GyroBiasY");
+	m_PM.setName(PM_ATTEST_YAW_BIAS_Z,   "Estimation/AttitudeEstimatorYaw/GyroBiasZ");
+	m_PM.setName(PM_GYRO_X,              "Estimation/Gyro/x");
+	m_PM.setName(PM_GYRO_Y,              "Estimation/Gyro/y");
+	m_PM.setName(PM_GYRO_Z,              "Estimation/Gyro/z");
+	m_PM.setName(PM_GYRO_N,              "Estimation/Gyro/norm");
+	m_PM.setName(PM_GYROMEAN_X,          "Estimation/GyroMean/x");
+	m_PM.setName(PM_GYROMEAN_Y,          "Estimation/GyroMean/y");
+	m_PM.setName(PM_GYROMEAN_Z,          "Estimation/GyroMean/z");
+	m_PM.setName(PM_GYROMEAN_N,          "Estimation/GyroMean/norm");
+	m_PM.setName(PM_GYROMEAN_SMOOTH_X,   "Estimation/GyroMeanSmooth/x");
+	m_PM.setName(PM_GYROMEAN_SMOOTH_Y,   "Estimation/GyroMeanSmooth/y");
+	m_PM.setName(PM_GYROMEAN_SMOOTH_Z,   "Estimation/GyroMeanSmooth/z");
+	m_PM.setName(PM_GYROMEAN_SMOOTH_N,   "Estimation/GyroMeanSmooth/norm");
+	m_PM.setName(PM_GYRO_MEAN_OFFSET,    "Estimation/GyroAutoCalib/GyroToMeanOffset");
+	m_PM.setName(PM_GYRO_STABLE_TIME,    "Estimation/GyroAutoCalib/GyroStableTime");
+	m_PM.setName(PM_GYRO_BIAS_TS,        "Estimation/GyroAutoCalib/GyroBiasTs");
+	m_PM.setName(PM_GYRO_BIAS_ALPHA,     "Estimation/GyroAutoCalib/GyroBiasAlpha");
+	m_PM.setName(PM_GYRO_SCALE_FACTOR,   "Estimation/GyroScaleFactor");
+	m_PM.setName(PM_ACC_XRAW,            "Estimation/Acc/Raw x");
+	m_PM.setName(PM_ACC_YRAW,            "Estimation/Acc/Raw y");
+	m_PM.setName(PM_ACC_ZRAW,            "Estimation/Acc/Raw z");
+	m_PM.setName(PM_ACC_NRAW,            "Estimation/Acc/Raw norm");
+	m_PM.setName(PM_ACC_X,               "Estimation/Acc/x");
+	m_PM.setName(PM_ACC_Y,               "Estimation/Acc/y");
+	m_PM.setName(PM_ACC_Z,               "Estimation/Acc/z");
+	m_PM.setName(PM_ACC_N,               "Estimation/Acc/norm");
+	m_PM.setName(PM_ACCMEAN_X,           "Estimation/AccMean/x");
+	m_PM.setName(PM_ACCMEAN_Y,           "Estimation/AccMean/y");
+	m_PM.setName(PM_ACCMEAN_Z,           "Estimation/AccMean/z");
+	m_PM.setName(PM_ACCMEAN_N,           "Estimation/AccMean/norm");
+	m_PM.setName(PM_MAG_XRAW,            "Estimation/Mag/Raw x");
+	m_PM.setName(PM_MAG_YRAW,            "Estimation/Mag/Raw y");
+	m_PM.setName(PM_MAG_ZRAW,            "Estimation/Mag/Raw z");
+	m_PM.setName(PM_MAG_XSPIKE,          "Estimation/Mag/No spike x");
+	m_PM.setName(PM_MAG_YSPIKE,          "Estimation/Mag/No spike y");
+	m_PM.setName(PM_MAG_ZSPIKE,          "Estimation/Mag/No spike z");
+	m_PM.setName(PM_MAG_XIRON,           "Estimation/Mag/Biased x");
+	m_PM.setName(PM_MAG_YIRON,           "Estimation/Mag/Biased y");
+	m_PM.setName(PM_MAG_ZIRON,           "Estimation/Mag/Biased z");
+	m_PM.setName(PM_MAG_X,               "Estimation/Mag/Filt x");
+	m_PM.setName(PM_MAG_Y,               "Estimation/Mag/Filt y");
+	m_PM.setName(PM_MAG_Z,               "Estimation/Mag/Filt z");
+	m_PM.setName(PM_MAG_N,               "Estimation/Mag/Filt norm");
+	m_PM.setName(PM_TEMPERATURE,         "Estimation/Temperature");
+	m_PM.setName(PM_VOLTAGE,             "Estimation/Voltage");
+	m_PM.setName(PM_SENSOR_DT,           "Estimation/Sensor dT");
+
+	// Check that we have been thorough
+	if(!m_PM.checkNames())
+		ROS_ERROR("Please review any warnings above that are related to the naming of plotter variables!");
+}
+
+// Callback for receiving buzzer commands
+void RobotInterface::handleBuzzerCommand(const BuzzerConstPtr& cmd)
+{
+	// Process the commanded buzzer tone
+	if(cmd->soundType == Buzzer::TONE)
 	{
-		if(m_fadingIsTriggered)
-			ROS_INFO("Dismissing extra fade request (torque fading is already active)!");
-		else
+		if(cmd->toneFreq < 52 && cmd->toneDuration >= 0.0 && cmd->toneDuration <= 5.0)
 		{
-			FadeTorqueGoal goal;
-			goal.torque = (m_model->state() == m_state_relaxed ? 1.0 : 0.0);
-			m_fadingIsTriggered = true;
-			m_fadeTorqueClient.sendGoal(goal, boost::bind(&RobotInterface::resetFadingTriggered, this));
+			uint8_t durTick = (uint8_t)(10.0*cmd->toneDuration + 0.5);
+			if(durTick > 0 && durTick <= 50)
+			{
+				m_buzzerData.playLength = durTick;
+				m_buzzerData.data = cmd->toneFreq;
+				m_haveBuzzerData = true;
+			}
 		}
+	}
+	else if(cmd->soundType == Buzzer::MUSIC)
+	{
+		if(cmd->musicIndex < 26)
+		{
+			m_buzzerData.playLength = 0xFF;
+			m_buzzerData.data = cmd->musicIndex;
+			m_haveBuzzerData = true;
+		}
+	}
+}
+
+// Send a fade torque goal
+void RobotInterface::sendFadeTorqueGoal(float torque)
+{
+	// Send the fade torque goal if we haven't just already sent one
+	if(m_fadingIsTriggered)
+		ROS_INFO("Dismissing extra fade request (torque fading is already active)!");
+	else
+	{
+		FadeTorqueGoal goal;
+		goal.torque = rc_utils::coerce(torque, 0.0f, 1.0f);
+		m_fadingIsTriggered = true;
+		m_fadeTorqueClient.sendGoal(goal, boost::bind(&RobotInterface::resetFadingTriggered, this));
 	}
 }
 
@@ -1430,6 +2752,33 @@ void RobotInterface::resetFadingTriggered()
 {
 	// Reset the fading triggered flag
 	m_fadingIsTriggered = false;
+}
+
+// Publish the default calculated logger state
+void RobotInterface::sendLoggerHeartbeat()
+{
+	// We should log if the robot is not in the relaxed state
+	bool log = (m_model->state() != m_state_relaxed && m_model->state() != m_state_setting_pose);
+	sendLoggerHeartbeat(log);
+}
+
+// Send a heartbeat to the logger
+void RobotInterface::sendLoggerHeartbeat(bool log)
+{
+	// Get the current ROS time
+	ros::Time now = ros::Time::now();
+
+	// See whether we have new information to publish
+	bool newState = (log != m_loggerMsg.enableLogging);
+	bool newTime = ((now - m_loggerStamp).toSec() >= 0.4);
+
+	// Publish the required logger state if we have reason to
+	if(newState || newTime)
+	{
+		m_loggerStamp = now;
+		m_loggerMsg.enableLogging = log;
+		m_pub_logger.publish(m_loggerMsg);
+	}
 }
 
 }

@@ -5,21 +5,14 @@
 #include "opencv2/opencv.hpp"
 #include <stdlib.h>     /* abs */
 #include <vision_module/Tools/General.hpp>
+#include <vision_module/Tools/OptimizorParam.hpp>
 
 using namespace cv;
-
-class OptimizorParam
-{
-public:
-	OptimizorParam(float data, float step = 0.001f) :
-			data(data), step(step)
-	{
-
-	}
-	float data;
-	float step;
-};
-
+/**
+* @ingroup VisionModule
+*
+* @brief A class for hill climbing optimization
+**/
 template<class T>
 class HillOptimizer
 {
@@ -27,15 +20,15 @@ private:
 	vector<OptimizorParam> parameters;
 	unsigned int paramsCount;
 	T& obj;
-	float (T::*pFunc)(vector<OptimizorParam>& parameters);
+	float (T::*pFunc)(const vector<OptimizorParam>& parameters);
 public:
-	HillOptimizer(T& obj, float (T::*pFunc)(vector<OptimizorParam>& parameters)) :
+	HillOptimizer(T& obj, float (T::*pFunc)(const vector<OptimizorParam>& parameters)) :
 		paramsCount(0),obj(obj), pFunc(pFunc)
 	{
 
 	}
 
-	bool TuneForBest(int maxIteration, double tol = 0.001)
+	bool TuneForBest(int maxIteration, double tol = 0.0000001)
 	{
 		double lastRes = Tune();
 		cout << " First Tune =" << lastRes << endl;

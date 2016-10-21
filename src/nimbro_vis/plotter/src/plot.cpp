@@ -24,6 +24,41 @@
 namespace plotter
 {
 
+const float Plot::colorList[32][3] = {
+	{0.0000, 0.0000, 1.0000},
+	{1.0000, 0.0000, 0.0000},
+	{0.0000, 1.0000, 0.0000},
+	{1.0000, 0.1034, 0.7241},
+	{1.0000, 0.8276, 0.0000},
+	{0.0000, 0.5172, 0.9655},
+	{0.0000, 0.5517, 0.2759},
+	{0.6552, 0.3793, 0.2414},
+	{0.3103, 0.0000, 0.4138},
+	{0.0000, 1.0000, 0.9655},
+	{0.2414, 0.4828, 0.5517},
+	{0.9310, 0.6552, 1.0000},
+	{0.8276, 1.0000, 0.5862},
+	{0.7241, 0.3103, 1.0000},
+	{0.8966, 0.1034, 0.3448},
+	{0.5172, 0.5172, 0.0000},
+	{0.0000, 1.0000, 0.5862},
+	{0.3793, 0.0000, 0.1724},
+	{0.9655, 0.5172, 0.0690},
+	{0.7931, 1.0000, 0.0000},
+	{0.1724, 0.2414, 0.0000},
+	{0.0000, 0.2069, 0.7586},
+	{1.0000, 0.7931, 0.5172},
+	{0.0000, 0.1724, 0.3793},
+	{0.6207, 0.4483, 0.5517},
+	{0.3103, 0.7241, 0.0690},
+	{0.6207, 0.7586, 1.0000},
+	{0.5862, 0.6207, 0.4828},
+	{1.0000, 0.4828, 0.6897},
+	{0.6207, 0.0345, 0.0000},
+	{1.0000, 0.7241, 0.7241},
+	{0.5172, 0.3793, 0.7931}
+};
+
 Plot::Plot(const QString& name, Plot* parent)
  : QObject(parent)
  , m_buf(16384)
@@ -65,6 +100,7 @@ void Plot::setParent(Plot* parent)
 {
 	parent->addChild(this);
 	setUsedSettings(parent->usedSettings());
+	setPaused(parent->paused());
 
 	QObject::setParent(parent);
 }
@@ -217,6 +253,13 @@ void Plot::draw(QPainter* painter, const ros::Time& base, const QRectF& rect, bo
 		m_children[i]->draw(painter, base, rect, dots);
 }
 
+void Plot::shutdown()
+{
+	// Shut down all child plots
+	for(int i = 0; i < m_children.size(); ++i)
+		m_children[i]->shutdown();
+}
+
 void Plot::setEnabled(bool enabled)
 {
 	m_enabled = enabled;
@@ -247,13 +290,75 @@ void Plot::setIsEventChannel(bool eventChannel)
 	m_isEventChannel = eventChannel;
 }
 
-void Plot::put(const ros::Time& time, double value, unsigned int labelY, bool notify)
+void Plot::assignColor(int colorIndex, bool notify)
 {
-	if(m_paused)
+	int wrapped = (colorIndex + (colorIndex >> 5) + (colorIndex >> 10) + (colorIndex >> 15)) & 0x1F;
+	m_color.setRgbF(colorList[wrapped][0], colorList[wrapped][1], colorList[wrapped][2]);
+
+	if(notify)
+		changed(this);
+}
+
+void Plot::assignColorRec(int colorIndex, bool notify)
+{
+	assignColor(colorIndex, notify);
+	colorIndex += '/';
+	for(int i = 0; i < m_children.size(); ++i)
+	{
+		int newColorIndex = colorIndex;
+		QString name = m_children[i]->name();
+		for(QString::const_iterator it = name.begin(); it != name.end(); ++it)
+			newColorIndex += it->unicode() * it->unicode();
+		m_children[i]->assignColorRec(newColorIndex, notify);
+	}
+}
+
+void Plot::clearData(bool notify)
+{
+	m_hasData = false;
+	m_buf.clear();
+
+	if(notify)
+		changed(this);
+}
+
+void Plot::clearDataRec(bool notify)
+{
+	clearData(notify);
+	for(int i = 0; i < m_children.size(); ++i)
+		m_children[i]->clearDataRec(notify);
+}
+
+void Plot::put(const ros::Time& time, double value, unsigned int* labelY, bool notify, bool overridePause)
+{
+	if(m_paused && !overridePause)
 		return;
 
-	m_hasData = true;
-	m_buf.push_back(DataPoint(time, value, labelY));
+	unsigned int labelYValue = 0;
+	if(labelY)
+		labelYValue = *labelY % 2;
+
+	bool done = false;
+	if(!m_buf.empty())
+	{
+		DataPoint& lastBuf = m_buf.back();
+		const ros::Time& lastBufTime = lastBuf.time;
+		if(time < lastBufTime)
+			clearData(false);
+		else if(time == lastBufTime)
+		{
+			lastBuf.value = value;
+			done = true;
+		}
+	}
+
+	if(!done)
+	{
+		m_buf.push_back(DataPoint(time, value, labelYValue));
+		m_hasData = true;
+		if(labelY)
+			*labelY = (labelYValue + 1) % 2;
+	}
 
 	if(notify)
 		changed(this);
@@ -275,7 +380,7 @@ Plot* Plot::findPlotByPath(const QString& path) const
 		}
 	}
 
-	return 0;
+	return NULL;
 }
 
 Plot* Plot::findOrCreatePlotByPath(const QString& path)
@@ -295,7 +400,6 @@ Plot* Plot::findOrCreatePlotByPath(const QString& path)
 	}
 
 	Plot* plot = new Plot(local, this);
-	plot->setPaused(m_paused);
 
 	if(subPath.isEmpty())
 		return plot;
@@ -312,14 +416,6 @@ QString Plot::path() const
 		p.prepend(plot->name() + '/');
 
 	return p;
-}
-
-ros::Time Plot::lastTime() const
-{
-	if(m_buf.size() == 0)
-		return ros::Time();
-
-	return (*m_buf.rbegin()).time;
 }
 
 ros::Time Plot::recursiveLastTime() const

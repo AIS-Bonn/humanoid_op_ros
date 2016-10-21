@@ -20,7 +20,10 @@ PlotWidget::PlotWidget(QWidget* parent)
  , m_wheelScaleFactor("/plotter/wheelScaleFactor", 1.0, 0.01, 2.0, 1.2)
  , m_vertScaleFactor("/plotter/vertScaleFactor", 0.5, 0.1, 10.0, 4.0)
  , m_playbackSpeedExp("/plotter/playbackSpeedExp", -5.0, 0.05, 2.0, 0.0)
+ , m_showEventsInLegend("/plotter/showEventsInLegend", true)
 {
+	m_paintBlocked = false;
+
 	m_swipeFadeOutTimer.setInterval(20);
 	connect(&m_swipeFadeOutTimer, SIGNAL(timeout()), this, SLOT(swipeFadeOut()));
 
@@ -32,7 +35,8 @@ PlotWidget::PlotWidget(QWidget* parent)
 
 	setMouseTracking(true);
 	m_screenScale_x = m_screenScale_y = m_screenScale_y_orig = 0.01; // 1 px is worth 0.01 value
-	m_screenOffset = QPointF(2,1);
+	m_screenOffset = QPointF(0,0);
+	m_screenOffsetSetup = false;
 	m_mousePresent = false;
 
 	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -44,7 +48,7 @@ PlotWidget::PlotWidget(QWidget* parent)
 	m_showDots = false;
 	m_playing = false;
 
-	m_selectionStart = m_selectionEnd = ros::Time(0);
+	m_selectionStart = m_selectionEnd = ros::Time();
 	rangeChanged();
 
 	new QShortcut(Qt::Key_D, this, SLOT(toggleDots()));
@@ -70,12 +74,24 @@ void PlotWidget::refresh()
 	m_wheelScaleFactor.reinit();
 	m_vertScaleFactor.reinit();
 	m_playbackSpeedExp.reinit();
-	
+
+	// An explicit external refresh request unblocks painting
+	m_paintBlocked = false;
+
 	// Update all kinds of stuff
 	updateScreenTransform();
 	emit timeChanged();
 	rangeChanged();
 	unsetCursor();
+	update();
+}
+
+void PlotWidget::clearSelection()
+{
+	m_fixedTime = m_selectionStart = m_selectionEnd = ros::Time();
+
+	emit timeChanged();
+	rangeChanged();
 	update();
 }
 
@@ -187,16 +203,16 @@ void PlotWidget::mouseReleaseEvent(QMouseEvent *event)
 				m_selectionStart = time;
 
 				if(time >= m_selectionEnd)
-					m_selectionEnd = ros::Time(0);
+					m_selectionEnd = ros::Time();
 				break;
 			case Qt::RightButton:
 				m_selectionEnd = time;
 
 				if(time <= m_selectionStart)
-					m_selectionStart = ros::Time(0);
+					m_selectionStart = ros::Time();
 				break;
 			case Qt::MiddleButton:
-				m_selectionStart = m_selectionEnd = ros::Time(0);
+				m_selectionStart = m_selectionEnd = ros::Time();
 				break;
 			default:
 				break;
@@ -325,6 +341,11 @@ void PlotWidget::leaveEvent(QEvent* event)
 
 void PlotWidget::resizeEvent(QResizeEvent* event)
 {
+	if(!m_screenOffsetSetup)
+	{
+		m_screenOffset = QPointF(-0.45*width()*m_screenScale_x, 0.0);
+		m_screenOffsetSetup = true;
+	}
 	updateScreenTransform();
 }
 
@@ -370,7 +391,7 @@ void PlotWidget::drawLegend(QPainter* painter, const Plot* plot)
 
 	int lineHeight = painter->fontMetrics().height();
 
-	if(!plot->isEnabled())
+	if(!plot->isEnabled() || (plot->isEventChannel() && !m_showEventsInLegend()))
 		return;
 
 	if(plot->hasData())
@@ -406,6 +427,8 @@ void PlotWidget::paintEvent(QPaintEvent* )
 	QPainter painter(this);
 
 	painter.fillRect(rect(), Qt::white);
+
+	if(m_paintBlocked) return;
 
 	// Calculate the bounding box in the transformed coordinate system.
 	QPointF topLeft = m_screenTransform.inverted().map(QPointF(0,0));

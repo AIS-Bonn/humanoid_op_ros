@@ -6,7 +6,7 @@ project(gait)
 #######################
 
 ## Find catkin macros and libraries
-find_package(catkin REQUIRED COMPONENTS roscpp robotcontrol tf gait_msgs std_srvs plot_msgs sensor_msgs nimbro_utils pluginlib)
+find_package(catkin REQUIRED COMPONENTS roscpp robotcontrol tf gait_msgs std_srvs plot_msgs sensor_msgs diagnostic_msgs rc_utils pluginlib)
 
 ###################################################
 ## Declare things to be passed to other projects ##
@@ -19,7 +19,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp robotcontrol tf gait_msgs std_srv
 catkin_package(
 	INCLUDE_DIRS include
 	LIBRARIES gait gait_util
-	CATKIN_DEPENDS robotcontrol nimbro_utils
+	CATKIN_DEPENDS robotcontrol rc_utils
 # 	DEPENDS
 )
 

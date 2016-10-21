@@ -1,0 +1,18 @@
+<launch rosmon-name="rosmon_visualization">
+	<include file="$(find launch)/hardware/robot_common_vis.launch" />
+
+	<include file="$(find launch)/network/communication.launch" />
+
+	<param name="/vis/use_sim_time" value="true" />
+
+	<node pkg="timewarp" name="tw" type="timewarp" output="screen" />
+
+	<node pkg="launch" name="rqt_base" type="rqt_base.sh" args="benchvis" output="screen" required="true" respawn="false">
+		<env name="ROS_NAMESPACE" value="vis" />
+		<env name="ROS_ARGUMENTS" value="/tf:=/vis/tf /use_sim_time:=/vis/use_sim_time /joint_states:=/vis/joint_states /clock:=/vis/clock" />
+	</node>
+
+	<node name="game_controller" pkg="rcup_game_controller" type="game_controller" output="screen" />
+
+	<node pkg="bench_vis" name="bench_vis" type="bench_vis" output="screen" />
+</launch>

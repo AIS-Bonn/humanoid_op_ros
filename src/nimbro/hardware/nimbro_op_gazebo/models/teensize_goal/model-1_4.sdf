@@ -1,0 +1,337 @@
+<?xml version="1.0" ?>
+<sdf version="1.4">
+  <model name="teensize_goal">
+    <static>true</static>
+    <link name="left_post">
+      <pose>0 1.35 0.95 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1.9</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1.9</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="left_support_horiz_lower">
+      <pose>0.3 1.35 0.01 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.6 0.02 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.6 0.02 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="left_support_horiz_upper">
+      <pose>0.3 1.35 1.2 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.6 0.02 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.6 0.02 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="left_support_vertical">
+      <pose>0.6 1.35 0.6 0 1.5708 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>1.2 0.02 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>1.2 0.02 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="right_support_horiz_lower">
+      <pose>0.3 -1.35 0.01 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.6 0.02 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.6 0.02 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="right_support_horiz_upper">
+      <pose>0.3 -1.35 1.2 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.6 0.02 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.6 0.02 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="right_support_vertical">
+      <pose>0.6 -1.35 0.6 0 1.5708 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>1.2 0.02 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>1.2 0.02 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="center_support_horiz_lower">
+      <pose>0.6 0 0.01 0 1.5708 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.02 2.7 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.02 2.7 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="center_support_horiz_upper">
+      <pose>0.6 0 1.2 0 1.5708 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.02 2.7 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.02 2.7 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="right_post">
+      <pose>0 -1.35 0.95 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1.9</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1.9</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="crossbar">
+      <pose>0 0 1.85 1.57 1.57 0</pose>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>2.6</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>2.6</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="center_net">
+      <pose>0.6 0 0.6 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.01 2.7 1.2</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.01 2.7 1.2</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>model://teensize_goal/materials/scripts/</uri>
+            <uri>model://teensize_goal/materials/textures/</uri>
+            <name>RoboCup/Net</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="left_net">
+      <pose>0.3 1.35 0.6 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.6 0.01 1.2</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.6 0.01 1.2</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>model://teensize_goal/materials/scripts/</uri>
+            <uri>model://teensize_goal/materials/textures/</uri>
+            <name>RoboCup/Net</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+    <link name="right_net">
+      <pose>0.3 -1.35 0.6 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.6 0.01 1.2</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.6 0.01 1.2</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>model://teensize_goal/materials/scripts/</uri>
+            <uri>model://teensize_goal/materials/textures/</uri>
+            <name>RoboCup/Net</name>
+          </script>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

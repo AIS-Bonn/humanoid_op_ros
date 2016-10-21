@@ -1,0 +1,8 @@
+*~
+.*
+!.gitignore
+*.kdev*
+*.pyc
+*.apk
+*.autosave
+/launch/motions/perspectives/recent_files

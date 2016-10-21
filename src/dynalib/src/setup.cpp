@@ -54,7 +54,7 @@ bool Setup::nextDevice()
 	return true;
 }
 
-const YAML::Node& Setup::currentDevice()
+YAML::Node Setup::currentDevice()
 {
 	return *deviceIt;
 }

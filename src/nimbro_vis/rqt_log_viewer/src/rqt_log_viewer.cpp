@@ -97,8 +97,6 @@ void RQTLogViewer::initPlugin(qt_gui_cpp::PluginContext& ctx)
 
 void RQTLogViewer::shutdownPlugin()
 {
-	rqt_gui_cpp::Plugin::shutdownPlugin();
-
 	m_sub_log.shutdown();
 
 	// NodeModel has a ROS background thread. This needs to be stopped here

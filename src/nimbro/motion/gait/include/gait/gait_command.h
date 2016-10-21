@@ -6,6 +6,9 @@
 #ifndef GAIT_COMMAND_H
 #define GAIT_COMMAND_H
 
+// Includes
+#include <cmath>
+
 // Gait namespace
 namespace gait
 {
@@ -27,6 +30,9 @@ namespace gait
 			angVelZ = 0.0;
 			walk = shouldWalk;
 		}
+
+		//! Check whether the gait command is finite
+		bool isFinite() const { return (std::isfinite(linVelX) && std::isfinite(linVelY) && std::isfinite(angVelZ)); }
 
 		// Gait command velocity vector
 		float linVelX;         //!< Commanded linear x-velocity

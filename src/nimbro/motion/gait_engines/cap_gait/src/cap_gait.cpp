@@ -5,17 +5,17 @@
 // Includes
 #include <robotcontrol/model/robotmodel.h> // This include is broken by Qt includes...
 #include <pluginlib/class_list_macros.h>
-#include <nimbro_utils/math_funcs.h>
-#include <nimbro_utils/slope_limiter.h>
-#include <nimbro_utils/lin_sin_fillet.h>
-#include <nimbro_utils/smooth_deadband.h>
+#include <rc_utils/math_funcs.h>
+#include <rc_utils/slope_limiter.h>
+#include <rc_utils/lin_sin_fillet.h>
+#include <rc_utils/smooth_deadband.h>
 #include <cap_gait/cap_gait.h> // This is last because it contains Qt includes that break the Boost signals library... (used by TF)
 #include <cap_gait/contrib/Globals.h>
 
 // Namespaces
 using namespace gait;
 using namespace cap_gait;
-using namespace nimbro_utils;
+using namespace rc_utils;
 using namespace qglviewer;
 
 // Using declarations (we don't include the whole margait_contrib namespace as the contributed pose classes would conflict with the existing gait_*_pose.h ones)
@@ -44,6 +44,7 @@ CapGait::CapGait() : GaitEngine()
  , rxModel(&config)
  , mxModel(&config)
  , txModel(&config)
+ , m_gcvZeroTime("/gait/gcv/gcvZeroTime", 0.0, 0.05, 2.0, 0.0)
  , m_plotData(CONFIG_PARAM_PATH + "plotData", false)
  , m_PM(PM_COUNT, "/cap_gait")
 {
@@ -199,6 +200,7 @@ void CapGait::resetCaptureSteps(bool resetRobotModel)
 	stepTimeCount = 0.0;
 	lastStepDuration = 0.0;
 	stepCounter = 0;
+	noCLStepsCounter = coerceMin((int)(m_gcvZeroTime() / in.nominaldT + 0.5), 1);
 	resetCounter = 100; // Force Mx to match Rx completely for the next/first few cycles
 	cycleNumber = 0;
 
@@ -256,6 +258,13 @@ void CapGait::updateOdometry()
 	out.odomOrientation[3] = trunkRot[2];
 }
 
+// Handle joystick button function
+void CapGait::handleJoystickButton(int button)
+{
+	// Toggle config parameters
+	if(button == 9) config.basicGlobalEnable.set(!config.basicGlobalEnable());
+}
+
 // Step function
 void CapGait::step()
 {
@@ -279,7 +288,7 @@ void CapGait::step()
 
 	// Update the halt pose (updates m_abstractHaltPose, m_jointHaltPose and the inherited halt pose variables)
 	updateHaltPose();
-	
+
 	// Retrieve the current blend factor
 	double factor = blendFactor();
 
@@ -522,7 +531,7 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	LimpState ms(m_comFilter.x(), m_comFilter.y(), m_comFilter.vx(), m_comFilter.vy(), 0.0, 0.0);
 	ms.supportLegSign = rxRobotModel.supportLegSign;
 	ms.x += config.mgComOffsetX();
-	ms.y += ms.supportLegSign*config.mgComOffsetY();
+	ms.y += ms.supportLegSign*config.mgComOffsetY() + config.mgComOffsetYBias();
 
 	// The LimpState ms concludes the estimation of the "CoM" state using direct sensor input and the kinematic model.
 	// Let's set the rx limp model.
@@ -597,12 +606,12 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	adaptationX *= expectationDeviation.x;
 	adaptationY *= expectationDeviation.y;
 
-	// If our fused angle is within a certain nominal range then don't adapt
-	Vec2f fusedAngleAdaptation;
-	fusedAngleAdaptation.x = ((fusedY <= config.nsFusedYRangeLBnd() || fusedY >= config.nsFusedYRangeUBnd()) ? 1.0 : 0.0);
-	fusedAngleAdaptation.y = ((fusedX <= config.nsFusedXRangeLBnd() || fusedX >= config.nsFusedXRangeUBnd()) ? 1.0 : 0.0);
-	adaptationX *= fusedAngleAdaptation.x;
-	adaptationY *= fusedAngleAdaptation.y;
+// 	// If our fused angle is within a certain nominal range then don't adapt
+// 	Vec2f fusedAngleAdaptation;
+// 	fusedAngleAdaptation.x = ((fusedY <= config.nsFusedYRangeLBnd() || fusedY >= config.nsFusedYRangeUBnd()) ? 1.0 : 0.0);
+// 	fusedAngleAdaptation.y = ((fusedX <= config.nsFusedXRangeLBnd() || fusedX >= config.nsFusedXRangeUBnd()) ? 1.0 : 0.0);
+// 	adaptationX *= fusedAngleAdaptation.x;
+// 	adaptationY *= fusedAngleAdaptation.y;
 
 // 	// If we are near the nominal state, there is no need for adaptation.
 // 	Vec2f nominalAdaptation;
@@ -615,8 +624,8 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 // 	fusedAngleAdaptation.y = (absFusedX > config.nsMinDeviation() ? config.nsGain() * absFusedX : 0.0);
 
 	// Calculate the required adaptation (0.0 => Completely trust Mx, 1.0 => Completely trust Rx)
-	adaptation.x = coerce(adaptationX, 0.0, config.nsMaxAdaptation());
-	adaptation.y = coerce(adaptationY, 0.0, config.nsMaxAdaptation());
+	adaptation.x = coerce<double>(adaptationX, 0.0, config.nsMaxAdaptation());
+	adaptation.y = coerce<double>(adaptationY, 0.0, config.nsMaxAdaptation());
 
 	// Adaptation resetting (force complete trust in Rx)
 	if(resetCounter > 0)
@@ -699,11 +708,11 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	double timingFeedWeight = coerce(-config.basicTimingWeightFactor()*sin(m_gaitPhase - 0.5*config.doubleSupportPhaseLen()), -1.0, 1.0);
 	double timingFeed = SmoothDeadband::eval(fusedXFeedFilter.value() * timingFeedWeight, config.basicTimingFeedDeadRad());
 	double timingFreqDelta = (timingFeed >= 0.0 ? config.basicTimingGainSpeedUp()*timingFeed : config.basicTimingGainSlowDown()*timingFeed);
-	if(!config.basicTimingEnabled()) timingFreqDelta = 0.0;
+	if(!(config.basicEnableTiming() && config.basicGlobalEnable())) timingFreqDelta = 0.0;
 
 	// Virtual slope
 	virtualSlope = 0.0;
-	if(config.virtualSlopeEnabled())
+	if(config.basicEnableVirtualSlope() && config.basicGlobalEnable())
 	{
 		virtualSlope = config.virtualSlopeOffset();
 		double dev = fusedY - config.virtualSlopeMidAngle();
@@ -744,12 +753,12 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 		}
 		
 		// If desired, add basic timing feedback
-		if(config.basicTimingEnabled())
+		if(config.basicEnableTiming() && config.basicGlobalEnable())
 			gaitFrequency += timingFreqDelta;
 	}
 
 	// Coerce the gait frequency to the allowed range
-	gaitFrequency = coerce(gaitFrequency, 1e-8, config.gaitFrequencyMax());
+	gaitFrequency = coerce<double>(gaitFrequency, 1e-8, config.gaitFrequencyMax());
 
 	// Calculate the time to step based on how much gait phase we have to cover and how fast we intend to cover it
 	double timeToStep = remainingGaitPhase / (M_PI * gaitFrequency); // Note: Always in the range (0,Inf)
@@ -766,47 +775,67 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	// Gait command vector update
 	//
 
+	// By default use a nominal CL step size (this should approximately emulate walking OL with zero GCV)
+	Vec3f stepSize(0.0, 2.0 * supportLegSign * config.hipWidth(), 0.0);
+
+	// If desired, use the TX model step size instead
+	if(config.cmdUseTXStepSize())
+		stepSize = txModel.stepSize;
+
+	// Clamp the step size to a maximal radius
+	stepSize.x = coerceAbs<double>(stepSize.x, config.mgMaxStepRadiusX());
+	stepSize.y = coerceAbs<double>(stepSize.y, config.mgMaxStepRadiusY());
+
+	// Step size to GCV conversion.
+	// To dodge the fact that the gait engine can only take symmetrical steps, while the limp model may produce asymmetrical steps,
+	// we use the center point between the feet as the sex and map the sex position between alpha, delta and omega to the gcv.
+	Eigen::Vector3d gcvTarget;
+	Vec3f sex = 0.5*stepSize;
+	limp.set(0.0, sigma, C);
+	limp.update(Limp(alpha, 0, C).tLoc(delta));
+	gcvTarget.x() = sex.x / limp.x0;
+	if(supportLegSign * gcvInput.y >= 0)
+		gcvTarget.y() = supportLegSign * coerceAbs((fabs(sex.y) - delta) / (omega - delta), 1.0);
+	else
+		gcvTarget.y() = oldGcvTargetY; // TODO: This looks relatively unsafe
+	gcvTarget.z() = sex.z;
+	oldGcvTargetY = gcvTarget.y();
+	if(!config.cmdAllowCLStepSizeX())
+		gcvTarget.x() = 0.0;
+
+	// Move the current gcv smoothly to the target gcv in timeToStep amount of time
+	Eigen::Vector3d CLGcv = gcvTarget;
+	if(timeToStep > systemIterationTime)
+		CLGcv = m_gcv + (systemIterationTime / timeToStep) * (gcvTarget - m_gcv); // TODO: Build some kind of protection into this update strategy to avoid increasingly explosive GCV updates super-close to the end of the step, causing sharp joint curves.
+
 	// Handle the situation differently depending on whether we are using CL step sizes or not
-	Vec3f stepSize(0.0, 0.0, 0.0);
 	if(config.cmdUseCLStepSize()) // Closed loop step sizes...
 	{
-		// By default use a nominal CL step size (this should approximately emulate walking OL with zero GCV)
-		stepSize.x = 0.0;
-		stepSize.y = 2.0 * supportLegSign * config.hipWidth();
-		stepSize.z = 0.0;
-
-		// If desired, use the TX model step size instead
-		if(config.cmdUseTXStepSize())
-			stepSize = txModel.stepSize;
-
-		// Clamp the step size to a maximal radius
-		stepSize.x = coerceAbs(stepSize.x, config.mgMaxStepRadiusX());
-		stepSize.y = coerceAbs(stepSize.y, config.mgMaxStepRadiusY());
-
-		// Step size to GCV conversion.
-		// To dodge the fact that the gait engine can only take symmetrical steps, while the limp model may produce asymmetrical steps,
-		// we use the center point between the feet as the sex and map the sex position between alpha, delta and omega to the gcv.
-		Eigen::Vector3d gcvTarget;
-		Vec3f sex = 0.5*stepSize;
-		limp.set(0.0, sigma, C);
-		limp.update(Limp(alpha, 0, C).tLoc(delta));
-		gcvTarget.x() = sex.x / limp.x0;
-		if(supportLegSign * gcvInput.y >= 0)
-			gcvTarget.y() = supportLegSign * coerceAbs((fabs(sex.y) - delta) / (omega - delta), 1.0);
+		// Set the calculated closed loop GCV
+		if(noCLStepsCounter > 0)
+		{
+			m_gcv.setZero();
+			noCLStepsCounter--;
+		}
 		else
-			gcvTarget.y() = oldGcvTargetY; // TODO: This looks relatively unsafe
-		gcvTarget.z() = sex.z;
-		oldGcvTargetY = gcvTarget.y();
-		gcvTarget.x() = 0; // TODO: TEMP FOR SAFETY
-
-		// Move the current gcv smoothly to the target gcv in timeToStep amount of time.
-		if(timeToStep > systemIterationTime)
-			m_gcv += (systemIterationTime / timeToStep) * (gcvTarget - m_gcv);
-		else
-			m_gcv = gcvTarget;
+		{
+			if(config.cmdAllowCLStepSizeX())
+				m_gcv.x() = CLGcv.x();
+			else
+			{
+				double D = config.gcvDecToAccRatio();
+				if(gcvUnbiased.x() >= 0.0) m_gcv.x() += coerce(m_gcvInput.x() - m_gcv.x(), -truedT*config.gcvAccForwards()*D, truedT*config.gcvAccForwards()   );
+				else                       m_gcv.x() += coerce(m_gcvInput.x() - m_gcv.x(), -truedT*config.gcvAccBackwards() , truedT*config.gcvAccBackwards()*D);
+			}
+			m_gcv.y() = CLGcv.y();
+			m_gcv.z() = CLGcv.z();
+		}
 	}
 	else // Open loop step sizes...
 	{
+		// Zero out the step size to show that we are OL
+		stepSize.x = stepSize.y = stepSize.z = 0.0;
+
 		// Update the internal gcv based on the gcv input using a slope-limiting approach
 		double D = config.gcvDecToAccRatio();
 		if(gcvUnbiased.x() >= 0.0) m_gcv.x() += coerce(m_gcvInput.x() - m_gcv.x(), -truedT*config.gcvAccForwards()*D  , truedT*config.gcvAccForwards()    );
@@ -914,6 +943,9 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 		m_PM.plotScalar(txModel.vy, PM_TXMODEL_VY);
 		m_PM.plotScalar(txModel.supportLegSign, PM_TXMODEL_SUPPLEG);
 		m_PM.plotScalar(txModel.timeToStep, PM_TXMODEL_TIMETOSTEP);
+		m_PM.plotScalar(txModel.stepSize.x, PM_TXMODEL_STEPSIZEX);
+		m_PM.plotScalar(txModel.stepSize.y, PM_TXMODEL_STEPSIZEY);
+		m_PM.plotScalar(txModel.stepSize.z, PM_TXMODEL_STEPSIZEZ);
 		m_PM.plotScalar(adaptx, PM_ADAPTATION_X);
 		m_PM.plotScalar(adapty, PM_ADAPTATION_Y);
 		m_PM.plotScalar(expectedFusedX, PM_EXP_FUSED_X);
@@ -936,6 +968,9 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 		m_PM.plotScalar(stepSize.x, PM_STEPSIZE_X);
 		m_PM.plotScalar(stepSize.y, PM_STEPSIZE_Y);
 		m_PM.plotScalar(stepSize.z, PM_STEPSIZE_Z);
+		m_PM.plotScalar(gcvTarget.x(), PM_GCVTARGET_X);
+		m_PM.plotScalar(gcvTarget.y(), PM_GCVTARGET_Y);
+		m_PM.plotScalar(gcvTarget.z(), PM_GCVTARGET_Z);
 		m_PM.plotScalar(lastStepDuration, PM_LAST_STEP_DURATION);
 	}
 }
@@ -1084,7 +1119,7 @@ void CapGait::abstractLegMotion(AbstractLegPose& leg) // 'leg' is assumed to con
 	double hipAngleY = 0.0;
 
 	//
-	// Leg lifting (extension)
+	// Leg lifting (extension, angleY)
 	//
 
 	// The leg is alternately lifted off the ground (step) and pushed down into it (push), with a short break in-between given by the double
@@ -1205,7 +1240,7 @@ void CapGait::abstractLegMotion(AbstractLegPose& leg) // 'leg' is assumed to con
 	leg.angleZ += legRotSwing;
 
 	//
-	// Leaning (hipAngleX, angleY)
+	// Leaning (hipAngleX, hipAngleY)
 	//
 
 	// Apply the leaning to the abstract leg pose
@@ -1224,7 +1259,7 @@ void CapGait::abstractLegMotion(AbstractLegPose& leg) // 'leg' is assumed to con
 		legLatLean = CMD.gcvX * CMD.gcvZ * (CMD.gcvX >= 0.0 ? config.legLatLeanGradXZFwd() : config.legLatLeanGradXZBwd());
 		hipAngleX += legLatLean;
 	}
-	
+
 	//
 	// Basic feedback mechanisms (hipAngleX, hipAngleY, footAngleX, footAngleY)
 	//
@@ -1239,7 +1274,7 @@ void CapGait::abstractLegMotion(AbstractLegPose& leg) // 'leg' is assumed to con
 	if(!config.tuningNoLegFeedback())
 	{
 		// Compute the phase waveform over which to apply the foot feedback
-		double footPhaseLen = coerce(config.basicFootAnglePhaseLen(), 0.05, M_PI_2);
+		double footPhaseLen = coerce<double>(config.basicFootAnglePhaseLen(), 0.05, M_PI_2);
 		double footFeedbackSlope = 1.0 / footPhaseLen; // This can't go uncontrolled because the footPhaseLen is coerced to a reasonable range
 		double footFeedbackScaler = 0.0;
 		if(CMD.limbPhase <= -M_PI_2) // This works because of the coerce above
@@ -1264,12 +1299,12 @@ void CapGait::abstractLegMotion(AbstractLegPose& leg) // 'leg' is assumed to con
 		footAngleCtsYFeedback = config.basicFeedBiasFootAngCY() + footAngleCtsYIFeed;
 		
 		// Disable the foot and hip angle feedback if required
-		if(!config.basicEnableHipAngleX()) hipAngleXFeedback = hipAngleXIFeed = 0.0;
-		if(!config.basicEnableHipAngleY()) hipAngleYFeedback = hipAngleYIFeed = 0.0;
-		if(!config.basicEnableFootAngleX()) footAngleXFeedback = 0.0;
-		if(!config.basicEnableFootAngleY()) footAngleYFeedback = 0.0;
-		if(!config.basicEnableFootAngleCX()) footAngleCtsXFeedback = footAngleCtsXIFeed = 0.0;
-		if(!config.basicEnableFootAngleCY()) footAngleCtsYFeedback = footAngleCtsYIFeed = 0.0;
+		if(!(config.basicEnableHipAngleX() && config.basicGlobalEnable())) hipAngleXFeedback = hipAngleXIFeed = 0.0;
+		if(!(config.basicEnableHipAngleY() && config.basicGlobalEnable())) hipAngleYFeedback = hipAngleYIFeed = 0.0;
+		if(!(config.basicEnableFootAngleX() && config.basicGlobalEnable())) footAngleXFeedback = 0.0;
+		if(!(config.basicEnableFootAngleY() && config.basicGlobalEnable())) footAngleYFeedback = 0.0;
+		if(!(config.basicEnableFootAngleCX() && config.basicGlobalEnable())) footAngleCtsXFeedback = footAngleCtsXIFeed = 0.0;
+		if(!(config.basicEnableFootAngleCY() && config.basicGlobalEnable())) footAngleCtsYFeedback = footAngleCtsYIFeed = 0.0;
 		
 		// Apply the foot and hip angle feedback
 		hipAngleX += hipAngleXFeedback;
@@ -1291,7 +1326,7 @@ void CapGait::abstractLegMotion(AbstractLegPose& leg) // 'leg' is assumed to con
 		}
 		
 		// Work out whether iFusedX contributed anything to the CPG gait
-		if(haveIFusedXFeed && (
+		if(haveIFusedXFeed && config.basicGlobalEnable() && (
 		  (config.basicIFusedHipAngleX()   != 0.0 && config.basicEnableHipAngleX()  ) ||
 		  (config.basicIFusedFootAngleX()  != 0.0 && config.basicEnableFootAngleX() ) ||
 		  (config.basicIFusedFootAngleCX() != 0.0 && config.basicEnableFootAngleCX())))
@@ -1301,7 +1336,7 @@ void CapGait::abstractLegMotion(AbstractLegPose& leg) // 'leg' is assumed to con
 		}
 		
 		// Work out whether iFusedY contributed anything to the CPG gait
-		if(haveIFusedYFeed && (
+		if(haveIFusedYFeed && config.basicGlobalEnable() && (
 		  (config.basicIFusedHipAngleY()   != 0.0 && config.basicEnableHipAngleY()  ) ||
 		  (config.basicIFusedFootAngleY()  != 0.0 && config.basicEnableFootAngleY() ) ||
 		  (config.basicIFusedFootAngleCY() != 0.0 && config.basicEnableFootAngleCY())))
@@ -1434,8 +1469,8 @@ void CapGait::abstractArmMotion(AbstractArmPose& arm) // 'arm' is assumed to con
 		armAngleYFeedback = config.basicFeedBiasArmAngleY() + config.basicFusedArmAngleY()*fusedYFeed + config.basicDFusedArmAngleY()*dFusedYFeed + armAngleYIFeed + config.basicGyroArmAngleY()*gyroYFeed;
 		
 		// Disable the arm angle feedback if required
-		if(!config.basicEnableArmAngleX()) armAngleXFeedback = armAngleXIFeed = 0.0;
-		if(!config.basicEnableArmAngleY()) armAngleYFeedback = armAngleYIFeed = 0.0;
+		if(!(config.basicEnableArmAngleX() && config.basicGlobalEnable())) armAngleXFeedback = armAngleXIFeed = 0.0;
+		if(!(config.basicEnableArmAngleY() && config.basicGlobalEnable())) armAngleYFeedback = armAngleYIFeed = 0.0;
 		
 		// Apply the arm angle feedback
 		arm.angleX += armAngleXFeedback;
@@ -1451,14 +1486,14 @@ void CapGait::abstractArmMotion(AbstractArmPose& arm) // 'arm' is assumed to con
 		}
 		
 		// Work out whether iFusedX contributed anything to the CPG gait
-		if(haveIFusedXFeed && config.basicIFusedArmAngleX() != 0.0 && config.basicEnableArmAngleX())
+		if(haveIFusedXFeed && config.basicIFusedArmAngleX() != 0.0 && config.basicEnableArmAngleX() && config.basicGlobalEnable())
 		{
 			iFusedXLastTime = in.timestamp;
 			usedIFusedX = true;
 		}
 		
 		// Work out whether iFusedY contributed anything to the CPG gait
-		if(haveIFusedYFeed && config.basicIFusedArmAngleY() != 0.0 && config.basicEnableArmAngleY())
+		if(haveIFusedYFeed && config.basicIFusedArmAngleY() != 0.0 && config.basicEnableArmAngleY() && config.basicGlobalEnable())
 		{
 			iFusedYLastTime = in.timestamp;
 			usedIFusedY = true;
@@ -1507,27 +1542,27 @@ void CapGait::inverseLegMotion(InverseLegPose& leg) // 'leg' is assumed to conta
 		
 		// Apply the required limits if enabled
 		if(config.basicComShiftXUseLimits())
-			comShiftXFeedback = coerceSoft(comShiftXFeedback, config.basicComShiftXMin(), config.basicComShiftXMax(), config.basicComShiftXBuf());
+			comShiftXFeedback = coerceSoft<double>(comShiftXFeedback, config.basicComShiftXMin(), config.basicComShiftXMax(), config.basicComShiftXBuf());
 		if(config.basicComShiftYUseLimits())
-			comShiftYFeedback = coerceSoft(comShiftYFeedback, config.basicComShiftYMin(), config.basicComShiftYMax(), config.basicComShiftYBuf());
+			comShiftYFeedback = coerceSoft<double>(comShiftYFeedback, config.basicComShiftYMin(), config.basicComShiftYMax(), config.basicComShiftYBuf());
 		
 		// Disable the CoM shifting feedback if required
-		if(!config.basicEnableComShiftX()) comShiftXFeedback = 0.0;
-		if(!config.basicEnableComShiftY()) comShiftYFeedback = 0.0;
+		if(!(config.basicEnableComShiftX() && config.basicGlobalEnable())) comShiftXFeedback = 0.0;
+		if(!(config.basicEnableComShiftY() && config.basicGlobalEnable())) comShiftYFeedback = 0.0;
 		
 		// Apply the CoM shifting feedback
 		leg.footPos.x() += comShiftXFeedback;
 		leg.footPos.y() += comShiftYFeedback;
 		
 		// Work out whether iFusedX contributed anything to the CPG gait
-		if(haveIFusedXFeed && config.basicIFusedComShiftY() != 0.0 && config.basicComShiftYMin() < 0.0 && config.basicComShiftYMax() > 0.0 && config.basicEnableComShiftY())
+		if(haveIFusedXFeed && config.basicIFusedComShiftY() != 0.0 && config.basicComShiftYMin() < 0.0 && config.basicComShiftYMax() > 0.0 && config.basicEnableComShiftY() && config.basicGlobalEnable())
 		{
 			iFusedXLastTime = in.timestamp;
 			usedIFusedX = true;
 		}
 		
 		// Work out whether iFusedY contributed anything to the CPG gait
-		if(haveIFusedYFeed && config.basicIFusedComShiftX() != 0.0 && config.basicComShiftXMin() < 0.0 && config.basicComShiftXMax() > 0.0 && config.basicEnableComShiftX())
+		if(haveIFusedYFeed && config.basicIFusedComShiftX() != 0.0 && config.basicComShiftXMin() < 0.0 && config.basicComShiftXMax() > 0.0 && config.basicEnableComShiftX() && config.basicGlobalEnable())
 		{
 			iFusedYLastTime = in.timestamp;
 			usedIFusedY = true;
@@ -1541,7 +1576,7 @@ void CapGait::inverseLegMotion(InverseLegPose& leg) // 'leg' is assumed to conta
 	// Adjust the lift height of the foot depending on the virtual slope (a slope derived from the pitch fused angle and a configured offset).
 	// This has the qualitative effect that the robot lifts its feet more when it is falling forwards.
 	double virtualComponent = 0.0;
-	if(config.virtualSlopeEnabled() && !config.tuningNoLegVirtual())
+	if(config.basicEnableVirtualSlope() && config.basicGlobalEnable() && !config.tuningNoLegVirtual())
 	{
 		double endVirtualSlope = virtualSlope * CMD.gcvX;
 		if(endVirtualSlope >= 0.0)
@@ -1580,9 +1615,9 @@ void CapGait::coerceAbstractArmPose(AbstractArmPose& arm)
 {
 	// Apply the required limits if enabled
 	if(config.limArmAngleXUseLimits())
-		arm.angleX = arm.cad.limbSign * coerceSoft(arm.angleX/arm.cad.limbSign, config.limArmAngleXMin(), config.limArmAngleXMax(), config.limArmAngleXBuf()); // Minimum is negative towards inside, maximum is positive towards outside
+		arm.angleX = arm.cad.limbSign * coerceSoft<double>(arm.angleX/arm.cad.limbSign, config.limArmAngleXMin(), config.limArmAngleXMax(), config.limArmAngleXBuf()); // Minimum is negative towards inside, maximum is positive towards outside
 	if(config.limArmAngleYUseLimits())
-		arm.angleY = coerceSoft(arm.angleY, config.limArmAngleYMin(), config.limArmAngleYMax(), config.limArmAngleYBuf());
+		arm.angleY = coerceSoft<double>(arm.angleY, config.limArmAngleYMin(), config.limArmAngleYMax(), config.limArmAngleYBuf());
 }
 
 // Abstract leg pose coercion function
@@ -1590,13 +1625,15 @@ void CapGait::coerceAbstractLegPose(AbstractLegPose& leg)
 {
 	// Apply the required limits if enabled
 	if(config.limLegAngleXUseLimits())
-		leg.angleX = leg.cld.limbSign * coerceSoft(leg.angleX/leg.cld.limbSign, config.limLegAngleXMin(), config.limLegAngleXMax(), config.limLegAngleXBuf()); // Minimum is negative towards inside, maximum is positive towards outside
+		leg.angleX = leg.cld.limbSign * coerceSoft<double>(leg.angleX/leg.cld.limbSign, config.limLegAngleXMin(), config.limLegAngleXMax(), config.limLegAngleXBuf()); // Minimum is negative towards inside, maximum is positive towards outside
 	if(config.limLegAngleYUseLimits())
-		leg.angleY = coerceSoft(leg.angleY, config.limLegAngleYMin(), config.limLegAngleYMax(), config.limLegAngleYBuf());
+		leg.angleY = coerceSoft<double>(leg.angleY, config.limLegAngleYMin(), config.limLegAngleYMax(), config.limLegAngleYBuf());
 	if(config.limFootAngleXUseLimits())
-		leg.footAngleX = leg.cld.limbSign * coerceSoft(leg.footAngleX/leg.cld.limbSign, config.limFootAngleXMin(), config.limFootAngleXMax(), config.limFootAngleXBuf()); // Minimum is negative towards inside, maximum is positive towards outside
+		leg.footAngleX = leg.cld.limbSign * coerceSoft<double>(leg.footAngleX/leg.cld.limbSign, config.limFootAngleXMin(), config.limFootAngleXMax(), config.limFootAngleXBuf()); // Minimum is negative towards inside, maximum is positive towards outside
 	if(config.limFootAngleYUseLimits())
-		leg.footAngleY = coerceSoft(leg.footAngleY, config.limFootAngleYMin(), config.limFootAngleYMax(), config.limFootAngleYBuf());
+		leg.footAngleY = coerceSoft<double>(leg.footAngleY, config.limFootAngleYMin(), config.limFootAngleYMax(), config.limFootAngleYBuf());
+	if(config.limLegExtUseLimits())
+		leg.extension = coerceSoftMin<double>(leg.extension, config.limLegExtMin(), config.limLegExtBuf());
 }
 
 // Update outputs function
@@ -1731,6 +1768,9 @@ void CapGait::configurePlotManager()
 	m_PM.setName(PM_TXMODEL_VY, "txModel/vy");
 	m_PM.setName(PM_TXMODEL_SUPPLEG, "txModel/supportLegSign");
 	m_PM.setName(PM_TXMODEL_TIMETOSTEP, "txModel/timeToStep");
+	m_PM.setName(PM_TXMODEL_STEPSIZEX, "txModel/stepSizeX");
+	m_PM.setName(PM_TXMODEL_STEPSIZEY, "txModel/stepSizeY");
+	m_PM.setName(PM_TXMODEL_STEPSIZEZ, "txModel/stepSizeZ");
 	m_PM.setName(PM_ADAPTATION_X, "adaptation/x");
 	m_PM.setName(PM_ADAPTATION_Y, "adaptation/y");
 	m_PM.setName(PM_EXP_FUSED_X, "fusedAngle/expectedFusedX");
@@ -1753,7 +1793,14 @@ void CapGait::configurePlotManager()
 	m_PM.setName(PM_STEPSIZE_X, "cmd/stepSize/x");
 	m_PM.setName(PM_STEPSIZE_Y, "cmd/stepSize/y");
 	m_PM.setName(PM_STEPSIZE_Z, "cmd/stepSize/z");
+	m_PM.setName(PM_GCVTARGET_X, "cmd/gcvTarget/x");
+	m_PM.setName(PM_GCVTARGET_Y, "cmd/gcvTarget/y");
+	m_PM.setName(PM_GCVTARGET_Z, "cmd/gcvTarget/z");
 	m_PM.setName(PM_LAST_STEP_DURATION, "lastStepDuration");
+
+	// Check that we have been thorough
+	if(!m_PM.checkNames())
+		ROS_ERROR("Please review any warnings above that are related to the naming of plotter variables!");
 }
 
 // Callback for when the plotData parameter is updated

@@ -1,0 +1,44 @@
+field_type: "bonn"
+kidsize:
+  length: 9                  #A
+  width: 6                   #B
+  goalWidth: 1.8             #D
+  goalAreaDepth: 0.6         #E
+  goalAreaWidth: 3.45        #F
+  penaltyMarkerDist: 1.8     #G
+  centerCircleDiameter: 1.5  #H
+  boundary: 0.7              #I
+  ballDiameter: 0.137
+  borderTop: 0.7
+  borderBottom: 0.7
+  borderLeft: 0.7
+  borderRight: 0.7
+teensize:
+  length: 9                  #A
+  width: 6                   #B
+  goalWidth: 2.6             #D
+  goalAreaDepth: 1           #E
+  goalAreaWidth: 5           #F
+  penaltyMarkerDist: 2.1     #G
+  centerCircleDiameter: 1.5  #H
+  boundary: 0.7              #I
+  ballDiameter: 0.19
+  borderTop: 0.7
+  borderBottom: 0.7
+  borderLeft: 0.7
+  borderRight: 0.7
+bonn:
+  length: 5.45               #A
+  width: 4.1                 #B
+  goalWidth: 2.6             #D
+  goalAreaDepth: 0.6         #E
+  goalAreaWidth: 3.4         #F
+  penaltyMarkerDist: 1.3     #G
+  centerCircleDiameter: 1.2  #H
+  boundary: 0.5              #I
+  ballDiameter: 0.19
+  borderTop: 0.29
+  borderBottom: 0.33
+  borderLeft: 0.33
+  borderRight: 0.28
+

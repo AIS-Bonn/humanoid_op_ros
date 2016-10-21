@@ -1,0 +1,7 @@
+<launch rosmon-name="rosmon_behaviour">
+	<include file="$(find launch)/config/robot_param.launch" />
+
+	<node name="game_controller" pkg="rcup_game_controller" type="game_controller" output="screen" />
+
+	<node pkg="walk_and_kick" name="walk_and_kick" type="walk_and_kick" output="screen" required="true" />
+</launch>

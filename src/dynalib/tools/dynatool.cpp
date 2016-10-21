@@ -630,7 +630,7 @@ void cmd_dev(char* args)
 	}
 
 	int id = parseID(args);
-	if(id <= 0)
+	if(id < 0) // <= 0
 	{
 		fprintf(stderr, "Could not parse ID from '%s'\n", args);
 		fprint_usage(stderr, "dev");
@@ -683,7 +683,7 @@ void print_register(const Device::RegisterInfo& info)
 void cmd_dump(char* args)
 {
 	Device* dev = NULL;
-	int id = 0;
+	int id = -1;
 	bool all = false;
 	
 	if(!args)
@@ -709,7 +709,7 @@ void cmd_dump(char* args)
 		{
 			const char* origptr = ptr;
 			id = parseIDInc(ptr);
-			if(id <= 0)
+			if(id < 0)
 			{
 				fprintf(stderr, "Could not parse ID from '%s'\n", origptr);
 				fprint_usage(stderr, "dump");
@@ -731,7 +731,7 @@ void cmd_dump(char* args)
 		}
 	}
 	
-	if(!dev || id == 0)
+	if(!dev)// || id == 0)
 	{
 		fprintf(stderr, "No device is selected.\n");
 		return;
@@ -957,6 +957,36 @@ void cmd_reset(char* args)
 	else
 		printf("An error occurred while sending the digital reset instruction to ID %d (%s).\n", id, NameForID(id));
 }
+
+void cmd_reboot(char* args)
+{
+	int id;
+	if(!args)
+	{
+		if(!g_device)
+		{
+			printf("No device is currently selected.\n");
+			fprint_usage(stderr, "reboot");
+			return;
+		}
+		else id = g_id;
+	}
+	else
+	{
+		id = parseID(args);
+		if(id <= 0)
+		{
+			fprintf(stderr, "Invalid argument '%s'.\n", args);
+			return;
+		}
+	}
+
+	if(proto.device(id).reboot())
+		printf("Reboot instruction successfully sent to ID %d (%s).\n", id, NameForID(id));
+	else
+		printf("An error occurred while sending the reboot instruction to ID %d (%s).\n", id, NameForID(id));
+}
+
 
 void cmd_showdef(char* args)
 {
@@ -2023,6 +2053,7 @@ Command g_cmds[] = {
 	{"read"   , cmd_read   , "Read a register/multiple consecutive registers", "read <reg_name|reg_address> [<num_bytes>]"},
 	{"readpos", cmd_readpos, "Read the current position of an MX series servo", "readpos [<ID>]"},
 	{"release", cmd_release, "Request a servo to turn its torque off and allow free movement", "release [<ID1> ... <IDn>]\n       release all\nThe release all feature only attempts to release devices whose name start with 'MX'."},
+	{"reboot" , cmd_reboot , "Reboot servo"},
 	{"reset"  , cmd_reset  , "Digitally reset a device (be careful with servos, refer to 'help reset')", "reset [<ID>]\nCM730  => Just reboots the firmware\nServos => Resets (!) all the EEPROM registers (except the ID), including the baud rate register.\n       => To recover do 'dev <CM730>' then 'write BAUD_RATE 34', and restart dynatool with '--baud 57600'.\n       => Then go 'dev <id>', write the CW/CCW limits and torque max/limit, and finally 'write BAUD_RATE 1'.\n       => Reset the CM730 ('reset <CM730>') to return to 1Mbps comms and have the servo(s) reinitialised.\n       => You can now switch back to dynatool with the normal baudrate."},
 	{"robot"  , cmd_robot  , "Show the current robot definition in use", "robot"},
 	{"scan"   , cmd_scan   , "Scan bus at current baud rate for responsive devices", "scan [<max_id>]"},

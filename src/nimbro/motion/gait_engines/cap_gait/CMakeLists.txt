@@ -6,7 +6,7 @@ project(cap_gait)
 #######################
 
 ## Find catkin macros and libraries
-find_package(catkin REQUIRED COMPONENTS roscpp gait config_server nimbro_utils vis_utils plot_msgs cmake_modules robotcontrol)
+find_package(catkin REQUIRED COMPONENTS roscpp gait config_server rc_utils vis_utils plot_msgs cmake_modules robotcontrol)
 find_package(Eigen REQUIRED)
 
 # Find Qt4

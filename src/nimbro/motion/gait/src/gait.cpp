@@ -5,7 +5,7 @@
 // Includes
 #include <gait/gait.h>
 #include <ros/console.h>
-#include <nimbro_utils/math_funcs.h>
+#include <rc_utils/math_funcs.h>
 #include <pluginlib/class_list_macros.h>
 #include <cmath>
 
@@ -27,7 +27,7 @@
 
 // Namespaces
 using namespace gait;
-using namespace nimbro_utils;
+using namespace rc_utils;
 
 //
 // Gait class
@@ -40,8 +40,10 @@ Gait::Gait()
  , m_plotData(CONFIG_PARAM_PATH + "plotData", false)
  , m_publishOdometry(CONFIG_PARAM_PATH + "publishOdometry", true)
  , m_publishTransforms(CONFIG_PARAM_PATH + "publishTransforms", true)
- , m_gaitCmdVecNormP(CONFIG_PARAM_PATH + "gaitCmdVecNormP", 0.5, 0.10, 10.0, 2.0)
- , m_gaitCmdVecNormMax(CONFIG_PARAM_PATH + "gaitCmdVecNormMax", 0.5, 0.05, 1.5, 1.0)
+ , m_gcvNormP(CONFIG_PARAM_PATH + "gcv/gcvNormP", 0.5, 0.10, 10.0, 2.0)
+ , m_gcvNormMax(CONFIG_PARAM_PATH + "gcv/gcvNormMax", 0.5, 0.05, 1.5, 1.0)
+ , m_gcvZeroTime(CONFIG_PARAM_PATH + "gcv/gcvZeroTime", 0.0, 0.05, 2.0, 0.0)
+ , m_minWalkingTime(CONFIG_PARAM_PATH + "gcv/minWalkingTime", 0.0, 0.05, 4.0, 1.5)
  , m_now(0, 0)
  , m_lastNow(0, 0)
  , m_enginePluginLoader("gait", "gait::GaitEngine")
@@ -50,18 +52,22 @@ Gait::Gait()
  , m_motionStance(STANCE_DEFAULT)
  , m_motionAdjustLeftFoot(true)
  , m_motionAdjustRightFoot(true)
+ , m_lastHaltTime(0, 0)
  , m_reachDuration(0.0)
  , m_reachedHalt(false)
  , m_updatedHalt(false)
  , m_joystickEnabled(true)
+ , m_joystickConnected(false)
  , m_joystickGaitCmdLock(false)
- , m_joystickButton0Pressed(false)
- , m_joystickButton1Pressed(false)
- , m_joystickButton2Pressed(false)
- , m_joystickButton3Pressed(false)
  , m_gaitState(GS_INACTIVE)
  , m_PM(PM_COUNT, "/gait")
 {
+	// Initialise variables
+	for(int i = 0; i < JOY_BUTTONS; i++)
+		m_joystickButtonPressed[i] = false;
+	for(int i = 0; i < MISC_BUTTONS; i++)
+		m_joystickButtonTriggered[i] = false;
+
 	// Configure the TF transforms
 	configureTransforms();
 
@@ -124,6 +130,7 @@ bool Gait::init(robotcontrol::RobotModel* model)
 
 	// Reset the gait command
 	m_gaitCmd.reset();
+	m_gaitCmdToUse.reset();
 
 	// Advertise the required services
 	m_srv_resetOdom = nh.advertiseService("/gait/resetOdom", &Gait::handleResetOdometry, this);
@@ -132,6 +139,7 @@ bool Gait::init(robotcontrol::RobotModel* model)
 	// Subscribe to the required ROS topics
 	m_sub_gaitCommand = nh.subscribe("/gaitCommand", 1, &Gait::handleGaitCommand, this);
 	m_sub_joystickData = nh.subscribe("/joy", 1, &Gait::handleJoystickData, this);
+	m_sub_joystickStatus = nh.subscribe("/joy/diagnostics", 1, &Gait::handleJoystickStatus, this);
 
 	// Load the required gait engine (needs m_gaitName and getParamString())
 	if(!loadGaitEngine())
@@ -160,6 +168,9 @@ bool Gait::isTriggered()
 	// Retrieve the robotcontrol timer duration
 	m_dT = m_model->timerDuration();
 
+	// Handle the joystick buttons
+	handleJoystickButtons();
+
 	// Reset the halt pose update flag
 	m_updatedHalt = false;
 
@@ -172,10 +183,35 @@ bool Gait::isTriggered()
 	// Save the current gait state
 	GaitState oldGaitState = m_gaitState;
 
+	// Transcribe the gait command to use
+	m_gaitCmdToUse = m_gaitCmd;
+
+	// Calculate how long it's been since the gait engine started walking
+	if(!m_engine->out.walking)
+		m_lastHaltTime = m_now;
+	double timeWalking = (m_now - m_lastHaltTime).toSec();
+
+	// Enforce the minimum walking time to avoid start/stop walking jolts
+	if(!m_gaitCmdToUse.walk && m_engine->out.walking && timeWalking < m_minWalkingTime())
+	{
+		m_gaitCmdToUse.linVelX = 0.0;
+		m_gaitCmdToUse.linVelY = 0.0;
+		m_gaitCmdToUse.angVelZ = 0.0;
+		m_gaitCmdToUse.walk = true;
+	}
+
+	// Enforce a zero walking velocity just after starting to walk for a small period of time for stability reasons
+	if(m_gaitCmdToUse.walk && m_engine->out.walking && timeWalking < m_gcvZeroTime())
+	{
+		m_gaitCmdToUse.linVelX = 0.0;
+		m_gaitCmdToUse.linVelY = 0.0;
+		m_gaitCmdToUse.angVelZ = 0.0;
+	}
+
 	// Get the current situation
 	bool enabled = m_enableGait->get();
 	bool isWalking = m_engine->out.walking;
-	bool shouldWalk = m_gaitCmd.walk;
+	bool shouldWalk = m_gaitCmdToUse.walk;
 	bool walkingState = (m_model->state() == m_state_walking);
 	bool standingState = (m_model->state() == m_state_standing);
 
@@ -246,12 +282,9 @@ bool Gait::isTriggered()
 	// Trigger the motion module if the gait state is active
 	bool trigger = (m_gaitState != GS_INACTIVE);
 
-	// Publish the plot data now if the motion module isn't going to trigger
+	// Finalise the gait motion module step now if it is not going to trigger
 	if(!trigger)
-	{
-		m_PM.publish();
-		m_PM.clear();
-	}
+		finaliseStep();
 
 	// Return whether the gait is active
 	return trigger;
@@ -260,7 +293,7 @@ bool Gait::isTriggered()
 // Step function
 // Note: It is assumed that this function is called straight after the trigger function if the trigger function returns true.
 //       What is thereby really being assumed is that no ROS callbacks are executed between the trigger function and the step
-//       function, giving the assurance that variables such as m_gaitCmd haven't changed.
+//       function, giving the assurance that no variables have changed in value.
 void Gait::step()
 {
 	// Step the robot gait as required
@@ -284,6 +317,13 @@ void Gait::step()
 	plotGaitEngineOutputs   (m_engine->out);
 	processGaitEngineOutputs(m_engine->out);
 
+	// Finalise the gait motion module step
+	finaliseStep();
+}
+
+// Finalise a step of the gait motion module
+void Gait::finaliseStep()
+{
 	// Publish the data stored in the plot manager
 	m_PM.publish();
 	m_PM.clear();
@@ -321,12 +361,12 @@ void Gait::publishTransforms()
 void Gait::updateTransforms()
 {
 	// Update the ego_floor frame
-	m_tf_ego_floor->setOrigin(tf::Vector3(0.0, 0.0, m_engine->out.odomPosition[2]));
+	m_tf_ego_floor->setOrigin(tf::Vector3(0.0, 0.0, -m_engine->out.odomPosition[2]));
 
-	// Update the odometry frame position
+	// Update the odometry frame position (TF not inverted yet)
 	m_tf_odom->setOrigin(tf::Vector3(m_engine->out.odomPosition[0], m_engine->out.odomPosition[1], 0.0));
 
-	// Update the odometry frame orientation (take the fused yaw component only)
+	// Update the odometry frame orientation (take the fused yaw component only, TF not inverted yet)
 	double w = m_engine->out.odomOrientation[0];
 	double z = m_engine->out.odomOrientation[3];
 	double wznorm = w*w + z*z;
@@ -342,6 +382,9 @@ void Gait::updateTransforms()
 		z = 0.0;
 	}
 	m_tf_odom->setRotation(tf::Quaternion(0.0, 0.0, z, w));
+
+	// Invert the TF transform
+	m_tf_odom->setData(m_tf_odom->inverse());
 
 	// Calculate the fused yaw of the orientation
 	double fyaw = 2.0*atan2(z,w);
@@ -421,12 +464,13 @@ void Gait::updateGaitEngineInputs(GaitEngineInput& in)
 		in.truedT = in.nominaldT;
 	
 	// Update the gait command
-	in.gaitCmd = m_gaitCmd;
-	if(in.gaitCmd.walk)
+	in.gaitCmd = m_gaitCmdToUse;
+	bool isFinite = in.gaitCmd.isFinite();
+	if(in.gaitCmd.walk && isFinite)
 	{
-		float p = m_gaitCmdVecNormP();
+		float p = m_gcvNormP();
 		float norm = std::pow(std::pow(std::fabs(in.gaitCmd.linVelX), p) + std::pow(std::fabs(in.gaitCmd.linVelY), p) + std::pow(std::fabs(in.gaitCmd.angVelZ), p), 1/p);
-		if(norm > m_gaitCmdVecNormMax())
+		if(norm > m_gcvNormMax())
 		{
 			in.gaitCmd.linVelX /= norm;
 			in.gaitCmd.linVelY /= norm;
@@ -435,9 +479,9 @@ void Gait::updateGaitEngineInputs(GaitEngineInput& in)
 	}
 	else
 	{
-		in.gaitCmd.linVelX = 0.0;
-		in.gaitCmd.linVelY = 0.0;
-		in.gaitCmd.angVelZ = 0.0;
+		if(!isFinite)
+			ROS_WARN_THROTTLE(0.5, "A non-finite GCV (%.3f, %.3f, %.3f) was received by the gait!", in.gaitCmd.linVelX, in.gaitCmd.linVelY, in.gaitCmd.angVelZ);
+		in.gaitCmd.reset();
 	}
 
 	// Update the motion parameters
@@ -569,10 +613,10 @@ void Gait::plotRawGaitCommand()
 	if(!m_PM.getEnabled()) return;
 
 	// Plot the required data
-	m_PM.plotScalar(m_gaitCmd.linVelX, PM_GAITCMDRAW_LIN_VEL_X);
-	m_PM.plotScalar(m_gaitCmd.linVelY, PM_GAITCMDRAW_LIN_VEL_Y);
-	m_PM.plotScalar(m_gaitCmd.angVelZ, PM_GAITCMDRAW_ANG_VEL_Z);
-	m_PM.plotScalar(m_gaitCmd.walk,    PM_GAITCMDRAW_WALK);
+	m_PM.plotScalar(m_gaitCmdToUse.linVelX, PM_GAITCMDRAW_LIN_VEL_X);
+	m_PM.plotScalar(m_gaitCmdToUse.linVelY, PM_GAITCMDRAW_LIN_VEL_Y);
+	m_PM.plotScalar(m_gaitCmdToUse.angVelZ, PM_GAITCMDRAW_ANG_VEL_Z);
+	m_PM.plotScalar(m_gaitCmdToUse.walk,    PM_GAITCMDRAW_WALK);
 }
 
 // Set a pending motion
@@ -686,6 +730,24 @@ void Gait::stopReachHaltPose()
 	ROS_INFO("Motion blend to the gait halt pose has finished.");
 }
 
+// Call the joystick press handlers in the gait engine
+void Gait::handleJoystickButtons()
+{
+	// Handle the joystick buttons
+	for(int i = 0; i < MISC_BUTTONS; i++)
+	{
+		if(m_joystickButtonTriggered[i])
+		{
+			int j = i + GAIT_BUTTONS + 1;
+			m_engine->handleJoystickButton(j);
+			std::ostringstream ss;
+			ss << "Button " << j;
+			m_PM.plotEvent(ss.str());
+		}
+		m_joystickButtonTriggered[i] = false;
+	}
+}
+
 // Handle joystick command data
 void Gait::handleJoystickData(const sensor_msgs::JoyConstPtr& joy)
 {
@@ -693,45 +755,72 @@ void Gait::handleJoystickData(const sensor_msgs::JoyConstPtr& joy)
 	if(!m_joystickEnabled) return;
 
 	// Ignore this message if it doesn't contain enough information
-	if(joy->axes.size() < 3 || joy->buttons.size() < 4) return;
+	size_t numAxes = joy->axes.size();
+	size_t numButtons = joy->buttons.size();
+	if(numAxes < 3 || numButtons < GAIT_BUTTONS) return;
 
-	// Toggle the joystick gait command lock if a falling edge is detected on button 0
-	if(m_joystickButton0Pressed && !joy->buttons[0])
-		setJoystickGaitCmdLock(!m_joystickGaitCmdLock);
-	m_joystickButton0Pressed = joy->buttons[0];
-
-	// Nothing more to do if we don't have joystick lock
-	if(!m_joystickGaitCmdLock)
+	// Handle the joystick button data
+	int N = (numButtons < JOY_BUTTONS ? numButtons : JOY_BUTTONS);
+	for(int i = 0; i < N; i++)
 	{
-		m_joystickButton1Pressed = joy->buttons[1];
-		m_joystickButton2Pressed = joy->buttons[2];
-		m_joystickButton3Pressed = joy->buttons[3];
-		return;
+		// Handle falling edges of the buttons
+		if((m_joystickGaitCmdLock || i == 0) && m_joystickButtonPressed[i] && !joy->buttons[i])
+		{
+			// Perform the required special gait button action
+			switch(i)
+			{
+				case 0: setJoystickGaitCmdLock(!m_joystickGaitCmdLock); break;             // Toggle the joystick gait command lock
+				case 1: m_gaitCmd.reset(!m_gaitCmd.walk); break;                           // Toggle and reset the gait command
+				case 2: setPendingMotion(MID_KICK_RIGHT, STANCE_KICK, true, false); break; // Trigger a right kick
+				case 3: setPendingMotion(MID_KICK_LEFT, STANCE_KICK, false, true); break;  // Trigger a left kick
+				default: break;
+			}
+
+			// Update the joystick button triggered array
+			int j = i - GAIT_BUTTONS;
+			if(j >= 0 && j < MISC_BUTTONS)
+				m_joystickButtonTriggered[j] = true;
+		}
+
+		// Update the joystick pressed array
+		m_joystickButtonPressed[i] = joy->buttons[i];
 	}
-
-	// Toggle the gait command walk flag if a falling edge is detected on button 1
-	if(m_joystickButton1Pressed && !joy->buttons[1])
-	{
-		m_gaitCmd.reset(!m_gaitCmd.walk); // Toggle and reset the gait command
-	}
-	m_joystickButton1Pressed = joy->buttons[1];
-
-	// Trigger a right kick motion if a falling edge is detected on button 2
-	if(m_joystickButton2Pressed && !joy->buttons[2])
-		setPendingMotion(MID_KICK_RIGHT, STANCE_KICK, true, false);
-	m_joystickButton2Pressed = joy->buttons[2];
-
-	// Trigger a left kick motion if a falling edge is detected on button 3
-	if(m_joystickButton3Pressed && !joy->buttons[3])
-		setPendingMotion(MID_KICK_LEFT, STANCE_KICK, false, true);
-	m_joystickButton3Pressed = joy->buttons[3];
 
 	// Transcribe the gait command
-	if(m_gaitCmd.walk)
+	if(m_joystickGaitCmdLock && m_gaitCmd.walk)
 	{
 		m_gaitCmd.linVelX = joy->axes[1];
 		m_gaitCmd.linVelY = joy->axes[0];
 		m_gaitCmd.angVelZ = joy->axes[2];
+	}
+}
+
+// Handle joystick status data
+void Gait::handleJoystickStatus(const diagnostic_msgs::DiagnosticArrayConstPtr& array)
+{
+	// Handle the joystick status
+	const std::string keyword = "Joystick Driver Status";
+	for(size_t i = 0; i < array->status.size(); i++)
+	{
+		const diagnostic_msgs::DiagnosticStatus& status = array->status[i];
+		if(status.name.length() < keyword.length()) continue;
+		if(status.name.compare(status.name.length() - keyword.length(), keyword.length(), keyword) == 0)
+		{
+			if(status.level == diagnostic_msgs::DiagnosticStatus::OK || status.level == diagnostic_msgs::DiagnosticStatus::WARN)
+			{
+				if(!m_joystickConnected)
+					m_PM.plotEvent("joystickConnect");
+				m_joystickConnected = true;
+			}
+			else
+			{
+				if(m_joystickConnected)
+					m_PM.plotEvent("joystickDisconnect");
+				m_joystickConnected = false;
+				if(m_joystickGaitCmdLock)
+					setJoystickGaitCmdLock(false);
+			}
+		}
 	}
 }
 
@@ -792,13 +881,13 @@ void Gait::configureTransforms()
 	m_tf_odom = &(m_tf_transforms[1]);
 
 	// Define and initialise the ego_floor frame
-	m_tf_ego_floor->frame_id_ = "/ego_floor";
-	m_tf_ego_floor->child_frame_id_ = "/ego_rot";
+	m_tf_ego_floor->frame_id_ = "/ego_rot";
+	m_tf_ego_floor->child_frame_id_ = "/ego_floor";
 	m_tf_ego_floor->setIdentity();
 
 	// Define and initialise the odometry frame
-	m_tf_odom->frame_id_ = gaitOdomFrame;
-	m_tf_odom->child_frame_id_ = "/ego_floor";
+	m_tf_odom->frame_id_ = "/ego_floor";
+	m_tf_odom->child_frame_id_ = gaitOdomFrame;
 	m_tf_odom->setIdentity();
 }
 
@@ -870,6 +959,7 @@ void Gait::resetGait()
 	// Reset state-related variables
 	m_reachedHalt = false;
 	m_gaitCmd.reset();
+	m_gaitCmdToUse.reset();
 
 	// Reset the robot state to standing if it is currently in our unique walking state
 	if(m_model->state() == m_state_walking)
@@ -939,6 +1029,10 @@ void Gait::configurePlotManager()
 
 	// Gait state
 	m_PM.setName(PM_GAIT_STATE, "gaitState");
+
+	// Check that we have been thorough
+	if(!m_PM.checkNames())
+		ROS_ERROR("Please review any warnings above that are related to the naming of plotter variables!");
 }
 
 // Callback for when the plotData parameter is updated

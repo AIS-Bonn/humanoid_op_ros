@@ -1,5 +1,5 @@
 <launch>
-    <include file="$(find launch)/hardware/robot_dummy_demo_sitting.launch" />
+    <include file="$(find launch)/hardware/dummy_robot_demo_sitting.launch" />
 
 	<node name="sitting_demo" pkg="sitting_demo" type="sitting_demo" output="screen">
 <rosparam>

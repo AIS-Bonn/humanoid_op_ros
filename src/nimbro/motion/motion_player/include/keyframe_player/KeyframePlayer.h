@@ -30,9 +30,7 @@ public:
 	void clear();
 	
 	bool addKeyframe(Keyframe kf);
-	bool addKeyframe(double t, double x, double v) { return addKeyframe(Keyframe(t, x, v)); }
-	bool addKeyframe(double t, double x, double v, double effort) { return addKeyframe(Keyframe(t, x, v, effort)); }
-	bool addKeyframe(double t, double x, double v, double effort, double suppLeftLeg, double suppRightLeg) { return addKeyframe(Keyframe(t, x, v, effort, suppLeftLeg, suppRightLeg)); }
+	bool addKeyframe(double t, double x, double v, double effort, double suppLeftLeg, double suppRightLeg,double pGain, double iGain, double dGain, double limit, gainSelectEnum gainSelect, double roll, double pitch, double yaw) { return addKeyframe(Keyframe(t, x, v, effort, suppLeftLeg, suppRightLeg, pGain,iGain,dGain,limit,gainSelect, roll, pitch,yaw)); }
 
 	void calculateCommands();
 
@@ -41,6 +39,7 @@ public:
 	Keyframe getCurrentState();
 	Keyframe evaluateAt(double t);
 	double totalTime();
+	double currentTime();
 	double minimumTime();
 
 private:

@@ -3,6 +3,7 @@
 //     Author: Hafez Farazi <farazi@ais.uni-bonn.de>
 #include <vision_module/Tools/Parameters.hpp>
 
- ParametersC params;
+
+ParametersC params;
 
 

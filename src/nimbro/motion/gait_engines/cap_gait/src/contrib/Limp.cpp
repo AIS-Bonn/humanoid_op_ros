@@ -1,10 +1,10 @@
 #include <cap_gait/contrib/Limp.h>
 #include <cap_gait/contrib/Globals.h>
-#include <nimbro_utils/math_funcs.h>
+#include <rc_utils/math_funcs.h>
 #include <math.h>
 #include <QDebug>
 
-using namespace nimbro_utils;
+using namespace rc_utils;
 
 namespace margait_contrib
 {

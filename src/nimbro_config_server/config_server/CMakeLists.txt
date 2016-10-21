@@ -12,6 +12,7 @@ add_message_files(
   FILES
   ParameterDescription.msg
   ParameterList.msg
+  ParameterLoadTime.msg
   ParameterValue.msg
   ParameterValueList.msg
 )

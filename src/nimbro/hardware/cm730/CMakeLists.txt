@@ -6,37 +6,6 @@ project(cm730)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS roscpp rospy config_server plot_msgs)
 
-## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
-
-## Uncomment this if the package has a setup.py. This macro ensures
-## modules and scripts declared therein get installed
-# catkin_python_setup()
-
-#######################################
-## Declare ROS messages and services ##
-#######################################
-
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
-
-## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
-
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
-
 ###################################################
 ## Declare things to be passed to other projects ##
 ###################################################
@@ -60,39 +29,37 @@ include_directories(include
   ${catkin_INCLUDE_DIRS}
 )
 
-## Declare a cpp library
+## Build the CM730 library
 add_library(cm730
 	src/CM730.cpp
+	src/CM740mp.cpp
 	src/read_thread.cpp
 )
+target_link_libraries(cm730
+	${catkin_LIBRARIES}
+)
 
-## Declare a cpp executable
+## Build the CM730 test node
 add_executable(cm730_test
 	src/cm730test.cpp
 )
-
-## Add dependencies to the executable
-#add_dependencies(cm730_test src/CM730.cpp)
-
-## Specify libraries to link a library or executable target against
 target_link_libraries(cm730_test
-   cm730
- )
+	cm730
+	${catkin_LIBRARIES}
+)
 
-target_link_libraries(cm730
-  ${catkin_LIBRARIES}
+## Build the CM740 megapacket test node
+add_executable(cm740mp_test
+	src/cm740mptest.cpp
+)
+target_link_libraries(cm740mp_test
+	cm730
+	${catkin_LIBRARIES}
 )
 
 #############
 ## Install ##
 #############
-
-## Mark executable scripts (Python etc.) for installation
-## not required for python when using catkin_python_setup()
-# install(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
 
 ## Mark executables and/or libraries for installation
 install(TARGETS cm730
@@ -100,30 +67,3 @@ install(TARGETS cm730
 	LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 	RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
-
-## Mark cpp header files for installation
-# install(DIRECTORY include/${PROJECT_NAME}/
-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#   FILES_MATCHING PATTERN "*.h"
-#   PATTERN ".svn" EXCLUDE
-# )
-
-## Mark other files for installation (e.g. launch and bag files, etc.)
-# install(FILES
-#   # myfile1
-#   # myfile2
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-# )
-
-#############
-## Testing ##
-#############
-
-## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_cm730.cpp)
-# if(TARGET ${PROJECT_NAME}-test)
-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
-# endif()
-
-## Add folders to be run by python nosetests
-# catkin_add_nosetests(test)

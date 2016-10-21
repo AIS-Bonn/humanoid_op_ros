@@ -20,6 +20,7 @@ add_library(field_model
 
 target_link_libraries(field_model
 	${catkin_LIBRARIES}
+	yaml-cpp
 )
 
 install(TARGETS field_model

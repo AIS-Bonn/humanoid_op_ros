@@ -88,9 +88,6 @@ void LimbControl::step()
 	// Save the current step time
 	const ros::Time curTime = ros::Time::now();
 
-	// Retrieve the robotcontrol time step value
-	const double dT = m_model->timerDuration();
-
 	// Declare variables
 	LCAConstIt itEnd, itc;
 
@@ -176,7 +173,7 @@ void LimbControl::step()
 		if(jointCmd >  M_PI) jointCmd =  M_PI;
 
 		// Write the required joint command
-		it->joint->cmd.setFromPos(dT, jointCmd);
+		it->joint->cmd.setFromPos(jointCmd);
 		it->joint->cmd.raw = false;
 		it->joint->cmd.effort = it->LC.effort;
 	}

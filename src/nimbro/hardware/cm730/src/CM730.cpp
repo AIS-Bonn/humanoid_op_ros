@@ -33,12 +33,16 @@
 #define COMMS_READ_TIMEOUT  10000000LL  // Read timeout in nanoseconds (it's ok if this is longer than a single robotcontrol time step, but it shouldn't be too long so that the read in the next cycle has a chance without a cycle being missed)
 #define FULL_BR_PERIOD      5.0         // Maximum time to send repeat bulk read instructions instead of the full bulk read Tx packet
 
+// Namespaces
+using namespace cm730;
+
 // Constants
 const char* CM730::PATH = "/dev/cm730";
 
 // Helper functions
 inline void getTimeLimit(struct timespec* out);
 inline int makeWord(unsigned char* pos);
+inline int makeByteSigned(unsigned char* pos);
 inline int makeWordSigned(unsigned char* pos);
 void dump(const char* prefix, const uint8_t* data, uint8_t len);
 
@@ -48,8 +52,8 @@ void dump(const char* prefix, const uint8_t* data, uint8_t len);
 
 // Constructor
 CM730::CM730()
- : m_PM(0, "~")
- , m_useBulkReadShortcut("nopInterface/useBulkReadShortcut", true)
+ : m_PM(0, "/CM730")
+ , m_useBulkReadShortcut("/nimbro_op_interface/useBulkReadShortcut", true)
  , m_fd(-1)
  , m_lastFailedID(0)
  , m_fullBRPacket(true)
@@ -748,19 +752,105 @@ int CM730::syncWrite(int address, size_t numDataBytes, size_t numDevices, const 
 int CM730::setDynamixelPower(int value)
 {
 	// Error checking
-	if(value < DYNPOW_OFF || value > DYNPOW_ON_NODXLTX)
+	if(value < DYNPOW_MIN || value > DYNPOW_MAX)
 	{
-		ROS_ERROR("Attempted to write bad value %d to the CM730 Dynamixel Power register!", value);
+		ROS_ERROR("Attempted to write bad value %d to the CM730 dynamixel power register!", value);
 		return RET_BAD_PARAM;
 	}
-	
+
 	// Write the appropriate register
 	int ret = writeByte(ID_CM730, P_DYNAMIXEL_POWER, value);
 	if(ret != RET_SUCCESS)
-		ROS_ERROR("Failed to write %d to the CM730 Dynamixel Power register! (Error: %d)", value, ret);
-	
+		ROS_ERROR("Failed to write %d to the CM730 dynamixel power register! (Error: %d)", value, ret);
+
+	// Plot an event for the change in dynamixel power
+	m_PM.clear();
+	if(value == DYNPOW_OFF)
+		m_PM.plotEvent("DXL Power Off");
+	else if(value == DYNPOW_ON)
+		m_PM.plotEvent("DXL Power On");
+	else
+		m_PM.plotEvent("DXL Power Custom");
+	m_PM.publish();
+
 	// Return value
 	return ret;
+}
+
+// Get the dynamixel power state of the CM730
+int CM730::getDynamixelPower(CM730::DynPowState& state, struct timespec* abstime)
+{
+	// Read the appropriate register
+	int value = 0;
+	int ret = readByte(ID_CM730, P_DYNAMIXEL_POWER, &value, abstime);
+
+	// Return unknown if the read failed
+	if(ret != RET_SUCCESS)
+	{
+		state = DYNPOW_UNKNOWN;
+		return ret;
+	}
+
+	// Transcribe the read dynamixel power state
+	if(value >= DYNPOW_MIN && value <= DYNPOW_MAX)
+		state = (DynPowState) value;
+	else
+		state = DYNPOW_UNKNOWN;
+
+	// Return success
+	return RET_SUCCESS;
+}
+
+// Get the button state of the CM730
+int CM730::getButtonState(int& value, struct timespec* abstime)
+{
+	// Read the appropriate register
+	value = 0;
+	int ret = readByte(ID_CM730, P_BUTTON, &value, abstime);
+	if(ret != RET_SUCCESS)
+		value = 0;
+	return ret;
+}
+
+// Write to the CM730 that it should beep with a particular frequency and duration
+int CM730::beep(float duration, int freq)
+{
+	// Convert the required duration into ticks
+	int durTick = (int)(10.0*duration + 0.5);
+	if(durTick < 1)
+		durTick = 1;
+	else if(durTick > 50)
+		durTick = 50;
+
+	// Coerce the required frequency
+	if(freq < 0)
+		freq = 0;
+	else if(freq > 51)
+		freq = 51;
+
+	// Construct the data bytes to write
+	static const std::size_t numBytes = 2;
+	uint8_t data[numBytes] = {(uint8_t) durTick, (uint8_t) freq};
+
+	// Write the beep command to the CM730 and return whether it was successful
+	return writeData(CM730::ID_CM730, CM730::P_BUZZER_PLAY_LENGTH, data, numBytes);
+}
+
+// Write to the CM730 that it should play a particular preprogrammed sound
+int CM730::sound(int musicIndex)
+{
+	// Coerce the required music index
+	if(musicIndex < 0)
+		musicIndex = 0;
+	else if(musicIndex > 25)
+		musicIndex = 25;
+
+	// Construct the data bytes to write
+	static const std::size_t numBytes = 2;
+	uint8_t data[numBytes] = {0xFF, (uint8_t) musicIndex};
+
+	// Write the sound command to the CM730 and return whether it was successful
+	return writeData(CM730::ID_CM730, CM730::P_BUZZER_PLAY_LENGTH, data, numBytes);
 }
 
 //
@@ -810,11 +900,11 @@ int CM730::rxPacket(unsigned char* rxp, int size, struct timespec* abstime)
 	int readErr, readSize = 0;
 
 	// Calculate the absolute timeout time if one wasn't provided
-	struct timespec timeout;
+	struct timespec timeout_time;
 	if(!abstime)
 	{
-		getTimeLimit(&timeout);
-		abstime = &timeout;
+		getTimeLimit(&timeout_time);
+		abstime = &timeout_time;
 	}
 
 	// Read until the appropriate number of bytes are received or an error occurs
@@ -961,6 +1051,7 @@ bool CM730::parseCM730Data(unsigned char* data, int size, BRBoard* cm730Data)
 	cm730Data->magX     = makeWordSigned(data + offset + P_MAG_X_L);
 	cm730Data->magY     = makeWordSigned(data + offset + P_MAG_Y_L);
 	cm730Data->magZ     = makeWordSigned(data + offset + P_MAG_Z_L);
+	cm730Data->temp     = makeByteSigned(data + offset + P_TEMPERATURE);
 	
 	// Save the dynamixel power state for our own purposes
 	m_lastSeenDynPow = cm730Data->power;
@@ -1057,6 +1148,12 @@ inline void getTimeLimit(struct timespec* out)
 inline int makeWord(unsigned char* pos)
 {
 	return (uint16_t)(((int) pos[1] << 8) | pos[0]);
+}
+
+// Make a signed byte out of an unsigned one
+inline int makeByteSigned(unsigned char* pos)
+{
+	return ((int8_t) *pos);
 }
 
 // Make a signed word out of two consecutive bytes (pos[0] = Low byte, pos[1] = High byte)

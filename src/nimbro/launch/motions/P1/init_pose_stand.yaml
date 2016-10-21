@@ -12,11 +12,11 @@ motion:
         effort: 0.2
         velocity: 0
       left_ankle_pitch:
-        position: -0.280042
+        position: -0.390566
         effort: 0.8
         velocity: 0
       left_ankle_roll:
-        position: -0.14
+        position: -0.15
         effort: 0.5
         velocity: 0
       left_hip_roll:
@@ -32,15 +32,15 @@ motion:
         effort: 0.2
         velocity: 0
       left_knee_pitch:
-        position: 0.200083
+        position: 0.491131
         effort: 0.8
         velocity: 0
       left_shoulder_pitch:
-        position: 0.267512
+        position: 0.277512
         effort: 0.2
         velocity: 0
       left_hip_pitch:
-        position: 0.0349583
+        position: -0.170566
         effort: 0.8
         velocity: 0
       left_shoulder_roll:
@@ -52,11 +52,11 @@ motion:
         effort: 0.2
         velocity: 0
       right_ankle_pitch:
-        position: -0.280042
+        position: -0.390566
         effort: 0.8
         velocity: 0
       right_ankle_roll:
-        position: 0.14
+        position: 0.15
         effort: 0.5
         velocity: 0
       right_hip_roll:
@@ -72,15 +72,15 @@ motion:
         effort: 0.2
         velocity: 0
       right_knee_pitch:
-        position: 0.200083
+        position: 0.491131
         effort: 0.8
         velocity: 0
       right_shoulder_pitch:
-        position: 0.267512
+        position: 0.277512
         effort: 0.2
         velocity: 0
       right_hip_pitch:
-        position: 0.0349583
+        position: -0.170566
         effort: 0.8
         velocity: 0
       right_shoulder_roll:
@@ -95,11 +95,11 @@ motion:
         effort: 0.2
         velocity: 0
       left_ankle_pitch:
-        position: -0.280042
+        position: -0.390566
         effort: 0.8
         velocity: 0
       left_ankle_roll:
-        position: -0.14
+        position: -0.15
         effort: 0.5
         velocity: 0
       left_hip_roll:
@@ -115,15 +115,15 @@ motion:
         effort: 0.2
         velocity: 0
       left_knee_pitch:
-        position: 0.200083
+        position: 0.491131
         effort: 0.8
         velocity: 0
       left_shoulder_pitch:
-        position: 0.267512
+        position: 0.277512
         effort: 0.2
         velocity: 0
       left_hip_pitch:
-        position: 0.0349583
+        position: -0.170566
         effort: 0.8
         velocity: 0
       left_shoulder_roll:
@@ -135,11 +135,11 @@ motion:
         effort: 0.2
         velocity: 0
       right_ankle_pitch:
-        position: -0.280042
+        position: -0.390566
         effort: 0.8
         velocity: 0
       right_ankle_roll:
-        position: 0.14
+        position: 0.15
         effort: 0.5
         velocity: 0
       right_hip_roll:
@@ -155,15 +155,15 @@ motion:
         effort: 0.2
         velocity: 0
       right_knee_pitch:
-        position: 0.200083
+        position: 0.491131
         effort: 0.8
         velocity: 0
       right_shoulder_pitch:
-        position: 0.267512
+        position: 0.277512
         effort: 0.2
         velocity: 0
       right_hip_pitch:
-        position: 0.0349583
+        position: -0.170566
         effort: 0.8
         velocity: 0
       right_shoulder_roll:

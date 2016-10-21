@@ -16,18 +16,18 @@
 #include "common_type.h"
 
 // LED port flags
-#define LED_MANAGE  0x01
+#define LED_PLAY    0x01
 #define LED_EDIT    0x02
-#define LED_PLAY    0x04
+#define LED_MANAGE  0x04
 #define LED_RX      0x08
 #define LED_TX      0x10
 #define LED_ALL     0x5F
 
-// RGB LED port flags
+// RGBLED port flags
 #define RGBLED5     5
 #define RGBLED6     6
 
-// RGB LED colour flags
+// RGBLED colour flags
 #define LED_R       0x01
 #define LED_G       0x02
 #define LED_B       0x04
@@ -40,7 +40,9 @@ PowerState LED_GetState(u8 LED_PORT);
 void       LED_SetState(u8 LED_PORT, PowerState NewState);
 u8   LED5_GetState();       // Uses the flags LED_R, LED_G and LED_B
 void LED5_SetState(u8 RGB); // Uses the flags LED_R, LED_G and LED_B
-void RGBLED_SetColour(u8 RGBLED_PORT, u8 R, u8 G, u8 B);
+u8   LED6_GetState();       // Uses the flags LED_R, LED_G and LED_B
+void LED6_SetState(u8 RGB); // Uses the flags LED_R, LED_G and LED_B
+void RGBLED_SetColour(u8 RGBLED_PORT, u8 R, u8 G, u8 B, u8 blink);
 
 #endif /* LED_H */
 /************************ (C) COPYRIGHT 2010 ROBOTIS ********END OF FILE*******/

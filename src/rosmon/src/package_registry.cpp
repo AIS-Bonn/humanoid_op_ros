@@ -21,11 +21,15 @@ static std::map<std::string, std::string> g_cache;
 static rospack::Rospack g_pack;
 static std::vector<std::string> g_catkin_workspaces;
 static std::map<std::pair<std::string, std::string>, std::string> g_executableCache;
+static bool g_initialized = false;
 
 namespace fs = boost::filesystem;
 
-void PackageRegistry::init()
+static void init()
 {
+	if(g_initialized)
+		return;
+
 	std::vector<std::string> sp;
 	g_pack.getSearchPathFromEnv(sp);
 	g_pack.crawl(sp, false);
@@ -44,7 +48,7 @@ void PackageRegistry::init()
 			if(!fs::exists(path / ".catkin"))
 				continue;
 
-			printf("Found catkin workspace: '%s'\n", path.string().c_str());
+// 			printf("Found catkin workspace: '%s'\n", path.string().c_str());
 			g_catkin_workspaces.push_back(path.string());
 		}
 	}
@@ -52,11 +56,12 @@ void PackageRegistry::init()
 
 std::string PackageRegistry::getPath(const std::string& package)
 {
+	if(!g_initialized)
+		init();
+
 	auto it = g_cache.find(package);
 	if(it == g_cache.end())
 	{
-		ros::WallTime t1 = ros::WallTime::now();
-
 		std::string path;
 		if(!g_pack.find(package, path))
 			path.clear();
@@ -75,7 +80,7 @@ static std::string getExecutableInPath(const fs::path& path, const std::string& 
 
 	for(fs::recursive_directory_iterator it(path); it != fs::recursive_directory_iterator(); ++it)
 	{
-		if(it->path().filename() == name && it->status().permissions() & fs::others_exe)
+		if(it->path().filename() == name && access(it->path().c_str(), X_OK) == 0)
 		{
 			return it->path().string();
 		}
@@ -86,13 +91,16 @@ static std::string getExecutableInPath(const fs::path& path, const std::string& 
 
 static std::string _getExecutable(const std::string& package, const std::string& name)
 {
+	if(!g_initialized)
+		init();
+
 	// Try catkin libexec & catkin share first
 	for(const auto& workspace : g_catkin_workspaces)
 	{
 		fs::path workspacePath(workspace);
 
 		fs::path execPath = workspacePath / "lib" / package / name;
-		if(fs::exists(execPath) && fs::status(execPath).permissions() & fs::others_exe)
+		if(fs::exists(execPath) && access(execPath.c_str(), X_OK) == 0)
 			return execPath.string();
 
 		std::string sharePath = getExecutableInPath(workspacePath / "share" / package, name);

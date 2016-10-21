@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(motion_player)
 
-find_package(catkin REQUIRED COMPONENTS roscpp std_msgs robotcontrol genmsg)
+find_package(catkin REQUIRED COMPONENTS roscpp std_msgs std_srvs robotcontrol genmsg gait plot_msgs message_generation)
 find_package(Qt4 REQUIRED QtCore QtXml QtOpenGL)
 include(${QT_USE_FILE})
 
@@ -16,11 +16,16 @@ include(${QT_USE_FILE})
 #   Message2.msg
 # )
 
+add_message_files(DIRECTORY msg FILES
+	MotionPlayerState.msg
+)
+
 # Generate services in the 'srv' folder
 add_service_files(
   FILES
   PlayMotion.srv
   StreamMotion.srv
+  DumpMotions.srv
 )
 
 # Generate added messages and services with any dependencies listed here
@@ -40,6 +45,7 @@ generate_messages(
 catkin_package(
    INCLUDE_DIRS include
    LIBRARIES motion_file
+   CATKIN_DEPENDS message_runtime
 #  CATKIN_DEPENDS roscpp std_msgs
 #  DEPENDS system_lib
 )
@@ -63,6 +69,8 @@ add_library(motion_player
 
 add_library(motion_file
   src/motion_file/motionfile.cpp
+  src/motion_file/poseconverter.cpp
+  src/motion_file/ruleapplier.cpp
 )
 
 ## Declare a cpp executable

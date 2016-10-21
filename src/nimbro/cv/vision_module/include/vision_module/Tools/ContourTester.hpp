@@ -11,7 +11,11 @@ using namespace std;
 using namespace cv;
 
 void CallBackFuncCT(int event, int x, int y, int flags, void* userdata);
-
+/**
+* @ingroup VisionModule
+*
+* @brief A container class for testing countours
+**/
 class ContourTester
 {
 public:

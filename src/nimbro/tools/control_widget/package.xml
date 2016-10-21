@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package>
+  <name>control_widget</name>
+  <version>0.0.0</version>
+  <description>Widget to execute servise calls</description>
+  
+  <maintainer email="dm.mark999@gmail.com">Dmytro Pavlichenko</maintainer>
+  <license>TODO</license>
+  
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>config_server</build_depend>
+  <build_depend>rqt_gui</build_depend>
+  <build_depend>rqt_gui_cpp</build_depend>
+  <build_depend>nimbro_op_interface</build_depend>
+  <build_depend>message_generation</build_depend>
+  <run_depend>message_runtime</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>config_server</run_depend>
+  <run_depend>rqt_gui</run_depend>
+  <run_depend>rqt_gui_cpp</run_depend>
+  <run_depend>nimbro_op_interface</run_depend>
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+	<rqt_gui plugin="${prefix}/control_widget_plugin.xml" />
+  </export>
+</package>

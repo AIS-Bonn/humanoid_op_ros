@@ -19,14 +19,21 @@ public:
 	virtual ~JointStatePlot();
 
 	//! Shut the ROS subscribers in this plot down
-	void shutdown();
+	virtual void shutdown();
+
+	virtual Plot* findOrCreatePlotByPath(const QString& path);
+
 Q_SIGNALS:
-	void gotData(const sensor_msgs::JointStateConstPtr& data);
-	void gotCmdData(const plot_msgs::JointCommandConstPtr& data);
-private Q_SLOTS:
-	void handleData(const sensor_msgs::JointStateConstPtr& data);
-	void handleCmdData(const plot_msgs::JointCommandConstPtr& data);
+	void gotData(const sensor_msgs::JointStateConstPtr& data, bool overridePause);
+	void gotCmdData(const plot_msgs::JointCommandConstPtr& data, bool overridePause);
+
+public Q_SLOTS:
+	void handleData(const sensor_msgs::JointStateConstPtr& data, bool overridePause);
+	void handleCmdData(const plot_msgs::JointCommandConstPtr& data, bool overridePause);
+
 private:
+	void shutdownNode();
+
 	struct JointPlotters
 	{
 		Plot* positionPlot;

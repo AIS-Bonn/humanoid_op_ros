@@ -15,6 +15,7 @@
 
 #include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
+#include <iomanip>
 
 namespace config_server
 {
@@ -30,6 +31,8 @@ public:
 
 	void reinit();
 
+	inline std::string name() const { return m_name; }
+
 protected:
 	void notifyServer();
 	virtual void notifyClient();
@@ -39,14 +42,16 @@ protected:
 
 	void init(const ParameterDescription& desc, ros::NodeHandle* nh = NULL, bool create = true);
 
-	inline std::string name() const { return m_name; }
-
 	bool handleSet(const std::string& value);
+
+	ParameterDescription m_desc;
+
+	static const float MinMaxEpsilon;
+
 private:
 	friend class ParameterClient;
 
 	std::string m_name;
-	ParameterDescription m_desc;
 	bool m_haveDesc;
 };
 
@@ -63,17 +68,25 @@ public:
 
 	inline T get() const { return m_value; }
 	inline T operator()() const { return get(); }
-	inline void setCallback(const boost::function<void (const T&)>& callback) { m_callback = callback; }
+
+	inline void setCallback(const boost::function<void (const T&)>& callback, bool callFunction = false)
+	{
+		m_callback = callback;
+		if(callFunction && m_callback)
+			m_callback(m_value);
+	}
+
+	inline void callCallback()
+	{
+		if(m_callback)
+			m_callback(m_value);
+	}
 
 protected:
 	T m_value;
 	boost::function<void (const T&)> m_callback;
 
-	virtual void notifyClient()
-	{
-		if(m_callback)
-			m_callback(m_value);
-	}
+	virtual void notifyClient() { callCallback(); }
 };
 
 /**
@@ -161,20 +174,34 @@ public:
 	{
 		init(desc, nh, create);
 	}
+
 protected:
 	virtual bool deserialize(const std::string& value)
 	{
 		std::stringstream ss(value);
 
-		int v;
+		int v = 0;
 		ss >> v;
 
 		if(ss.fail() || ss.bad() || !ss.eof())
 			return false;
 
+		bool modified = false;
+		if(v < m_desc.min)
+		{
+			modified = (v < m_desc.min - MinMaxEpsilon * fabs(m_desc.min));
+			v = m_desc.min;
+		}
+		else if(v > m_desc.max)
+		{
+			modified = (v > m_desc.max + MinMaxEpsilon * fabs(m_desc.max));
+			v = m_desc.max;
+		}
+
 		m_value = v;
-		return true;
+		return !modified;
 	}
+
 	virtual std::string serialize() const
 	{
 		std::stringstream ss;
@@ -204,24 +231,38 @@ public:
 	{
 		init(desc, nh, create);
 	}
+
 protected:
 	virtual bool deserialize(const std::string& value)
 	{
 		std::stringstream ss(value);
 
-		float v;
+		float v = 0.0;
 		ss >> v;
 
 		if(ss.fail() || ss.bad() || !ss.eof())
 			return false;
 
+		bool modified = false;
+		if(v < m_desc.min)
+		{
+			modified = (v < m_desc.min - MinMaxEpsilon * fabs(m_desc.min));
+			v = m_desc.min;
+		}
+		else if(v > m_desc.max)
+		{
+			modified = (v > m_desc.max + MinMaxEpsilon * fabs(m_desc.max));
+			v = m_desc.max;
+		}
+
 		m_value = v;
-		return true;
+		return !modified;
 	}
+
 	virtual std::string serialize() const
 	{
 		std::stringstream ss;
-		ss << m_value;
+		ss << std::setprecision(7) << m_value;
 
 		return ss.str();
 	}
@@ -247,6 +288,7 @@ public:
 	{
 		init(desc, nh, create);
 	}
+
 protected:
 	virtual bool deserialize(const std::string& value)
 	{

@@ -1,13 +1,7 @@
 //Camera.hpp
 // Created on: Apr 19, 2015
 //     Author: Hafez Farazi <farazi@ais.uni-bonn.de>
-/** @addtogroup VisionModule */
-/*@{*/
-/** @addtogroup VisionModule */
-/*@{*/
 
-/** @addtogroup VisionModule */
-/*@{*/
 #pragma once
 #include <opencv2/opencv.hpp>
 #include <sys/ioctl.h>
@@ -18,39 +12,66 @@
 #include <vision_module/Tools/Parameters.hpp>
 #include <vision_module/Tools/MatPublisher.hpp>
 #include <vision_module/Inputs/ICamera.hpp>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
 using namespace cv;
 
-
 /**
- * @class Camera
- * @brief This class is responsible for image acquisition process \n  As an output this class provides the raw image in /vision/takenImg topic
- * @ingroup VisionModule
- **/
-class Camera:public ICamera
+* @ingroup VisionModule
+*
+* @brief This class is responsible for image acquisition process \n  As an output this class provides the raw image in /vision/takenImg topic
+**/
+class Camera: public ICamera
 {
 private:
-	VideoCapture *cap;
+	bool destroyed;
+	VideoCapture cap;
 	char devStr[255];
-	char paramStr[512];
 	char paramDefStr[512];
+	char paramStr[512];
+	char paramOffStr[512];
 	int devNumber;
+	ros::Time futureImageTime;
+	int width;
+	int height;
+	long int failCount;
+	long int successCount;
+	ros::NodeHandle nh;
 	MatPublisher takenImg_pub;
+	ros::WallTime lastImgPublish;
+	double imgPublishTime;
+	bool shouldPublishNow;
 public:
-	inline Camera():takenImg_pub("/vision/takenImg")
+	inline Camera() :destroyed(false),
+			devNumber(-1),width(-1),height(-1),failCount(0),successCount(0),nh("~"),takenImg_pub("/vision/takenImg"),shouldPublishNow(false)
 	{
-		devNumber=params.camera.devNumber->get();
-		sprintf(devStr, "/dev/video%d", devNumber);
-		sprintf(paramStr,"v4l2ctrl -d /dev/video%d -l /nimbro/share/launch/config/vision/logitechConfig.txt ",devNumber);
-		sprintf(paramDefStr,"v4l2ctrl -d /dev/video%d -l /nimbro/share/launch/config/vision/logitechConfig_default.txt ",devNumber);
-		cap = new VideoCapture(devNumber); // open the camera
+		ros::NodeHandle nh;
+		lastImgPublish=ros::WallTime::now();
+		nh.param("/vision/imgPublishTime",imgPublishTime,1.0);
+		rawImageTime = ros::Time::now();
+		futureImageTime=ros::Time(0);
 	}
+
+	inline void DeInitCameraDevice()
+	{
+		if (!destroyed)
+		{
+			if (-1 == system(paramOffStr))
+			{
+				cout<<"Can't find or set v4l2-ctrl values!"<<endl;
+			}
+			cap.release();
+			destroyed=true;
+		}
+	}
+
 	/*! @fn virtual void ~Camera()
-	*   @brief Destructor
-	*/
+	 *   @brief Destructor
+	 */
 	inline virtual ~Camera()
 	{
-		// the camera will be deinitialized
-		delete cap;
+		DeInitCameraDevice();
 	}
 	inline bool IsReady()
 	{
@@ -67,5 +88,15 @@ public:
 	 * @return How much this capture is reliable
 	 */
 	double TakeCapture();
+
+	bool changeDevNum(bool first, bool &changed);
+	bool SetCameraProp();
+	bool SetCameraSetting();
+
+	inline bool ShouldPublish()
+	{
+		bool result=shouldPublishNow;
+		shouldPublishNow=false;
+		return result;
+	}
 };
-/** @}*/

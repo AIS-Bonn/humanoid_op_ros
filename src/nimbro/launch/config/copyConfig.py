@@ -3,84 +3,84 @@
 #         Philipp Allgeuer <pallgeuer@ais.uni-bonn.de>
 
 # Imports
-import sys
-import yaml
 import optparse
 import os.path
+import rospkg
 import shutil
-from os.path import expanduser
+from yamlUtils import *
 from termcolor import colored
 
-# Function to write an element of a hierarchical dictionary of unknown depth
-def writePart(data, components, value):
-	if len(components) == 1:
-		data[components[0]] = value
-		return
-	writePart(data[components[0]], components[1:], value)
+# Setup
+rospack = rospkg.RosPack()
+
 
 # Main function
 def main():
-	
+
+	# Default config directory
+	defaultDir = os.path.join(rospack.get_path('launch'), 'config')
+
 	# Parse the arguments
 	parser = optparse.OptionParser()
-	parser.add_option('-f', '--from', type="string", dest="fromR", help="From", default="")
-	parser.add_option('-t', '--to', type="string", dest="toR", help="To", default="")
-	parser.add_option('-p', '--part', type="string", dest="part", help="Part like vision", default="all")
-	parser.add_option('-b', '--baseP', type="string", dest="baseP", help="Base Path", default="HOME")
+	parser.add_option('-b', '--basepath', type = "string", dest = "basepath", help = "Base path", default = defaultDir)
+	parser.add_option('-s', '--src', type = "string", dest = "src", help = "Source config file")
+	parser.add_option('-d', '--dst', type = "string", dest = "dst", help = "Destination config file")
+	parser.add_option('-e', '--element', type = "string", dest = "element", help = "Element in the source config file to copy", default = "/")
 	options, args = parser.parse_args()
-	
+
 	# Process the arguments
-	if(options.baseP == "HOME"):
-		options.baseP = expanduser("~") + "/NimbRo-OP/src/nimbro/launch/config/"
-	fromS = options.baseP + "config_" + options.fromR + ".yaml"
-	toS = options.baseP + "config_" + options.toR + ".yaml"
+	if not options.src:
+		parser.error("Source config file not specified!")
+	if not options.dst:
+		parser.error("Destination config file not specified!")
+	basepath = options.basepath.rstrip('/')
+	srcFilename = options.src
+	dstFilename = options.dst
+	srcPath = basepath + "/" + srcFilename
+	dstPath = basepath + "/" + dstFilename
+	srcDstString = srcFilename + " to " + dstFilename
+	element = options.element
 
 	# Handle case where entire config file should be copied
-	if(options.part == "all" and os.path.isfile(fromS)):
-		shutil.copyfile(fromS, toS)
-		print colored("All configs copied from " + options.fromR + " to " + options.toR, "green")
+	if element == "all" and os.path.isfile(srcPath):
+		shutil.copyfile(srcPath, dstPath)
+		print colored("All configs copied from " + srcDstString, "green")
 		sys.exit()
 
 	# Error handling if files not found
-	if(not os.path.isfile(fromS) or not os.path.isfile(toS)):
-		print colored("Please specify correct 'from' and 'to' robot names in the command line arguments...", "red")
+	if not os.path.isfile(srcPath) or not os.path.isfile(dstPath):
+		print colored("Please specify correct source and destination config files in the command line arguments!", "red")
+		print "Src: " + srcPath
+		print "Dst: " + dstPath
 		sys.exit()
-    
-	# Split the config path into its components
-	configvar = options.part
-	components = configvar.strip('/').split("/")
+
+	# Get the components of the required config path
+	elementComponents = pathToComponents(element)
+	element = "/" + componentsToPath(elementComponents)
+	if not elementComponents:
+		error(srcDstString + ": Config parameter path is empty => Use 'all' if you want to copy everything!", True)
 
 	# Load the source yaml file
-	sfd = file(fromS, 'r')
-	sData = yaml.load(sfd)
+	sData = readYAML(srcPath)
 
-	# Get the required part of the source file
-	sTagData = sData
-	for comp in components:
-		if (not type(sTagData) is dict) or (not comp in sTagData):
-			print colored('Config parameter path does not exist in the source file!', 'red')
-			sys.exit()
-		sTagData = sTagData[comp]
+	# Get the required node of the source yaml file
+	srcData = getNodeByComponents(sData, elementComponents)
+	if srcData is None:
+		error(srcDstString + ": Config parameter path '" + element + "' does not exist in the source file!", True)
 
 	# Load the destination yaml file
-	dfd = file(toS, 'r')
-	dData = yaml.load(dfd)
-
-	# Get the required part of the destination file
-	dTagData = dData
-	for comp in components:
-		if (not type(dTagData) is dict) or (not comp in dTagData):
-			print colored('Config parameter path does not exist in the destination file!', 'red')
-			sys.exit()
-		dTagData = dTagData[comp]
+	dData = readYAML(dstPath)
 
 	# Write the source value into the destination data
-	writePart(dData, components, sTagData)
+	if not writeNodeByComponents(dData, elementComponents, srcData):
+		error(srcDstString + ": Failed to write the source value of '" + element + "' into the destination YAML tree!", True)
 
-	# Save the output
-	ofile = file(toS, 'w')
-	yaml.dump(dData, ofile, default_flow_style=False, width=5000)
-	print colored("'" + options.part + "' configs copied from " + options.fromR + " to " + options.toR, "green")
+	# Save the destination yaml file
+	writeYAML(dstPath, dData)
+
+	# Indicate that the copy was successful
+	print colored("'" + element + "' configs copied from " + srcDstString, "green")
+
 
 # Run the main
 if __name__ == '__main__':

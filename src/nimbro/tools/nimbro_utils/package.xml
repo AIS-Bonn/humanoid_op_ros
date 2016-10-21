@@ -41,11 +41,9 @@
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>roscpp</build_depend>
-  <build_depend>tf</build_depend>
   <build_depend>config_server</build_depend>
   <build_depend>cmake_modules</build_depend>
   <run_depend>roscpp</run_depend>
-  <run_depend>tf</run_depend>
   <run_depend>config_server</run_depend>
   <test_depend>gtest</test_depend>
 

@@ -1,9 +1,34 @@
 //Vision.hpp
 // Created on: Apr 20, 2015
 //     Author: Hafez Farazi <farazi@ais.uni-bonn.de>
-/** @addtogroup VisionModule */
-/*@{*/
-
+/**
+* @defgroup VisionModule Vision Module Library
+*
+* @author Hafez Farazi (<farazi@ais.uni-bonn.de>)
+* @date Apr 20, 2015
+* @version 1.1
+*
+* @section sclsec1 Overview
+* The %Vision Module Library is for detecting soccer objects in the filed.
+* @section sclsec1a Academic Sources
+* The %Vision Module Library is detailed in the following paper.
+*
+* > H.Farazi , P. Allgeuer and S. Behnke, "A Monocular Vision System for Playing Soccer in Low Color Information Environments
+* > ," in _Proceedings of the 10th Workshop on Humanoid Soccer Robots,
+* > IEEE-RAS Int. Conference on Humanoid Robots_, Seoul, Korea, 2015.
+*
+* You are kindly asked to cite this paper if you use this framework for academic work.
+@verbatim
+@InProceedings{Farazi2015,
+  Title                    = {A Monocular Vision System for Playing Soccer in Low Color Information Environments},
+  Author                   = {Hafez Farazi and Philipp Allgeuer and Sven Behnke},
+  Booktitle                = {Proceedings of 10th Workshop on Humanoid Soccer Robots, IEEE-RAS Int. Conference on Humanoid Robots},
+  Year                     = {2015},
+  Address                  = {Seoul, Korea}
+}
+@endverbatim
+*
+**/
 #pragma once
 
 #include <ros/ros.h>
@@ -38,8 +63,6 @@
 #include <algorithm>    // std::sort
 #include <vis_utils/marker_manager.h>
 #include <nav_msgs/OccupancyGrid.h>
-#include <head_control/LookAtTarget.h>
-
 #include <vision_module/Inputs/CameraDummy.hpp>
 #include <vision_module/Tools/General.hpp>
 #include <vision_module/Tools/Parameters.hpp>
@@ -49,148 +72,124 @@
 #include <vision_module/Tools/MatPublisher.hpp>
 #include <vision_module/Projections/IPM.hpp>
 #include <vision_module/Tools/LineSegment.hpp>
-#include <vision_module/soccer_objects/FieldDetector.hpp>
-#include <vision_module/soccer_objects/BallDetector.hpp>
-#include <vision_module/soccer_objects/ObstacleDetector.hpp>
-#include <vision_module/soccer_objects/LineDetector.hpp>
-#include <vision_module/soccer_objects/GoalDetector.hpp>
-
+#include <vision_module/vision_outputs.h>
 #include <vision_module/Tools/HSVPresenter.hpp>
 #include <vision_module/Inputs/ICamera.hpp>
 #include <vector>
 #include <robotcontrol/RobotHeading.h>
+#include <plot_msgs/plot_manager.h>
+#include <vision_module/SoccerObjects/BallDetector.hpp>
+#include <vision_module/SoccerObjects/CircleDetector.hpp>
+#include <vision_module/SoccerObjects/FieldDetector.hpp>
+#include <vision_module/SoccerObjects/GoalDetector.hpp>
+#include <vision_module/SoccerObjects/LineDetector.hpp>
+#include <vision_module/SoccerObjects/ObstacleDetector.hpp>
+#include <vision_module/Localization/Localization.hpp>
+#include <vision_module/vision_outputs.h>
+#include <vision_module/localization_output.h>
+#include <numeric>
+#include <vision_module/Tools/GuiManager.hpp>
 
-#define TEENSIZE_FIELD 0
-#define BONN_FIELD 1
-#if TEENSIZE_FIELD
-const double A = 9;
-const double B = 6;
-const double E = 1;
-const double F = 5;
-const double G = 2.1;
-const double H = 1.50;
-const double D = 2.6;
-#elif BONN_FIELD
-const double A = 5.45;
-const double B = 4.10;
-const double E = 0.60;
-const double F = 3.40;
-const double G = 1.30;
-const double H = 1.20;
-const double D = 2.6;
-#endif
 /**
-* @class Vision
-* @brief This Class is for managing all the required actions to find interesting objects in soccer field
+* @ingroup VisionModule
+*
+* @brief This class is for managing all the required actions to find interesting objects in soccer field
 **/
 class Vision
 {
 public:
-	CameraProjections _cameraProjections;
+	CameraProjections ProjectionObj;
+	Mat RawHSVImg;
+	Mat GrayImg;
 private:
-
-	const static double LOWPASSNORMAL = 0.1;
-	const static double LOWPASSSTRONG = 0.2;
-	const static double LOWPASSWEAK = 0.05;
-
-	double getUpdateCoef(double coef, cv::Point2f point)
-	{
-		double distance = GetDistance(point);
-
-		if (distance > 8)
-			return 0;
-		if (distance < 3)
-			return coef;
-
-		return coef * (1 - (distance / 8));
-	}
-
-	double getUpdateCoef(double coef, LineSegment line)
-	{
-		return getUpdateCoef(coef,
-				line.GetClosestPointOnLineSegment(cv::Point2d(0, 0)));
-	}
-
-	Point3d Localization;
-	double confidence;
+	bool destroyed;
 	long int visionCounter;
+	bool updateGuiImg;
 	ICamera *cam;
-	Mat rawHSV;
-	Mat guiTopViwRotate, guiRawImg, guiRawUndistorted;
-	Mat ballBinary, fieldBinary, fieldConvectHull, goalBinary, lineBinary,
+	Mat guiTopViwRotate, guiImg, guiUndistorted;
+	Mat ballBinary, fieldBinary, fieldConvectHull, goalBinary, cannyImgInField,
 			obstacleBinary;
 	ros::NodeHandle nodeHandle;
-	vis_utils::MarkerManager topViewMarker;
-	vis_utils::MarkerManager topViewMarkerLR;
+	vis_utils::MarkerManager egoDetectionMarker;
 	vis_utils::MarkerManager localizationMarker;
-	vis_utils::GenMarker topViewLines;
-	vis_utils::GenMarker topViewGoalPostLeft;
-	vis_utils::GenMarker topViewGoalPostRight;
-	vis_utils::GenMarker topViewCircle;
-	vis_utils::GenMarker topViewLinesLR;
-	vis_utils::GenMarker topViewGoalPostLeftLR;
-	vis_utils::GenMarker topViewGoalPostRightLR;
-	vis_utils::GenMarker topViewCircleLR;
-	vis_utils::GenMarker LocPhiMarker;
-	vis_utils::SphereMarker ballMarker;
-	vis_utils::SphereMarker LocMarker;
-	MatPublisher fieldImg_pub;
-	MatPublisher filedConvecxImg_pub;
-	MatPublisher lineImg_pub;
-	MatPublisher goalImg_pub;
-	MatPublisher ballImg_pub;
-	MatPublisher ballImg_debug_pub;
-	MatPublisher guiRawImg_pub;
-	MatPublisher ballMaskDebug_pub;
-	ros::Publisher head_pub;
-	Point3d Head_Control_Pos;
+	vis_utils::GenMarker egoLinesM;
+	vis_utils::GenMarker egoFieldM;
+	vis_utils::GenMarker egoGoalPostLM;
+	vis_utils::GenMarker egoGoalPostRM;
+	vis_utils::GenMarker egoCircleM;
+	vis_utils::SphereMarker egoBallM;
+	vis_utils::GenMarker locPhiM;
+	vis_utils::SphereMarker locM;
+	MatPublisher edgeImg_pub;
+	MatPublisher guiImg_pub;
+	MatPublisher webImg_pub;
+	Point3d head_Control_Pos;
+	FieldDetector fieldDetector;
+	BallDetector ballDetector;
+	LineDetector lineDetector;
+	CircleDetector circleDetector;
+	GoalDetector goalDetector;
+	ObstacleDetector obstacleDetector;
+	vector<ObstacleC> obstacles;
+	Localization loc;
+	HSVPresenter hsvPresenter;
+	GuiManager guiManager;
+	vector<cv::Point2f> fieldHullReal;
+	vector<cv::Point2f> fieldHullRealRotated;
+	cv::Point2f fieldHullRealCenter;
+	ros::Publisher visionOutputs_pub;
 
-	FieldDetector _fieldDetector;
-	BallDetector _ballDetector;
-	LineDetector _lineDetector;
-	GoalDetector _goalDetector;
-	ObstacleDetector _obstacleDetector;
-	HSVPresenter _hsvPresenter;
-	ros::Subscriber mose_left_click_sub;
-	ros::Subscriber mose_right_click_sub;
-	ros::Subscriber mose_middle_click_sub;
-	ros::Subscriber rviz_click_sub;
-
-	vector<cv::Point2f> FieldHullReal;
-	cv::Point2f FieldHullRealCenter;
-	geometry_msgs::PointStamped ballTarget;
-
-	ros::Publisher robotPos_pub;
-	ros::Publisher ballTarget_pub;
-	bool ballTargetUpdated;
-	tf::TransformListener *m_tf;
-	tf::StampedTransform tfOdom;
-	float lastOdomX, lastOdomY;
-
+	enum PMIds
+	{
+		PM_FRAME_RATE = 0,
+		PM_HEADING_OFFSET,
+		PM_LAST_AVALIBLE_TF,
+		PM_OBSTACLE_TIME,
+		PM_LINE_TIME,
+		PM_BALL_TIME,
+		PM_LOCALIZATION_TIME,
+		PM_GOAL_TIME,
+		PM_CIRCLE_TIME,
+		PM_COUNT
+	};
+	plot_msgs::PlotManagerFS plotM;
+	string rName;
+	vision_module::vision_outputs outputs;
 public:
 	Vision(bool dummy) :
-		 _cameraProjections(),
-			confidence(-1), visionCounter(0), topViewMarker(
-					"/vision/ballPoint"), topViewMarkerLR(
-					"/vision/topViewMarkerLR"), localizationMarker(
-					"/vision/localization"), topViewLines(&topViewMarker,
-					"/ego_floor"), topViewGoalPostLeft(&topViewMarker,
-					"/ego_floor"), topViewGoalPostRight(&topViewMarker,
-					"/ego_floor"), topViewCircle(&topViewMarker, "/ego_floor"), topViewLinesLR(
-					&topViewMarkerLR, "/ego_floor"), topViewGoalPostLeftLR(
-					&topViewMarkerLR, "/ego_floor"), topViewGoalPostRightLR(
-					&topViewMarkerLR, "/ego_floor"), topViewCircleLR(
-					&topViewMarkerLR, "/ego_floor"), LocPhiMarker(
-					&localizationMarker, "/ego_floor"), ballMarker(
-					&topViewMarker, "/ego_floor"), LocMarker(
-					&localizationMarker, "/ego_floor"), fieldImg_pub(
-					"/vision/fieldImg"), filedConvecxImg_pub(
-					"/vision/fieldConvexImg"), lineImg_pub("/vision/lineImg"), goalImg_pub(
-					"/vision/goalImg"), ballImg_pub("/vision/ballImg"), ballImg_debug_pub(
-					"vision/ball_debugImg"), guiRawImg_pub("/vision/guiRawImg"), ballMaskDebug_pub(
-					"/vision/ballMask"), _fieldDetector(), _ballDetector(), _lineDetector(), _goalDetector(), _obstacleDetector(), _hsvPresenter(), ballTarget(), ballTargetUpdated(
-					false), lastOdomX(0), lastOdomY(0)
+			ProjectionObj(), destroyed(false), visionCounter(0), updateGuiImg(
+					false), egoDetectionMarker("/vision/egoDetectionMarker"), localizationMarker(
+					"/vision/localization"), egoLinesM(&egoDetectionMarker,
+					"/ego_floor", "lines"), egoFieldM(&egoDetectionMarker,
+					"/ego_floor", "field"), egoGoalPostLM(&egoDetectionMarker,
+					"/ego_floor", "goals"), egoGoalPostRM(&egoDetectionMarker,
+					"/ego_floor", "goals"), egoCircleM(&egoDetectionMarker,
+					"/ego_floor", "circle"), egoBallM(&egoDetectionMarker,
+					"/ego_floor", "ball"), locPhiM(&localizationMarker,
+					"/ego_floor"), locM(&localizationMarker, "/ego_floor"), edgeImg_pub(
+					"/vision/edgeImg"), guiImg_pub("/vision/guiImg"), webImg_pub(
+					"/vision/webImg"), fieldDetector(), ballDetector(), lineDetector(), circleDetector(), goalDetector(), obstacleDetector(), loc(
+					&obstacles), hsvPresenter(), guiManager(&ProjectionObj), plotM(
+					PM_COUNT, "/VisionModule")
 	{
+
+		char const* robotName;
+		robotName = getenv("VIS_HOSTNAME");
+		rName = "";
+		if (robotName != NULL)
+		{
+			std::size_t found = string(robotName).find("xs");
+			if (found != std::string::npos)
+			{
+				rName = robotName;
+			}
+			else
+			{
+				rName = "unknown";
+			}
+			ROS_INFO("Robot Name = %s", rName.c_str());
+		}
+
 		if (dummy == true)
 		{
 			cam = new CameraDummy();
@@ -199,122 +198,49 @@ public:
 		{
 			cam = new Camera();
 		}
-		head_pub = nodeHandle.advertise<head_control::LookAtTarget>(
-				"/robotcontrol/headcontrol/target", 10);
-		ballTarget_pub = nodeHandle.advertise<geometry_msgs::PointStamped>(
-				"/vision/ballTarget", 10);
-		robotPos_pub = nodeHandle.advertise<geometry_msgs::PointStamped>(
-						"/vision/robotPose", 10);
-		mose_right_click_sub = nodeHandle.subscribe<geometry_msgs::Point>(
-				"/event_image_view/mouse_right_click", 1,
-				&Vision::mouse_right_click_callback, this);
-		mose_left_click_sub = nodeHandle.subscribe<geometry_msgs::Point>(
-				"/event_image_view/mouse_left_click", 1,
-				&Vision::mouse_left_click_callback, this);
-		mose_middle_click_sub = nodeHandle.subscribe<geometry_msgs::Point>(
-				"/event_image_view/mouse_middle_click", 1,
-				&Vision::mouse_middle_click_callback, this);
-		rviz_click_sub = nodeHandle.subscribe<geometry_msgs::PointStamped>(
-				"/clicked_point", 1, &Vision::rviz_click_callback, this);
-		m_tf = new tf::TransformListener(ros::Duration(10));
 
-//		m_tf->waitForTransform("/ego_rot", "/camera_optical", ros::Time(0),
-//				ros::Duration(2));
+		visionOutputs_pub = nodeHandle.advertise<vision_module::vision_outputs>(
+				"/vision/outputs", 10);
 
+
+		plotM.setName(PM_FRAME_RATE, "FPS");
+		plotM.setName(PM_HEADING_OFFSET, "headingOffset");
+		plotM.setName(PM_OBSTACLE_TIME, "obst_time");
+		plotM.setName(PM_LINE_TIME, "line_time");
+		plotM.setName(PM_BALL_TIME, "ball_time");
+		plotM.setName(PM_GOAL_TIME, "goal_time");
+		plotM.setName(PM_CIRCLE_TIME, "circle_time");
+		plotM.setName(PM_LOCALIZATION_TIME, "loc_time");
+		plotM.setName(PM_LAST_AVALIBLE_TF, "lastAvalibleTF");
+		if (!plotM.checkNames())
+		{
+			ROS_WARN("Check checkNames function for plotM!");
+		}
 	}
+
+	void plot_fps(double _in)
+	{
+		plotM.plotScalar(_in, PM_FRAME_RATE);
+	}
+
 	bool GenerateTopViewImg(ros::Time now);
 	void UpdateRangeImage(ros::Time now);
-	void Process(ros::Time now);
+	void Process(ros::Time capTime);
 	virtual ~Vision()
 	{
-		delete cam;
-		delete m_tf;
+		DeInit();
 	}
 	bool update();
 	bool Init();
-
-	void rviz_click_callback(const geometry_msgs::PointStampedConstPtr& msg)
+	void DeInit()
 	{
-		if (msg->point.z > 0.1 || msg->point.z < -0.1)
+		if (!destroyed)
 		{
-			ROS_INFO("I heard: [%f , %f , %f]", msg->point.x, msg->point.y,
-					msg->point.z);
-			ROS_WARN("The clicked point in the rviz is not on the zero plane!");
-			return;
-		}
-		ROS_INFO("I heard: [%f , %f]", msg->point.x, msg->point.y);
-		if (params.camCalibrator.clicked.size()
-				> params.camCalibrator.rvizClicked.size())
-		{
-			params.camCalibrator.rvizClicked.push_back(
-					Point2d(msg->point.x, msg->point.y));
-			params.camCalibrator.cameraLocation.push_back(
-					_cameraProjections.cameraLocation);
-			params.camCalibrator.opticalAngle.push_back(
-					_cameraProjections.OpticalAngle);
-
-			cout << "-->  cameraLocation = "
-					<< _cameraProjections.cameraLocation;
-			cout << "  opticalAngle = " << _cameraProjections.OpticalAngle
-					<< endl;
-		}
-		else
-		{
-			params.camCalibrator.rvizClicked.pop_back();
-			params.camCalibrator.cameraLocation.pop_back();
-			params.camCalibrator.opticalAngle.pop_back();
-
-			params.camCalibrator.rvizClicked.push_back(
-					Point2d(msg->point.x, msg->point.y));
-			params.camCalibrator.cameraLocation.push_back(
-					_cameraProjections.cameraLocation);
-			params.camCalibrator.opticalAngle.push_back(
-					_cameraProjections.OpticalAngle);
-		}
-
-	}
-
-	void mouse_left_click_callback(const geometry_msgs::Point::ConstPtr& msg)
-	{
-		ROS_INFO("I heard: [%f , %f]", msg->x, msg->y);
-		if (params.camCalibrator.clicked.size()
-				<= params.camCalibrator.rvizClicked.size())
-		{
-			params.camCalibrator.clicked.push_back(Point(msg->x, msg->y));
-		}
-		else
-		{
-			params.camCalibrator.clicked.pop_back();
-			params.camCalibrator.clicked.push_back(Point(msg->x, msg->y));
+			cam->DeInitCameraDevice();
+			delete cam;
+			destroyed = true;
 		}
 	}
 
-	void mouse_right_click_callback(const geometry_msgs::Point::ConstPtr& msg)
-	{
-		ROS_INFO("I heard: [%f , %f]", msg->x, msg->y);
-
-		if (params.camCalibrator.clicked.size() > 0)
-		{
-			params.camCalibrator.clicked.pop_back();
-		}
-		if (params.camCalibrator.clicked.size() > 0
-				&& params.camCalibrator.clicked.size()
-						< params.camCalibrator.rvizClicked.size())
-		{
-			params.camCalibrator.rvizClicked.pop_back();
-			params.camCalibrator.cameraLocation.pop_back();
-			params.camCalibrator.opticalAngle.pop_back();
-
-		}
-
-	}
-	void mouse_middle_click_callback(const geometry_msgs::Point::ConstPtr& msg)
-	{
-		ROS_INFO("Clear All Points");
-		params.camCalibrator.rvizClicked.clear();
-		params.camCalibrator.cameraLocation.clear();
-		params.camCalibrator.opticalAngle.clear();
-		params.camCalibrator.clicked.clear();
-	}
 };
-/** @}*/
+

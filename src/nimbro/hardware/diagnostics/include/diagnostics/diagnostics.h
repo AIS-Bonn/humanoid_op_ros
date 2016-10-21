@@ -24,6 +24,7 @@ public:
 	virtual ~Diagnostics();
 
 	virtual void initPlugin(qt_gui_cpp::PluginContext& context);
+	virtual void shutdownPlugin();
 
 	void handleDiagnostics(const robotcontrol::DiagnosticsPtr& diag);
 Q_SIGNALS:

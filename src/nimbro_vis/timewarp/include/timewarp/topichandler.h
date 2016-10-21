@@ -18,15 +18,19 @@ namespace timewarp
 class TopicHandler
 {
 public:
+	static const std::size_t BUF_SIZE;
+	static const std::size_t BUF_SIZE_IMG;
+
 	TopicHandler(ros::NodeHandle* nh, const std::string& name);
 	virtual ~TopicHandler();
 
 	void initPublisher();
+	void deinitPublisher();
 
 	void setLive(bool live);
 	void setTime(const ros::Time& time);
 	void publish(const ros::Time& now);
-	void reset();
+	void resetBuf();
 	
 	struct Entry
 	{
@@ -35,9 +39,11 @@ public:
 	};
 	typedef boost::circular_buffer<Entry> CircBuf;
 
-	inline std::string name() const
-	{ return m_sub.getTopic(); }
-	
+	inline std::string name() const { return (m_active ? m_sub.getTopic() : m_name); }
+
+	static bool enableImageTopics;
+	void updateImageEnable() { setActive(enableImageTopics || !m_isImage); }
+
 protected:
 	CircBuf m_buf;
 
@@ -50,6 +56,13 @@ private:
 	void handleData(const boost::shared_ptr<topic_tools::ShapeShifter>& data);
 
 	ros::NodeHandle* m_nh;
+
+	std::string m_name;
+
+	void setActive(bool active);
+	bool m_active;
+
+	bool m_isImage;
 
 	bool m_pubInit;
 	ros::Subscriber m_sub;

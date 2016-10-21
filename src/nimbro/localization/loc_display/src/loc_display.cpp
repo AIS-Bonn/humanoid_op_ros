@@ -47,7 +47,7 @@ void LocDisplay::onInitialize()
 
 	rviz::Shape* plane = new rviz::Shape(rviz::Shape::Cube, scene_manager_, scene_node_);
 
-	const double MARGIN = 0.5;
+	const double MARGIN = field->boundary();
 	plane->setScale(Ogre::Vector3(field->length() + 2.0*MARGIN, field->width() + 2.0*MARGIN, 0.01));
 	plane->setPosition(Ogre::Vector3(0.0, 0.0, -0.005));
 	Ogre::MaterialPtr mat = Ogre::MaterialManager::getSingleton().getByName("Soccer/Field", "loc_display");
@@ -101,7 +101,7 @@ void LocDisplay::onInitialize()
 
 		double angle = i * 2.0 * M_PI / CIRCLE_LINE_COUNT;
 		line->setPosition(Ogre::Vector3(cos(angle)*r, sin(angle)*r, -0.005+0.001));
-		line->setScale(Ogre::Vector3(0.04, r * 2.0*M_PI / CIRCLE_LINE_COUNT, 0.01));
+		line->setScale(Ogre::Vector3(0.04, r * 2.0*M_PI / CIRCLE_LINE_COUNT + 0.001, 0.01));
 
 		Ogre::Quaternion rot;
 		rot.FromAngleAxis(Ogre::Radian(angle), Ogre::Vector3::UNIT_Z);
@@ -121,7 +121,7 @@ void LocDisplay::onInitialize()
 	const Ogre::Vector3 ARROW_ORIGIN(-field->length()/2.0 - MARGIN, -field->width()/2.0 - MARGIN - ARROW_OFFSET, 0.0);
 	Ogre::Quaternion rot;
 
-	rviz::Arrow* x_arrow = new rviz::Arrow(scene_manager_, scene_node_, field->length() + 2.0*MARGIN-0.3, 0.05, 0.3, 0.1);
+	rviz::Arrow* x_arrow = new rviz::Arrow(scene_manager_, scene_node_, field->length() + 2.0*MARGIN-0.3, 0.05, 0.27, 0.12);
 	x_arrow->setPosition(ARROW_ORIGIN);
 	rot.FromAngleAxis(Ogre::Radian(-M_PI/2.0), Ogre::Vector3::UNIT_Y);
 	x_arrow->setOrientation(rot);

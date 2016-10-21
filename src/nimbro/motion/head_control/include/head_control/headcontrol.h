@@ -11,8 +11,9 @@
 #include <head_control/LookAtTarget.h>
 #include <head_control/HeadControlStatus.h>
 #include <config_server/parameter.h>
-#include <nimbro_utils/math_spline.h>
+#include <rc_utils/math_spline.h>
 #include <visualization_msgs/Marker.h>
+#include <plot_msgs/plot_manager.h>
 #include <sensor_msgs/Joy.h>
 #include <std_srvs/Empty.h>
 
@@ -171,8 +172,8 @@ namespace headcontrol
 		double m_yawCurV;
 		double m_yawCurEffort;
 		double m_yawEffortTarget;
-		nimbro_utils::TrapVelSpline m_yawSpline;
-		nimbro_utils::LinearSpline m_yawEffortSpline;
+		rc_utils::TrapVelSpline m_yawSpline;
+		rc_utils::LinearSpline m_yawEffortSpline;
 		
 		// Pitch tracking state
 		double m_pitchTarget;
@@ -180,8 +181,8 @@ namespace headcontrol
 		double m_pitchCurV;
 		double m_pitchCurEffort;
 		double m_pitchEffortTarget;
-		nimbro_utils::TrapVelSpline m_pitchSpline;
-		nimbro_utils::LinearSpline m_pitchEffortSpline;
+		rc_utils::TrapVelSpline m_pitchSpline;
+		rc_utils::LinearSpline m_pitchEffortSpline;
 		
 		// Joystick
 		config_server::Parameter<bool> m_enableJoystick;
@@ -249,6 +250,29 @@ namespace headcontrol
 		
 		// Test functions
 		void testLimiter();
+		
+		// Plot manager
+		config_server::Parameter<bool> m_plotData; 
+		plot_msgs::PlotManagerFS m_PM;
+		void configurePlotManager();
+		void callbackPlotData();
+		enum PMIDS
+		{
+			PM_ENABLED,
+			PM_HAVETARGET,
+			PM_TARGETYAW,
+			PM_TARGETYAWEFFORT,
+			PM_TARGETPITCH,
+			PM_TARGETPITCHEFFORT,
+			PM_TIMETOTARGET,
+			PM_CURYAWX,
+			PM_CURYAWV,
+			PM_CURYAWEFFORT,
+			PM_CURPITCHX,
+			PM_CURPITCHV,
+			PM_CURPITCHEFFORT,
+			PM_COUNT
+		};
 	};
 }
 

@@ -21,7 +21,7 @@ LogFilter::LogFilter(NodeModel* nodeModel, QObject* parent)
 	);
 
 	setFilterCaseSensitivity(Qt::CaseInsensitive);
-	setFilterKeyColumn(LogModel::COL_TEXT);
+	setFilterKeyColumn(-1);
 }
 
 LogFilter::~LogFilter()
@@ -101,7 +101,7 @@ bool LogFilter::filterAcceptsRow(int source_row, const QModelIndex& source_paren
 	else
 	{
 		// perform default filtering
-		if(msg.level < ros::console::levels::Info)
+		if(msg.level < msg.INFO)
 			return false;
 	}
 

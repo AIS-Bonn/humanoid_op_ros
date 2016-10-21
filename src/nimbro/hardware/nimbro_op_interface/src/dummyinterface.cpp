@@ -9,6 +9,7 @@
 
 // Namespaces
 using namespace nimbro_op_interface;
+using namespace cm730;
 
 //
 // DummyInterface class
@@ -16,7 +17,7 @@ using namespace nimbro_op_interface;
 
 // Default constructor
 DummyInterface::DummyInterface()
- : CONFIG_PARAM_PATH("nopInterfaceDummy/")
+ : CONFIG_PARAM_PATH("/nimbro_op_interface_dummy/")
  , m_useModel(CONFIG_PARAM_PATH + "useModel", false)
  , m_addDelay(CONFIG_PARAM_PATH + "addDelay", true)
  , m_noiseEnable(CONFIG_PARAM_PATH + "noise/enabled", true)
@@ -24,15 +25,16 @@ DummyInterface::DummyInterface()
  , m_buttonPress0(CONFIG_PARAM_PATH + "button/pressButton0", false)
  , m_buttonPress1(CONFIG_PARAM_PATH + "button/pressButton1", false)
  , m_buttonPress2(CONFIG_PARAM_PATH + "button/pressButton2", false)
- , m_fakeIMUGyroX(CONFIG_PARAM_PATH + "fakeIMU/gyroX", -2.0, 0.05, 2.0, 0.0)
- , m_fakeIMUGyroY(CONFIG_PARAM_PATH + "fakeIMU/gyroY", -2.0, 0.05, 2.0, 0.0)
- , m_fakeIMUGyroZ(CONFIG_PARAM_PATH + "fakeIMU/gyroZ", -2.0, 0.05, 2.0, 0.0)
+ , m_fakeTemperature(CONFIG_PARAM_PATH + "fakeTemperature", 10, 1, 70, 35)
+ , m_fakeIMUGyroX(CONFIG_PARAM_PATH + "fakeIMU/gyroX", -2.0, 0.02, 2.0, 0.0)
+ , m_fakeIMUGyroY(CONFIG_PARAM_PATH + "fakeIMU/gyroY", -2.0, 0.02, 2.0, 0.0)
+ , m_fakeIMUGyroZ(CONFIG_PARAM_PATH + "fakeIMU/gyroZ", -2.0, 0.02, 2.0, 0.0)
  , m_fakeIMUAccX(CONFIG_PARAM_PATH + "fakeIMU/accX", -20.0, 0.2, 20.0, 0.0)
  , m_fakeIMUAccY(CONFIG_PARAM_PATH + "fakeIMU/accY", -20.0, 0.2, 20.0, 0.0)
  , m_fakeIMUAccZ(CONFIG_PARAM_PATH + "fakeIMU/accZ", -20.0, 0.2, 20.0, 9.81)
- , m_fakeIMUMagX(CONFIG_PARAM_PATH + "fakeIMU/magX", -2.0, 0.05, 20.0, 0.5)
- , m_fakeIMUMagY(CONFIG_PARAM_PATH + "fakeIMU/magY", -2.0, 0.05, 20.0, 0.0)
- , m_fakeIMUMagZ(CONFIG_PARAM_PATH + "fakeIMU/magZ", -2.0, 0.05, 20.0, 0.0)
+ , m_fakeIMUMagX(CONFIG_PARAM_PATH + "fakeIMU/magX", -2.0, 0.02, 2.0, 0.5)
+ , m_fakeIMUMagY(CONFIG_PARAM_PATH + "fakeIMU/magY", -2.0, 0.02, 2.0, 0.0)
+ , m_fakeIMUMagZ(CONFIG_PARAM_PATH + "fakeIMU/magZ", -2.0, 0.02, 2.0, 0.0)
  , m_fakeAttEnable(CONFIG_PARAM_PATH + "fakeAttitude/enabled", true)
  , m_fakeAttFusedX(CONFIG_PARAM_PATH + "fakeAttitude/fusedX", -M_PI_2, 0.01, M_PI_2, 0.0)
  , m_fakeAttFusedY(CONFIG_PARAM_PATH + "fakeAttitude/fusedY", -M_PI_2, 0.01, M_PI_2, 0.0)
@@ -100,6 +102,7 @@ int DummyInterface::readFeedbackData(bool onlyTryCM730)
 	m_boardData.rgbled5 = 0; // RGBLED5 is off
 	m_boardData.rgbled6 = 0; // RGBLED6 is off
 	m_boardData.voltage = (unsigned char) ((15.0 / INT_TO_VOLTS) + 0.5); // The board voltage is always 15.0V
+	m_boardData.temp = m_fakeTemperature(); // The board temperature is customisable by a config variable
 	
 	// Button presses
 	unsigned char button = 0x00;

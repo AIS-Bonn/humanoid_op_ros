@@ -1,0 +1,7 @@
+<launch>
+    <include file="$(find launch)/config/robot_param.launch" />
+
+    <include file="$(find launch)/config/config_server.launch" />
+    
+    <include file="$(find launch)/hardware/joy.launch" />
+</launch>

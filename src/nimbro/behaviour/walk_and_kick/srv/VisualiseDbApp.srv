@@ -1,0 +1,6 @@
+bool useRightFoot
+float32 robotAngle
+uint16 numX # X range is then -grid*numX -> 0
+uint16 numY # Y range is then -grid*numY -> 0 -> grid*numY
+float32 gridSize
+---

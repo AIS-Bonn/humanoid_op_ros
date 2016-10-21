@@ -52,7 +52,7 @@ void CSVFormat::writeHeader(const QLinkedList< Plot::LinkedBufferIterator >& plo
 
 void CSVFormat::writeData(const ros::Time& time, const QVector< Plot::LinkedBufferIterator* >& data)
 {
-	if(m_startTime == ros::Time(0))
+	if(m_startTime.isZero())
 		m_startTime = time;
 
 	m_out << QString("%1").arg((time - m_startTime).toSec(), FIELD_WIDTH, 'g', 7);

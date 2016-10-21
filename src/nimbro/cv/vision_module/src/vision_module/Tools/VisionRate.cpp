@@ -5,7 +5,7 @@
 #include <vision_module/Tools/VisoinRate.hpp>
 
 VisionRate::VisionRate(double rate, bool _steady) :
-		timer(io_service), timer2(io_service), steady(_steady)
+		destroyed(false), timer(io_service), timer2(io_service), steady(_steady)
 {
 	timeTowait = 1000000. / rate;
 	if (steady)
@@ -17,23 +17,43 @@ VisionRate::VisionRate(double rate, bool _steady) :
 		timer2.expires_from_now(boost::posix_time::microseconds(timeTowait));
 	}
 }
-
+void VisionRate::Destroy()
+{
+	if (!destroyed)
+	{
+		timer.cancel();
+		timer2.cancel();
+		io_service.stop();
+		destroyed = true;
+	}
+}
 VisionRate::~VisionRate()
 {
+	Destroy();
 }
 
 void VisionRate::sleep()
 {
-
-	if (steady)
+	if (destroyed)
 	{
-		timer.wait();
-		timer.expires_from_now(boost::chrono::microseconds(timeTowait));
+		return;
 	}
-	else
+
+	try
 	{
-		timer2.wait();
-		timer2.expires_from_now(boost::posix_time::microseconds(timeTowait));
+		if (steady)
+		{
+			timer.wait();
+			timer.expires_from_now(boost::chrono::microseconds(timeTowait));
+		}
+		else
+		{
+			timer2.wait();
+			timer2.expires_from_now(
+					boost::posix_time::microseconds(timeTowait));
+		}
+	} catch (...)
+	{
 	}
 }
 

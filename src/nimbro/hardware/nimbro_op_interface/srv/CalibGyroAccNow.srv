@@ -1,0 +1,6 @@
+int8 poseType       # 0 = Upright, 1 = Lying on front, 2 = Lying on right, 3 = Lying on back, 4 = Lying on left (see GyroAccOffsetMeasType enumeration)
+---
+int16 numDataPoints # The number of data points that have been seen so far including this latest one
+float32 accX        # The current measured acc value in the x-axis
+float32 accY        # The current measured acc value in the y-axis
+float32 accZ        # The current measured acc value in the z-axis

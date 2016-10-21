@@ -1,0 +1,5 @@
+int8 type           # 0 = No update, 1 = Update low temperature calib, 2 = Update high temperature calib
+int8 turns          # Number of complete 360 degree turns expected in each direction during the calibration
+---
+float32 initialYaw  # Initial yaw of the yaw-estimating attitude estimator
+float32 initialTemp # Initial temperature

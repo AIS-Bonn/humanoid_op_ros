@@ -38,12 +38,15 @@ void MotionModule::setJointCommand(int index, double pos, double effort, bool ra
 {
 	// Set the joint command as required
 	Joint::Ptr joint = m_model->joint(index);
-	joint->cmd.setFromPos(m_model->timerDuration(), pos);
+	joint->cmd.setFromPos(pos);
 	joint->cmd.effort = effort;
 	joint->cmd.raw = raw;
 }
 
+// Safe to fade in function
 bool MotionModule::isSafeToFadeIn()
 {
+	// Return that this motion module is not prohibiting a fade in
 	return true;
 }
+// EOF

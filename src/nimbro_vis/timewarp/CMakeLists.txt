@@ -1,16 +1,21 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(timewarp)
 
-find_package(catkin REQUIRED COMPONENTS roscpp topic_tools tf genmsg rosgraph_msgs rosbag)
+find_package(catkin REQUIRED COMPONENTS roscpp topic_tools tf genmsg rosgraph_msgs rosbag config_server plot_msgs)
 
 #######################################
 ## Declare ROS messages and services ##
 #######################################
 
+## Generate messages in the 'msg' folder
+add_message_files(
+	FILES
+	TimeWarpControl.msg
+)
+
 ## Generate services in the 'srv' folder
 add_service_files(
 	FILES
-	TimeWarpControl.srv
 	TimeWarpSave.srv
 	TimeWarpLoad.srv
 )

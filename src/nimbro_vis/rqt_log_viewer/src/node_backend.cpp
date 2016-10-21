@@ -57,52 +57,52 @@ void NodeBackend::discoverNodes()
 
 	QList<Node> results;
 
-	BOOST_FOREACH(const std::string& str, nodes)
-	{
-		// HACK: Ignore some known uninteresting nodes
-		if(str == "/rosout" || str.substr(0, 5) == "/rqt_" || str == ros::this_node::getName())
-			continue;
-
-		Node node;
-		node.name = QString::fromStdString(str);
-		node.shown = true;
-		node.debug = TRISTATE_INVALID;
-		node.logLevel = ros::console::levels::Info;
-
-		roscpp::GetLoggersRequest req;
-		roscpp::GetLoggersResponse resp;
-		if(!ros::service::call(str + "/get_loggers", req, resp))
-		{
-			// silently ignore errors, they are mostly caused by startup delays.
-			continue;
-		}
-
-		BOOST_FOREACH(const roscpp::Logger& msg_logger, resp.loggers)
-		{
-			// HACK: Ignore some common system loggers
-			if(msg_logger.name.substr(0, 5) == "rospy"
-				|| msg_logger.name.substr(0, 10) == "ros.roscpp"
-				|| msg_logger.name.substr(0, 8) == "rosgraph"
-				|| msg_logger.name == "xmlrpc"
-				|| msg_logger.name == "ros")
-			{
-				continue;
-			}
-
-			Logger logger;
-			logger.name = QString::fromStdString(msg_logger.name);
-			logger.debug = (boost::to_upper_copy(msg_logger.level) == "DEBUG");
-
-			QList<Logger>::iterator it;
-			it = qLowerBound(node.loggers.begin(), node.loggers.end(), logger);
-			node.loggers.insert(it, logger);
-		}
-
-		node.updateFlags();
-
-		QList<Node>::iterator it = qLowerBound(results.begin(), results.end(), node);
-		results.insert(it, node);
-	}
+// 	BOOST_FOREACH(const std::string& str, nodes)
+// 	{
+// 		// HACK: Ignore some known uninteresting nodes
+// 		if(str == "/rosout" || str.substr(0, 5) == "/rqt_" || str == ros::this_node::getName())
+// 			continue;
+//
+// 		Node node;
+// 		node.name = QString::fromStdString(str);
+// 		node.shown = true;
+// 		node.debug = TRISTATE_INVALID;
+// 		node.logLevel = ros::console::levels::Info;
+//
+// 		roscpp::GetLoggersRequest req;
+// 		roscpp::GetLoggersResponse resp;
+// 		if(!ros::service::call(str + "/get_loggers", req, resp))
+// 		{
+// 			// silently ignore errors, they are mostly caused by startup delays.
+// 			continue;
+// 		}
+//
+// 		BOOST_FOREACH(const roscpp::Logger& msg_logger, resp.loggers)
+// 		{
+// 			// HACK: Ignore some common system loggers
+// 			if(msg_logger.name.substr(0, 5) == "rospy"
+// 				|| msg_logger.name.substr(0, 10) == "ros.roscpp"
+// 				|| msg_logger.name.substr(0, 8) == "rosgraph"
+// 				|| msg_logger.name == "xmlrpc"
+// 				|| msg_logger.name == "ros")
+// 			{
+// 				continue;
+// 			}
+//
+// 			Logger logger;
+// 			logger.name = QString::fromStdString(msg_logger.name);
+// 			logger.debug = (boost::to_upper_copy(msg_logger.level) == "DEBUG");
+//
+// 			QList<Logger>::iterator it;
+// 			it = qLowerBound(node.loggers.begin(), node.loggers.end(), logger);
+// 			node.loggers.insert(it, logger);
+// 		}
+//
+// 		node.updateFlags();
+//
+// 		QList<Node>::iterator it = qLowerBound(results.begin(), results.end(), node);
+// 		results.insert(it, node);
+// 	}
 
 	nodeListChanged(results);
 }

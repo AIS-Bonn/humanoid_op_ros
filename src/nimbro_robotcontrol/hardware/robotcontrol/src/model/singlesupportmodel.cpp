@@ -88,7 +88,7 @@ void SingleSupportModel::setupJoint(unsigned int index, const urdf::Joint& urdf,
 void SingleSupportModel::setJointCmd(int idx, double pos)
 {
 	// Set the required commanded position
-	m_joints[idx]->cmd.setFromPos(m_model->timerDuration(), pos);
+	m_joints[idx]->cmd.setFromPos(pos);
 }
 
 // Update the joint positions stored inside the RBDL model
@@ -221,8 +221,7 @@ void SingleSupportModel::computeCoM()
 // Compute the zero moment point
 void SingleSupportModel::computeZMP()
 {
-	// TODO: This should be moved into a subclass, and RobotModel should be subclassed to create instances of this subclass.
-	double ANKLE_Z_HEIGHT = 0.039;
+	double ANKLE_Z_HEIGHT = 0.039; // TODO: Do all this in a more general way? This should be moved into a subclass, and RobotModel should be subclassed to create instances of this subclass?
 
 	if(m_coeff == 0)
 	{
@@ -250,7 +249,6 @@ void SingleSupportModel::computeZMP()
 	m_zmp = Eigen::Vector3d(-total_My / total_Fz, total_Mx / total_Fz, 0);
 
 	// ZMP estimation based on the measured ankle roll torque
-	// TODO: Do this in a more general way?
 	Joint::Ptr ankle_roll = m_joints[0];
 	double total_Mx_torque = ankle_roll->feedback.torque + F * centerOfMass.y() - spatialFootForce[4] * ANKLE_Z_HEIGHT;
 	m_zmpTorque = Eigen::Vector3d(-total_My / total_Fz, total_Mx_torque / total_Fz, 0);

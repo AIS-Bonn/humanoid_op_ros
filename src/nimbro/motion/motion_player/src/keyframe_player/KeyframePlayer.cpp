@@ -149,6 +149,14 @@ double KeyframePlayer::totalTime()
 	return keyframes.last().t;
 }
 
+double KeyframePlayer::currentTime()
+{
+	if (keyframes.isEmpty())
+		return 0;
+
+	return currentState.t;
+}
+
 // Returns the minimum time needed to complete the currently loaded keyframes when traveling at the acceleration and velocity limit.
 double KeyframePlayer::minimumTime()
 {
@@ -253,6 +261,15 @@ Keyframe KeyframePlayer::evaluateAt(double t)
 	state.effort = keyframes[effortIndex].effort;
 	state.suppLeftLeg = keyframes[effortIndex].suppLeftLeg;
 	state.suppRightLeg = keyframes[effortIndex].suppRightLeg;
+	state.roll = keyframes[effortIndex].roll;
+	state.pitch = keyframes[effortIndex].pitch;
+	state.yaw = keyframes[effortIndex].yaw;
+	state.pGain = keyframes[effortIndex].pGain;
+	state.iGain = keyframes[effortIndex].iGain;
+	state.dGain = keyframes[effortIndex].dGain;
+	state.limit = keyframes[effortIndex].limit;
+	state.gainSelect = keyframes[effortIndex].gainSelect;
+	state.playingIndex= (index == 0 ? 0 : index-1);
 
 	return state;
 }
@@ -287,7 +304,13 @@ void KeyframePlayer::calculateCommands()
 		kf.effort = kf1.effort;
 		kf.suppLeftLeg = kf1.suppLeftLeg;
 		kf.suppRightLeg = kf1.suppRightLeg;
-
+		kf.pGain =kf1.pGain;
+		kf.iGain = kf1.iGain;
+		kf.dGain = kf1.dGain;
+		kf.gainSelect = kf1.gainSelect;
+		kf.roll = kf1.roll;
+		kf.pitch = kf1.pitch;
+		kf.yaw = kf1.yaw;
 		// For nice notation.
 		double x0 = kf0.x;
 		double v0 = kf0.v;

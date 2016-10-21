@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(fall_protection)
 
-find_package(catkin REQUIRED COMPONENTS robotcontrol roscpp)
+find_package(catkin REQUIRED COMPONENTS robotcontrol roscpp plot_msgs)
 
 catkin_package(
 	INCLUDE_DIRS src

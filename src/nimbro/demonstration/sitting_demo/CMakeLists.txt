@@ -5,7 +5,7 @@ project(sitting_demo)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-	roscpp config_server motion_player limb_control face_tracker
+	roscpp config_server motion_player limb_control
 	state_controller nimbro_op_interface demo_msgs
 )
 

@@ -1,0 +1,3 @@
+geometry_msgs/Point position
+float32 probability
+bool detected

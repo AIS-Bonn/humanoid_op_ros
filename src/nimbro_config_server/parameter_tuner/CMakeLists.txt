@@ -68,8 +68,9 @@ qt4_wrap_ui(UIFILES
     src/parametertuner.ui
   )
 qt4_wrap_cpp(MOCFILES
-    include/parametertuner.h
-    include/parameteritem.h
+    include/parameter_tuner/parametertuner.h
+    include/parameter_tuner/parameteritem.h
+    include/parameter_tuner/historykeeper.h
   )
 
 # Declare a cpp library
@@ -78,6 +79,7 @@ add_library(parametertuner
   ${MOCFILES}
   src/parametertuner.cpp
   src/parameteritem.cpp
+  src/historykeeper.cpp
 )
 
 ## Declare a cpp executable

@@ -3,6 +3,7 @@
 
 #include <config_server/configserver.h>
 #include <config_server/ParameterList.h>
+#include <config_server/ParameterLoadTime.h>
 #include <config_server/ParameterValueList.h>
 
 #include <ros/node_handle.h>
@@ -10,17 +11,23 @@
 #include <ros/package.h>
 
 #include <yaml-cpp/yaml.h>
-//#include <yaml-cpp/emitter.h>
-//#include <yaml-cpp/parser.h>
 
 #include <boost/tokenizer.hpp>
 #include <boost/foreach.hpp>
 #include <boost/concept_check.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/regex.hpp>
 
 #include <std_msgs/Empty.h>
 
+#include <inttypes.h>
+#include <iomanip>
 #include <fstream>
+#include <limits>
+#include <time.h>
 #include <deque>
+
+namespace fs = boost::filesystem;
 
 namespace config_server
 {
@@ -136,10 +143,16 @@ void Parameter::notify(const std::string& exclude)
 		NotifyThread::instance()->enqueue(this, value, filtered);
 }
 
+const std::string ConfigServer::fileExtension = ".yaml";
+const std::string ConfigServer::defaultBackupDir = "/tmp/config_server/";
+
 ConfigServer::ConfigServer()
  : m_nh("~")
  , m_publishParamsCounter(0)
 {
+	m_uid.data.fromNSec(ros::WallTime::now().toNSec());
+	ROS_INFO("Config server launched with time UID: %" PRIu32 ".%09" PRIu32, m_uid.data.sec, m_uid.data.nsec);
+
 	m_srv_setParameter = m_nh.advertiseService("set_parameter", &ConfigServer::handleSetParameter, this);
 	m_srv_getParameter = m_nh.advertiseService("get_parameter", &ConfigServer::handleGetParameter, this);
 	m_srv_subscribe = m_nh.advertiseService("subscribe", &ConfigServer::handleSubscribe, this);
@@ -148,36 +161,140 @@ ConfigServer::ConfigServer()
 
 	m_pub_paramList = m_nh.advertise<ParameterList>("parameter_list", 1, true);
 	m_pub_currentValues = m_nh.advertise<ParameterValueList>("parameter_values", 1, true);
+	m_pub_uid = m_nh.advertise<std_msgs::Time>("uid", 1, true);
+	m_pub_loadTime = m_nh.advertise<ParameterLoadTime>("load_time", 1, true);
 
 	m_srv_save = m_nh.advertiseService("save", &ConfigServer::handleSave, this);
 	m_srv_load = m_nh.advertiseService("load", &ConfigServer::handleLoad, this);
 
-	// Create a one-shot timer for coalescing parameter list updates
-	m_publishParamsTimer = m_nh.createWallTimer(
-		ros::WallDuration(1.0),
-		boost::bind(&ConfigServer::updateParameterList, this),
-		true, false
-	);
+	m_configPath = m_nh.param<std::string>("config_path", ros::package::getPath("config_server")) + "/";
+	m_robotName = m_nh.param<std::string>("robot_name", std::string());
 
-	// The same for the current values publisher
-	m_publishValuesTimer = m_nh.createWallTimer(
-		ros::WallDuration(1.0),
-		boost::bind(&ConfigServer::updateParameterValueList, this),
-		true, false
-	);
+	m_publishParamsTimer = m_nh.createWallTimer(ros::WallDuration(1.0), boost::bind(&ConfigServer::updateParameterList, this), true, false); // Create a one-shot timer for coalescing parameter list updates
+	m_publishValuesTimer = m_nh.createWallTimer(ros::WallDuration(1.0), boost::bind(&ConfigServer::updateParameterValueList, this), true, false); // The same for the current values publisher
 
-	if(!load(""))
-	{
-		ROS_FATAL("Could not load initial configuration");
-		ros::shutdown();
-	}
-	
+	if(!load())
+		ROS_ERROR("Could not load initial configuration => Starting with default values!");
+
 	updateParameterList();
 	updateParameterValueList();
+	updateUid();
+
+	initBackups();
 }
 
 ConfigServer::~ConfigServer()
 {
+	m_publishParamsTimer.stop();
+	m_publishValuesTimer.stop();
+	m_backupTimer.stop();
+}
+
+void ConfigServer::initBackups()
+{
+	m_saveBackups = m_nh.param<bool>("save_backups", false);
+
+	if(!m_saveBackups)
+		return;
+
+	std::string backupDir = m_nh.param<std::string>("backup_path", defaultBackupDir);
+	int maxBackupUidsInt = m_nh.param<int>("max_backup_uids", 3);
+	double backupInterval = m_nh.param<double>("backup_interval", 60.0);
+
+	std::size_t maxBackupUids = 1;
+	if(maxBackupUidsInt >= 1)
+		maxBackupUids = (std::size_t) maxBackupUidsInt;
+
+	std::ostringstream ss;
+	if(backupDir.empty())
+		backupDir = defaultBackupDir;
+	if(*backupDir.rbegin() != '/')
+		backupDir += '/';
+	ss << backupDir << "UID_" << std::setfill('0') << std::setw(10) << m_uid.data.sec << "." << std::setw(9) << m_uid.data.nsec << "/";
+	m_backupDir = ss.str();
+
+	if(!ensureBackupDir())
+	{
+		m_saveBackups = false;
+		return;
+	}
+
+	ROS_INFO("Performing config backups every %.1fs when changes are detected, into directory: %s", backupInterval, m_backupDir.c_str());
+
+	try
+	{
+		fs::path dir(backupDir);
+		if(!fs::exists(dir) || !fs::is_directory(dir))
+			throw std::runtime_error("The specified backup path '" + dir.string() + "' does not exist or is not a directory!");
+
+		const fs::directory_iterator end;
+		fs::directory_iterator file(dir);
+
+		const boost::regex dirNameRegex("^UID_[0-9]{10,}\\.[0-9]{9}$");
+		std::vector<fs::path> uidPathList;
+		for(; file != end; ++file)
+		{
+			if(!fs::is_directory(file->status())) continue;
+			fs::path dirPath = file->path();
+			if(!dirPath.has_filename()) continue;
+			std::string dirName = dirPath.filename().string();
+
+			if(!boost::regex_search(dirName, dirNameRegex)) continue;
+
+			std::size_t i = 0;
+			for(; i < uidPathList.size(); i++)
+				if(dirPath.string().compare(uidPathList[i].string()) < 0) break;
+			uidPathList.insert(uidPathList.begin() + i, dirPath);
+		}
+
+		std::size_t dirsToDelete = 0;
+		if(uidPathList.size() > maxBackupUids)
+			dirsToDelete = uidPathList.size() - maxBackupUids;
+		if(dirsToDelete >= 1 && uidPathList.size() >= 1)
+		{
+			if(dirsToDelete >= uidPathList.size())
+				dirsToDelete = uidPathList.size() - 1;
+			int count = 0;
+			for(std::size_t i = 0; i < dirsToDelete; i++)
+			{
+				const fs::path& oldDir = uidPathList[i];
+				try { fs::remove_all(oldDir); count++; }
+				catch(std::runtime_error& e) { ROS_WARN("Failed to delete config backup UID folder: %s", oldDir.string().c_str()); }
+			}
+			ROS_INFO("Deleted %d old config backup UID folder%c", count, (count > 1 ? 's' : '\0'));
+		}
+	}
+	catch(std::runtime_error& e)
+	{
+		ROS_WARN("Failed to delete old config backups from directory '%s': %s", backupDir.c_str(), e.what());
+	}
+
+	m_changed = true;
+	handleBackup();
+
+	m_backupTimer = m_nh.createWallTimer(ros::WallDuration(backupInterval), boost::bind(&ConfigServer::handleBackup, this), false, true);
+}
+
+bool ConfigServer::ensureBackupDir()
+{
+	if(!m_saveBackups)
+		return false;
+
+	try
+	{
+		fs::path backup(m_backupDir);
+		boost::system::error_code returnedError;
+		fs::create_directories(backup, returnedError);
+		if(returnedError)
+			throw std::runtime_error(returnedError.message());
+	}
+	catch(std::runtime_error& e)
+	{
+		ROS_ERROR("Failed to create backup directory '%s': %s", m_backupDir.c_str(), e.what());
+		return false;
+	}
+
+	return true;
 }
 
 bool ConfigServer::handleSetParameter(SetParameterRequest& req, SetParameterResponse& resp)
@@ -190,10 +307,13 @@ bool ConfigServer::handleSetParameter(SetParameterRequest& req, SetParameterResp
 	}
 
 	it->second.value = req.value;
+	it->second.hasValue = true;
 	it->second.notify(req.no_notify);
 
 	if(m_pub_currentValues.getNumSubscribers() != 0)
 		planValueUpdate();
+
+	m_changed = true;
 
 	return true;
 }
@@ -211,37 +331,58 @@ bool ConfigServer::handleGetParameter(GetParameterRequest& req, GetParameterResp
 	return true;
 }
 
+bool almostEqual(float x, float y)
+{
+	float diff = std::abs(x - y);
+	return ((diff < std::numeric_limits<float>::epsilon() * std::abs(x + y) * 4) || (diff < std::numeric_limits<float>::min()));
+}
+
 bool ConfigServer::doSubscribe(const std::string& callback, const ParameterDescription& desc, std::string* value, bool* changed)
 {
 	ParameterMap::iterator it = m_params.find(desc.name);
 	if(it == m_params.end())
 	{
-		ROS_INFO("New parameter '%s', default: '%s'", desc.name.c_str(), desc.default_value.c_str());
+		ROS_WARN("New parameter '%s', type '%s', default: '%s'", desc.name.c_str(), desc.type.c_str(), desc.default_value.c_str());
 		std::pair<std::string, Parameter> value;
 		value.first = desc.name;
 		value.second.desc = desc;
-		value.second.value = desc.default_value;
+
+		if(desc.type.empty())
+			value.second.hasValue = false;
+		else
+		{
+			value.second.hasValue = true;
+			value.second.value = desc.default_value;
+		}
 
 		it = m_params.insert(m_params.end(), value);
 
-		*changed = true;
-	}
-
-	it->second.subscribers.push_back(callback);
-
-	if(desc.type.length() != 0 /*&& (
-		desc.type != it->second.desc.type
-		|| desc.min != it->second.desc.min
-		|| desc.max != it->second.desc.max
-		|| desc.step != it->second.desc.step
-	)*/)
-	{
-		it->second.desc = desc;
 		if(changed)
 			*changed = true;
 	}
 
-	*value = it->second.value;
+	if(std::find(it->second.subscribers.begin(), it->second.subscribers.end(), callback) == it->second.subscribers.end())
+		it->second.subscribers.push_back(callback); // Add the registering subscriber to our list of subscribers for the parameter
+
+	if(!desc.type.empty())
+	{
+		if(!it->second.desc.type.empty() && (!almostEqual(desc.min, it->second.desc.min) || !almostEqual(desc.max, it->second.desc.max)))
+			ROS_WARN("Subscriber '%s' has registered the parameter '%s' with min/max [%g,%g], which conflicts with the existing min/max [%g,%g] => Updating min/max anyway...", callback.c_str(), desc.name.c_str(), desc.min, desc.max, it->second.desc.min, it->second.desc.max);
+
+		it->second.desc = desc; // If the currently registering parameter has a valid type then its parameter description overrides the previously stored one
+
+		if(!it->second.hasValue) // If the parameter does not have a value yet (e.g. if only registered previously with an invalid type), then set the value to the default value of the newly registering parameter
+		{
+			it->second.value = desc.default_value;
+			it->second.hasValue = true;
+		}
+
+		if(changed)
+			*changed = true;
+	}
+
+	if(value)
+		*value = it->second.value;
 
 	return true;
 }
@@ -267,6 +408,8 @@ void ConfigServer::planUpdate()
 
 void ConfigServer::planValueUpdate()
 {
+	m_changed = true;
+
 	if(m_publishValuesCounter == 0)
 	{
 		m_publishValuesTimer.start();
@@ -284,6 +427,8 @@ void ConfigServer::planValueUpdate()
 
 bool ConfigServer::handleSubscribe(SubscribeRequest& req, SubscribeResponse& resp)
 {
+	resp.uid = m_uid.data;
+
 	bool changed = false;
 	if(!doSubscribe(req.callback, req.desc, &resp.value, &changed))
 		return false;
@@ -296,6 +441,8 @@ bool ConfigServer::handleSubscribe(SubscribeRequest& req, SubscribeResponse& res
 
 bool ConfigServer::handleSubscribeList(SubscribeListRequest& req, SubscribeListResponse& resp)
 {
+	resp.uid = m_uid.data;
+
 	bool changed = false;
 
 	resp.values.resize(req.parameters.size());
@@ -345,13 +492,13 @@ void ConfigServer::updateParameterList()
 	list->parameters.reserve(m_params.size());
 
 	for(ParameterMap::iterator it = m_params.begin(); it != m_params.end(); ++it)
-	{
 		list->parameters.push_back(it->second.desc);
-	}
 
 	m_pub_paramList.publish(list);
 
 	m_publishParamsCounter = 0;
+
+	updateUid();
 }
 
 void ConfigServer::updateParameterValueList()
@@ -381,15 +528,49 @@ void ConfigServer::updateParameterValueList()
 	m_publishValuesCounter = 0;
 }
 
+void ConfigServer::handleBackup()
+{
+	if(!m_saveBackups) return;
+
+	if(!m_changed) return;
+	m_changed = false;
+
+	if(!ensureBackupDir())
+	{
+		m_saveBackups = false;
+		m_backupTimer.stop();
+		return;
+	}
+
+	char buf[32];
+	std::time_t newTime;
+	std::time(&newTime);
+	if(std::strftime(buf, 32, "%Y%m%d_%H%M%S", std::localtime(&newTime)) != 15)
+	{
+		ROS_ERROR("Unexpected error with std::strftime, this should never happen!");
+		return;
+	}
+
+	std::ostringstream ss;
+	ss << m_backupDir << "config_" << m_robotName << "_" << buf << fileExtension;
+
+	Save srv;
+	srv.request.filename = ss.str();
+	if(!handleSave(srv.request, srv.response))
+		ROS_ERROR("Backup of config server to '%s' failed!", srv.request.filename.c_str());
+}
+
+void ConfigServer::updateUid()
+{
+	m_pub_uid.publish(m_uid);
+}
+
 std::string ConfigServer::defaultConfigName()
 {
-	std::string robot_name;
-	m_nh.param("robot_name", robot_name, std::string());
-
-	if(robot_name.length() != 0)
-		return "config_" + robot_name + ".yaml";
+	if(m_robotName.length() != 0)
+		return "config_" + m_robotName + fileExtension;
 	else
-		return "config.yaml";
+		return "config" + fileExtension;
 }
 
 typedef boost::tokenizer<boost::char_separator<char> > Tokenizer;
@@ -444,51 +625,74 @@ bool ConfigServer::handleSave(SaveRequest& req, SaveResponse& resp)
 	}
 	em << YAML::EndMap;
 
-	std::string prefix;
-	m_nh.param("config_path", prefix, ros::package::getPath("config_server"));
-
-
-
 	std::string fname;
-	if(req.filename.length() != 0)
-		fname = req.filename + ".yaml";
+	if(req.filename.empty())
+		fname = m_configPath + defaultConfigName();
+	else if(req.filename[0] == '/')
+		fname = req.filename;
 	else
-		fname = defaultConfigName();
+		fname = m_configPath + req.filename;
+
+	bool endsInYaml = false;
+	if(fname.length() >= fileExtension.length())
+		endsInYaml = (fname.compare(fname.length() - fileExtension.length(), fileExtension.length(), fileExtension) == 0);
+	if(!endsInYaml)
+		fname += fileExtension;
 
 	std::ofstream out;
-	out.open((prefix + "/" + fname).c_str());
-	out << em.c_str() << "\n";
+	out.open(fname.c_str());
+	if(out.is_open())
+	{
+		out << em.c_str() << "\n";
+		out.close();
+	}
+	else
+	{
+		ROS_ERROR("Failed to save config parameters to '%s'!", fname.c_str());
+		return false;
+	}
+
 	return true;
 }
 
 bool ConfigServer::load(const std::string& filename)
 {
-	std::string prefix;
-	m_nh.param("config_path", prefix, ros::package::getPath("config_server"));
-
 	std::string fname;
-	if(filename.length() != 0)
-		fname = filename + ".yaml";
+	if(filename.empty())
+		fname = m_configPath + defaultConfigName();
+	else if(filename[0] == '/')
+		fname = filename;
 	else
-		fname = defaultConfigName();
+		fname = m_configPath + filename;
 
-	fname = prefix + "/" + fname;
+	bool endsInYaml = false;
+	if(fname.length() >= fileExtension.length())
+		endsInYaml = (fname.compare(fname.length() - fileExtension.length(), fileExtension.length(), fileExtension) == 0);
+	if(!endsInYaml)
+		fname += fileExtension;
 
- 	YAML::Node n;
+	YAML::Node n;
 	try
 	{
 		n = YAML::LoadFile(fname);
 	}
 	catch (YAML::Exception& e)
 	{
-		ROS_FATAL("Could not parse config file: %s", e.what());
-		return -1;
+		ROS_ERROR("Could not parse config file %s: %s", fname.c_str(), e.what());
+		return false;
 	}
-
 
 	insertFromYAML(n, "");
 
-	ROS_INFO("Loaded configuration file '%s'", fname.c_str());
+	planUpdate();
+
+	ParameterLoadTime msg;
+	msg.stamp.fromNSec(ros::WallTime::now().toNSec());
+	msg.filename = fname;
+	m_pub_loadTime.publish(msg);
+
+	ROS_INFO("Loaded config file: %s", fname.c_str());
+
 	return true;
 }
 
@@ -516,6 +720,8 @@ void ConfigServer::insertFromYAML(const YAML::Node& n, const std::string& path)
 		needNotify |= (p.desc.name != path || p.value != newValue);
 		p.desc.name = path;
 		p.value = newValue;
+		p.hasValue = true;
+
 		if(needNotify)
 			p.notify();
 	}
@@ -524,6 +730,15 @@ void ConfigServer::insertFromYAML(const YAML::Node& n, const std::string& path)
 bool ConfigServer::handleLoad(LoadRequest& req, LoadResponse& resp)
 {
 	return load(req.filename);
+}
+
+void ConfigServer::finalise()
+{
+	if(m_saveBackups)
+	{
+		m_changed = true;
+		handleBackup();
+	}
 }
 
 static void* notify_thread(void*)
@@ -551,6 +766,8 @@ int main(int argc, char** argv)
 
 	ros::NodeHandle nh("~");
 	ros::spin();
+
+	server.finalise();
 
 	return 0;
 }

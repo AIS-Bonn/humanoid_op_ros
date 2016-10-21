@@ -1,0 +1,7 @@
+---
+float32 gyroBiasX
+float32 gyroBiasY
+float32 gyroBiasZ
+float32 magCalibX
+float32 magCalibY
+float32 magCalibZ

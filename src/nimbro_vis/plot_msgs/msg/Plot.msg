@@ -9,7 +9,6 @@
 # @param "PlotPoint[] points" Points to plot for this timestamp (see @ref PlotPoint)
 # @param "string[] events" Event markers to display
 
-
 Header header
 PlotPoint[] points
 string[] events

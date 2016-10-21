@@ -7,6 +7,7 @@
 #define GAIT_COMMON_H
 
 // Includes
+#include <gait_msgs/GaitCommand.h>
 #include <string>
 
 // Gait namespace
@@ -86,6 +87,9 @@ namespace gait
 		MID_NONE,
 		MID_KICK_LEFT,
 		MID_KICK_RIGHT,
+		MID_DIVE_LEFT,
+		MID_DIVE_RIGHT,
+		MID_DIVE_SIT,
 		MID_COUNT
 	};
 
@@ -93,9 +97,12 @@ namespace gait
 	static const std::string motionName[MID_COUNT] = {
 		"",
 		"kick_left",
-		"kick_right"
+		"kick_right",
+		"left_dive",
+		"right_dive",
+		"sit_dive"
 	};
-	
+
 	//! Enumeration of motion stances that can be commanded to a gait engine
 	enum MotionStance
 	{
@@ -103,6 +110,15 @@ namespace gait
 		STANCE_KICK,
 		STANCE_COUNT
 	};
+
+	//! Reset a gait command to zero
+	inline void resetGaitCommand(gait_msgs::GaitCommand& cmd)
+	{
+		// Reset the gait command to its default values
+		cmd.gcvX = cmd.gcvY = cmd.gcvZ = 0.0;
+		cmd.walk = false;
+		cmd.motion = MID_NONE;
+	}
 }
 
 #endif

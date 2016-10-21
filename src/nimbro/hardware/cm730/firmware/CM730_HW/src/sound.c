@@ -48,6 +48,14 @@
 // <5>:     S_WAVE flag
 // <0-4>:   Identifier of the sound
 
+// To play a sound through the control table, first write:
+//   GB_BUZZER_PLAY_LENGTH = 1-50 OR 254 OR 255 (51-253 is coerced to 50)
+// Then trigger the motion with:
+//   GB_BUZZER_DATA = 0-51 OR 0-25
+// If the play length is 1-50 then a single tone is played of 100-5000ms length, with frequency given by the buzzer data (0 is deepest, 51 is highest).
+// If the play length is 254 then a single tone is played as above, but always with a duration of 5000ms, and a single write to GB_BUZZER_DATA is enough to interrupt the last commanded sound and start the new commanded one.
+// If the play length is 255 then a preprogrammed tune is played, selected by the index 0-25 given by the buzzer data.
+
 // Play functions
 void PlayMusic(u8 musicIndex);
 void PlayDoremi(u16 index, u16 playTime);

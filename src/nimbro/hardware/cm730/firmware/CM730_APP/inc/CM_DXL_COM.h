@@ -94,42 +94,42 @@
 //                              47
 #define P_MAG_Z                 48
 //                              49
-#define P_ADC0_BATTERY          50
-//                              51
-#define P_ADC1_MIC1             52
-//                              53
-#define P_ADC2_MIC2             54
-//                              55
-#define P_ADC3                  56
-//                              57
-#define P_ADC4                  58
-//                              59
-#define P_ADC5                  60
-//                              61
-#define P_ADC6                  62
-//                              63
-#define P_ADC7                  64
-//                              65
-#define P_ADC8                  66
-//                              67
-#define P_ADC9                  68
-//                              69
-#define P_ADC10                 70
-//                              71
-#define P_ADC11                 72
-//                              73
-#define P_ADC12                 74
-//                              75
-#define P_ADC13                 76
-//                              77
-#define P_ADC14                 78
-//                              79
-#define P_ADC15                 80
-//                              81
-#define P_BUZZER_DATA           82
+#define P_TEMPERATURE           50
+#define P_ADC0_BATTERY          51
+//                              52
+#define P_ADC1_MIC1             53
+//                              54
+#define P_ADC2_MIC2             55
+//                              56
+#define P_ADC3                  57
+//                              58
+#define P_ADC4                  59
+//                              60
+#define P_ADC5                  61
+//                              62
+#define P_ADC6                  63
+//                              64
+#define P_ADC7                  65
+//                              66
+#define P_ADC8                  67
+//                              68
+#define P_ADC9                  69
+//                              70
+#define P_ADC10                 71
+//                              72
+#define P_ADC11                 73
+//                              74
+#define P_ADC12                 75
+//                              76
+#define P_ADC13                 77
+//                              78
+#define P_ADC14                 79
+//                              80
+#define P_ADC15                 81
+//                              82
 #define P_BUZZER_PLAY_LENGTH    83
-#define P_ZIGBEE_ID             84
-//                              85
+#define P_BUZZER_DATA           84
+#define P_ZIGBEE_ID             85
 #define P_TX_REMOCON_DATA       86
 //                              87
 #define P_RX_REMOCON_DATA       88
@@ -189,6 +189,7 @@
 #define GW_MAG_X                GW_CONTROL_TABLE(P_MAG_X)
 #define GW_MAG_Y                GW_CONTROL_TABLE(P_MAG_Y)
 #define GW_MAG_Z                GW_CONTROL_TABLE(P_MAG_Z)
+#define GB_TEMPERATURE          GB_CONTROL_TABLE(P_TEMPERATURE)
 #define GB_ADC0_BATTERY         GW_CONTROL_TABLE(P_ADC0_BATTERY)
 #define GW_ADC1_MIC1            GW_CONTROL_TABLE(P_ADC1_MIC1)
 #define GW_ADC2_MIC2            GW_CONTROL_TABLE(P_ADC2_MIC2)
@@ -205,9 +206,9 @@
 #define GW_ADC13                GW_CONTROL_TABLE(P_ADC13)
 #define GW_ADC14                GW_CONTROL_TABLE(P_ADC14)
 #define GW_ADC15                GW_CONTROL_TABLE(P_ADC15)
-#define GB_BUZZER_DATA          GB_CONTROL_TABLE(P_BUZZER_DATA)
 #define GB_BUZZER_PLAY_LENGTH   GB_CONTROL_TABLE(P_BUZZER_PLAY_LENGTH)
-#define GW_ZIGBEE_ID            GW_CONTROL_TABLE(P_ZIGBEE_ID)
+#define GB_BUZZER_DATA          GB_CONTROL_TABLE(P_BUZZER_DATA)
+#define GB_ZIGBEE_ID            GB_CONTROL_TABLE(P_ZIGBEE_ID)
 #define GW_TX_REMOCON_DATA      GW_CONTROL_TABLE(P_TX_REMOCON_DATA)
 #define GW_RX_REMOCON_DATA      GW_CONTROL_TABLE(P_RX_REMOCON_DATA)
 #define GB_RX_REMOCON_DATA_ARR  GB_CONTROL_TABLE(P_RX_REMOCON_DATA_ARR)

@@ -75,14 +75,21 @@ namespace plot_msgs
 			basenamey = basename + "y/";
 			basenamez = basename + "z/";
 
+			// Initialise the m_plot header
+			m_plot.header.seq = 0;
+			m_plot.header.stamp.fromNSec(0);
+			m_plot.header.frame_id = basename;
+
 			// Advertise on the plot topic
 			ros::NodeHandle nh("~");
-			m_pub_plot = nh.advertise<plot_msgs::Plot>("/plot", 1);
+			m_pub_plot = nh.advertise<plot_msgs::Plot>("/plot", 5);
 		}
 
 		// Get/set functions
 		const std::string& getBasename() const { return basename; } //!< @brief Returns the base name in use for all variables plotted by this PlotManager instance. This controls the location of the data in the plotter tree hierarchy.
+		ros::Time getTimestamp() const { return m_plot.header.stamp; } //!< @brief Retrieves the current timestamp of the plot data (updated automatically for example in calls to clear()).
 		bool getEnabled() const { return enabled; } //!< @brief Return the current enabled state of the PlotManager
+		void setEnabled(bool enable) { enabled = enable; } //!< @brief Sets the enabled state of the PlotManager
 		void enable()  { enabled = true; } //!< @brief Enables the PlotManager
 		void disable() { enabled = false; } //!< @brief Disables the PlotManager
 
@@ -116,9 +123,12 @@ namespace plot_msgs
 		//! @brief Publishes the collected plot points (if the PlotManager is enabled). Call this at the end of every plot cycle (without a sleep between the call to clear and this or the timestamps get inaccurate).
 		void publish()
 		{
-			// Publish the list to the configuration server
+			// Publish the plot data
 			if(enabled)
+			{
+				m_plot.header.seq++;
 				m_pub_plot.publish(m_plot);
+			}
 		}
 		//! @brief Plot a scalar value under the given @p name
 		void plotScalar(double value, const std::string& name)
@@ -297,6 +307,11 @@ namespace plot_msgs
 			basenamey = basename + "y/";
 			basenamez = basename + "z/";
 
+			// Initialise the m_plot header
+			m_plot.header.seq = 0;
+			m_plot.header.stamp.fromNSec(0);
+			m_plot.header.frame_id = basename;
+
 			// Initialise m_plot with a suitable number of dud points
 			plot_msgs::PlotPoint point;
 			point.name = "";
@@ -305,16 +320,69 @@ namespace plot_msgs
 
 			// Advertise on the plot topic
 			ros::NodeHandle nh("~");
-			m_pub_plot = nh.advertise<plot_msgs::Plot>("/plot", 1);
+			m_pub_plot = nh.advertise<plot_msgs::Plot>("/plot", 5);
 		}
 
 		// Get/set functions
 		const std::string& getBasename() const { return basename; } //!< @brief Returns the base name in use for all variables plotted by this PlotManagerFS instance. This controls the location of the data in the plotter tree hierarchy.
 		std::string getName(unsigned int id) const { return (id < size ? m_plot.points[id].name : ""); } //!< @brief Retrieves the current name of the nominated point in the internal point array.
+		ros::Time getTimestamp() const { return m_plot.header.stamp; } //!< @brief Retrieves the current timestamp of the plot data (updated automatically for example in calls to clear()).
 		void setName(unsigned int id, const std::string& name) { if(id < size) m_plot.points[id].name = basename + name; } //!< @brief Sets the name of the nominated point in the internal point array (avoid using this function to modify the names of points that are published to by the vector plot functions, use an initialisation call to the vector plot function instead).
 		bool getEnabled() const { return enabled; } //!< @brief Return the current enabled state of the PlotManagerFS
+		void setEnabled(bool enable) { enabled = enable; } //!< @brief Sets the enabled state of the PlotManagerFS
 		void enable()  { enabled = true; } //!< @brief Enables the PlotManagerFS
 		void disable() { enabled = false; } //!< @brief Disables the PlotManagerFS
+
+		// Check functions
+		bool checkNames() const
+		{
+			// Initialise variables
+			bool badName = false;
+
+			// Issue warnings for bad parameter names
+			for(unsigned int id = 0; id < size; id++)
+			{
+				if(m_plot.points[id].name.empty())
+				{
+					ROS_WARN("PlotManagerFS %s: The name field of plotter curve %u is empty or has not been set!", basename.c_str(), id);
+					badName = true;
+				}
+				else if(m_plot.points[id].name.find_first_not_of('/') == std::string::npos)
+				{
+					ROS_WARN("PlotManagerFS %s: The name field of plotter curve %u contains only path separators '/'!", basename.c_str(), id);
+					badName = true;
+				}
+			}
+
+			// Find duplicate parameter names
+			typedef std::map<std::string, std::pair<unsigned int, int> > DupMap;
+			DupMap duplicates;
+			for(unsigned int id = 0; id < size; id++)
+			{
+				const std::string& iname = m_plot.points[id].name;
+				for(unsigned int jd = id + 1; jd < size; jd++)
+				{
+					if(iname == m_plot.points[jd].name)
+					{
+						DupMap::iterator it = duplicates.find(iname);
+						if(it == duplicates.end())
+							duplicates.insert(std::pair<const std::string, std::pair<unsigned int, int> >(iname, std::pair<unsigned int, int>(id, 1)));
+						else if(it->second.first == id)
+							it->second.second++;
+					}
+				}
+			}
+
+			// Issue warnings for duplicate parameter names
+			for(DupMap::const_iterator it = duplicates.begin(); it != duplicates.end(); ++it)
+			{
+				ROS_WARN("PlotManagerFS %s: %d plotter curves have the same name '%s'", basename.c_str(), it->second.second + 1, it->first.c_str());
+				badName = true;
+			}
+
+			// Return whether everything was ok (no naming problem found)
+			return !badName;
+		}
 
 		// Plot functions
 		//! @brief Clears the events list and updates the current header stamp to the current ROS time. Call one clear() overload at the start of every plot cycle.
@@ -345,12 +413,22 @@ namespace plot_msgs
 		//! @brief Publishes the stored plot points (if the PlotManagerFS is enabled). Call this at the end of every plot cycle (without a sleep between the call to clear and this or the timestamps get inaccurate).
 		void publish()
 		{
-			// Publish the list to the configuration server
+			// Publish the plot data
 			if(enabled)
+			{
+				m_plot.header.seq++;
 				m_pub_plot.publish(m_plot);
+			}
 		}
-		//! @brief Plot a scalar value at the given @p id. The point name is unmodified if @p name is omitted.
-		void plotScalar(double value, unsigned int id, const std::string& name = "")
+		//! @brief Plot a scalar value at the given @p id.
+		void plotScalar(double value, unsigned int id)
+		{
+			// Package up the point and queue it away
+			if(enabled && (id < size))
+				m_plot.points[id].value = value;
+		}
+		//! @brief Plot a scalar value at the given @p id and with the given name @p name.
+		void plotScalar(double value, unsigned int id, const std::string& name)
 		{
 			// Package up the point and queue it away
 			if(enabled && (id < size))
@@ -360,23 +438,30 @@ namespace plot_msgs
 				m_plot.points[id].value = value;
 			}
 		}
-		//! @brief Plot a 2D Eigen vector at the given @p id (takes up `id` and `id + 1`). The point names are unmodified if @p name is omitted.
-		void plotVec2d(const Eigen::Vector2d& vec2d, unsigned int id, const std::string& name = "")
+		//! @brief Plot a 2D Eigen vector at the given @p id (takes up `id` and `id + 1`).
+		void plotVec2d(const Eigen::Vector2d& vec2d, unsigned int id)
+		{
+			// Pass on the work to an overload
+			plotVec2d(vec2d.x(), vec2d.y(), id);
+		}
+		//! @brief Plot a 2D Eigen vector at the given @p id (takes up `id` and `id + 1`) and with the given name @p name.
+		void plotVec2d(const Eigen::Vector2d& vec2d, unsigned int id, const std::string& name)
+		{
+			// Pass on the work to an overload
+			plotVec2d(vec2d.x(), vec2d.y(), id, name);
+		}
+		//! @brief Plot a 2D vector `(x,y)` at the given @p id (takes up `id` and `id + 1`).
+		void plotVec2d(double x, double y, unsigned int id)
 		{
 			// Package up the 2D vector and queue it away
 			if(enabled && (id+1 < size))
 			{
-				if(!name.empty())
-				{
-					m_plot.points[id  ].name = basenamex + name;
-					m_plot.points[id+1].name = basenamey + name;
-				}
-				m_plot.points[id  ].value = vec2d.x();
-				m_plot.points[id+1].value = vec2d.y();
+				m_plot.points[id  ].value = x;
+				m_plot.points[id+1].value = y;
 			}
 		}
-		//! @brief Plot a 2D vector `(x,y)` at the given @p id (takes up `id` and `id + 1`). The point names are unmodified if @p name is omitted.
-		void plotVec2d(double x, double y, unsigned int id, const std::string& name = "")
+		//! @brief Plot a 2D vector `(x,y)` at the given @p id (takes up `id` and `id + 1`) and with the given name @p name.
+		void plotVec2d(double x, double y, unsigned int id, const std::string& name)
 		{
 			// Package up the 2D vector and queue it away
 			if(enabled && (id+1 < size))
@@ -390,25 +475,31 @@ namespace plot_msgs
 				m_plot.points[id+1].value = y;
 			}
 		}
-		//! @brief Plot a 3D Eigen vector at the given @p id (takes up `id`, `id + 1` and `id + 2`). The point names are unmodified if @p name is omitted.
-		void plotVec3d(const Eigen::Vector3d& vec3d, unsigned int id, const std::string& name = "")
+		//! @brief Plot a 3D Eigen vector at the given @p id (takes up `id`, `id + 1` and `id + 2`).
+		void plotVec3d(const Eigen::Vector3d& vec3d, unsigned int id)
+		{
+			// Pass on the work to an overload
+			plotVec3d(vec3d.x(), vec3d.y(), vec3d.z(), id);
+		}
+		//! @brief Plot a 3D Eigen vector at the given @p id (takes up `id`, `id + 1` and `id + 2`) and with the given name @p name.
+		void plotVec3d(const Eigen::Vector3d& vec3d, unsigned int id, const std::string& name)
+		{
+			// Pass on the work to an overload
+			plotVec3d(vec3d.x(), vec3d.y(), vec3d.z(), id, name);
+		}
+		//! @brief Plot a 3D vector `(x,y,z)` at the given @p id (takes up `id`, `id + 1` and `id + 2`).
+		void plotVec3d(double x, double y, double z, unsigned int id)
 		{
 			// Package up the 3D vector and queue it away
 			if(enabled && (id+2 < size))
 			{
-				if(!name.empty())
-				{
-					m_plot.points[id  ].name = basenamex + name;
-					m_plot.points[id+1].name = basenamey + name;
-					m_plot.points[id+2].name = basenamez + name;
-				}
-				m_plot.points[id  ].value = vec3d.x();
-				m_plot.points[id+1].value = vec3d.y();
-				m_plot.points[id+2].value = vec3d.z();
+				m_plot.points[id  ].value = x;
+				m_plot.points[id+1].value = y;
+				m_plot.points[id+2].value = z;
 			}
 		}
-		//! @brief Plot a 3D vector `(x,y,z)` at the given @p id (takes up `id`, `id + 1` and `id + 2`). The point names are unmodified if @p name is omitted.
-		void plotVec3d(double x, double y, double z, unsigned int id, const std::string& name = "")
+		//! @brief Plot a 3D vector `(x,y,z)` at the given @p id (takes up `id`, `id + 1` and `id + 2`) and with the given name @p name.
+		void plotVec3d(double x, double y, double z, unsigned int id, const std::string& name)
 		{
 			// Package up the 3D vector and queue it away
 			if(enabled && (id+2 < size))

@@ -12,12 +12,17 @@
 #include <vision_module/Tools/General.hpp>
 using namespace std;
 using namespace cv;
-
+/**
+* @ingroup VisionModule
+*
+* @brief For Inverse Perspective Mapping
+**/
 class IPM
 {
 public:
 	inline IPM(float diagonalAngleView)
 	{
+
 		InitIPM( diagonalAngleView);
 	}
 	virtual ~IPM()

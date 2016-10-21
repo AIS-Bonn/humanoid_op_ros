@@ -1,15 +1,15 @@
-##
-#Constants defining the penalty field
+# Penalty states
+uint8 PENALTY_NONE = 0
+uint8 PENALTY_BALL_MANIPULATION = 1
+uint8 PENALTY_PHYSICAL_CONTACT = 2
+uint8 PENALTY_ILLEGAL_ATTACK = 3
+uint8 PENALTY_ILLEGAL_DEFENSE = 4
+uint8 PENALTY_REQUEST_FOR_PICKUP = 5
+uint8 PENALTY_REQUEST_FOR_SERVICE = 6
+uint8 PENALTY_REQUEST_FOR_PICKUP_2_SERVICE = 7
+uint8 PENALTY_SUBSTITUTE = 14
+uint8 PENALTY_MANUAL = 15
 
-uint16 NO_PENALTY = 0
-uint16 BALL_MANPULATION = 1
-uint16 PHYSICAL_CONTACT = 2
-uint16 ILL_ATTACK = 3
-uint16 ILL_DEFENSE = 4
-uint16 PICKUP_REQUEST = 5
-uint16 SERVICE_REQUEST = 6
-uint16 PICK_AND_SERV_REQUEST = 7
-
-
-uint16 penalty
-uint16 remainingPenaltySec
+# Robot information
+uint8 penaltyState          # Base: Penalty state of the robot (see PENALTY_* above)
+uint8 secsUntilUnpenalised  # Base: Time until the robot should be unpenalised

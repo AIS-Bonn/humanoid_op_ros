@@ -1,0 +1,6 @@
+---
+int16 numDataPoints          # The number of data points that were seen in the calibration
+int16 numDirections          # The number of directions that were used to calibrate the fused yaw
+float32 gyroAccFusedYaw      # The new calibrated gyro/acc offset orientation fused yaw
+float32 gyroAccTiltAngle     # The new calibrated gyro/acc offset orientation tilt angle
+float32 gyroAccTiltAxisAngle # The new calibrated gyro/acc offset orientation tilt axis angle
