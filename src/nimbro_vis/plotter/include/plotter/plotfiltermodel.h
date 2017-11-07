@@ -4,7 +4,7 @@
 #ifndef PLOTFILTERMODEL_H
 #define PLOTFILTERMODEL_H
 
-#include <QtGui/QSortFilterProxyModel>
+#include <QSortFilterProxyModel>
 
 namespace plotter
 {

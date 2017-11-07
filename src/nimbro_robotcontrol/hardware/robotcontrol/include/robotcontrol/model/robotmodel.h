@@ -20,8 +20,8 @@
 // Includes - ROS packages
 #include <robotcontrol/model/joint.h>
 #include <config_server/parameter.h>
+#include <plot_msgs/plot_manager.h>
 #include <rc_utils/golay.h>
-#include <plot_msgs/Plot.h>
 
 // Defines
 #define MIN_TIMER_DURATION      0.008
@@ -73,16 +73,20 @@ public:
 	//! @brief RobotModel destructor
 	virtual ~RobotModel();
 
+	// Constants
+	static const std::string RESOURCE_PATH;
+	static const std::string CONFIG_PARAM_PATH;
+
 	//! @name Joint level operations
 	//@{
 	//! @brief Return number of joints
 	size_t numJoints() const { return m_joints.size(); }
 
 	//! @brief Access a joint by index
-	inline const boost::shared_ptr<Joint>& operator[](int i) { return m_joints[i]; }
+	inline const boost::shared_ptr<Joint>& operator[](int i) const { return m_joints[i]; }
 
 	//! @brief Access a joint by index
-	inline const boost::shared_ptr<Joint>& joint(int i) { return m_joints[i]; }
+	inline const boost::shared_ptr<Joint>& joint(int i) const { return m_joints[i]; }
 
 	//! @brief Get joint index by name
 	int jointIndex(const std::string& name);
@@ -310,9 +314,6 @@ public:
 private:
 	//! @brief Helper method for initTrees()
 	void doInit(const boost::shared_ptr<const urdf::Link>& link);
-	
-	// Constants
-	const std::string CONFIG_PARAM_PATH;
 
 	//! @brief Pointed to the owning robot control instance
 	RobotControl* m_robotControl;
@@ -372,7 +373,6 @@ private:
 	config_server::Parameter<bool> m_warnZeroTotalSuppCoeff;
 	config_server::Parameter<bool> m_useSupportInformation; // Parameter whether to use support information in the calculation of the inverse dynamics
 	config_server::Parameter<bool> m_useFeedbackPos;        // Parameter whether to use commanded or measured data for the inverse dynamics
-	config_server::Parameter<bool> m_plotRobotModelData;
 	config_server::Parameter<bool> m_egoRotIncludesHeading;
 	config_server::Parameter<bool> m_headingIsFusedYaw;
 
@@ -381,7 +381,7 @@ private:
 	ros::Publisher m_pub_robotHeading;
 
 	// Plotting
-	enum PlotIDs
+	enum PMIDs
 	{
 		PM_ANGVEL_X = 0,
 		PM_ANGVEL_Y,
@@ -418,10 +418,12 @@ private:
 		PM_RELAXEDMODEL,
 		PM_RELAXEDWRITTEN,
 		PM_ROBOT_STATE,
-		PM_SUPPORT
+		PM_SUPPORT,           // Plot ID of the first tip link support coefficient
+		PM_COUNT = PM_SUPPORT // True number of plots is PM_COUNT + number of tip links (known only at run-time)
 	};
-	plot_msgs::Plot m_plot;
-	ros::Publisher m_pub_plot;
+	plot_msgs::PlotManagerFS m_PM;
+	config_server::Parameter<bool> m_plotRobotModelData;
+	void configurePlotManager();
 
 	// TF transforms
 	tf::TransformBroadcaster m_pub_tf;

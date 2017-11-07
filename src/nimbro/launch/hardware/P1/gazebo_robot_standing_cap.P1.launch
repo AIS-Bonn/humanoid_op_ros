@@ -1,0 +1,36 @@
+<launch rosmon-name="rosmon_robotcontrol">
+    <arg name="launch_param" default="true" />
+    <arg name="launch_joy" default="true" />
+    
+    <include file="$(find launch)/hardware/robot_common.launch">
+        <arg name="launch_param" value="$(arg launch_param)" />
+        <arg name="launch_joy" value="$(arg launch_joy)" />
+        <arg name="use_sim_time" value="true" />
+    </include>
+
+    <node name="robotcontrol" pkg="robotcontrol" type="robotcontrol" output="screen" required="true">
+        <rosparam>
+            hw_interface: "robotcontrol::GazeboInterface"
+            prefix: "/nimbro_op"
+            modelName: "nimbro_op"
+            initial_state: "init"
+            init_relaxed: false
+            InitPoseMotion: "init_pose_stand"
+            InitMotion: "init_stand"
+            GetupProneMotion: "getup_prone"
+            GetupSupineMotion: "getup_supine"
+            GetupLeftProneMotion: "getup_left_prone"
+            GetupLeftSupineMotion: "getup_left_supine"
+            GetupRightProneMotion: "getup_right_prone"
+            GetupRightSupineMotion: "getup_right_supine"
+            LandingProneMotion: "landing_prone"
+            LandingSupineMotion: "landing_supine"
+            motion_modules:
+            - "fall_protection::FallProtection"
+            - "gait::Gait (cap_gait::CapGait)"
+            - "limb_control::LimbControl"
+            - "headcontrol::HeadControl"
+            - "motionplayer::MotionPlayer"
+        </rosparam>
+    </node>
+</launch>

@@ -130,7 +130,7 @@ namespace margait_contrib
 		};
 		
 		// Constructor
-		RobotModelVis(const RobotModel* model, const std::string& frame) : MarkerManager("~/cap_gait/robot_model", 1)
+		RobotModelVis(const RobotModel* model, const std::string& frame) : MarkerManager("cap_gait/robot_model", 1)
 		 , model(model)
 		 , frame(frame)
 		 , Com(this, frame, 1, NS_BODY)

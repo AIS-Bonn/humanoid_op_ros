@@ -8,8 +8,8 @@
 
 // Includes
 #include <string>
+#include <ros/names.h>
 #include <ros/node_handle.h>
-#include <ros/this_node.h> // Note: ros::this_node::getName() returns the node name with a '/' at the front!
 #include <plot_msgs/Plot.h>
 #include <Eigen/Core>
 
@@ -54,21 +54,21 @@ namespace plot_msgs
 		/**
 		 * @brief Default constructor
 		 *
-		 * @param baseName A `std::string` specifying the base name to use for all variables plotted by
+		 * @param baseName A resource name specifying the base name to use for all variables plotted by
 		 * this class instance. This controls the location of the data in the plotter tree hierarchy.
-		 * If the first character is @c ~ then it is replaced by the node name (e.g. @c ~foo becomes @c /node_name/foo/).
 		 * @param enabled This controls the initial enabled state of the PlotManager. The enabled state
 		 * can later be changed using the enable() and disable() functions, and controls whether the
 		 * PlotManager actually publishes anything.
 		 **/
 		explicit PlotManager(const std::string& baseName = std::string(), bool enabled = true) : enabled(enabled)
 		{
-			// Terminate both ends of the basename with slashes
+			// Resolve the basename as required
 			basename = baseName;
 			if(basename.empty()) basename = "~";
-			if(basename.at(0) == '~') basename.replace(0, 1, ros::this_node::getName() + "/");
+			basename = ros::names::resolve(basename, false);
+			if(basename.empty()) basename = "/";
 			if(basename.at(0) != '/') basename.insert(0, "/");
-			if(basename.at(basename.length()-1) != '/') basename.insert(basename.length(), "/");
+			if(basename.at(basename.length() - 1) != '/') basename.insert(basename.length(), "/");
 
 			// Work out the vector basenames
 			basenamex = basename + "x/";
@@ -81,8 +81,8 @@ namespace plot_msgs
 			m_plot.header.frame_id = basename;
 
 			// Advertise on the plot topic
-			ros::NodeHandle nh("~");
-			m_pub_plot = nh.advertise<plot_msgs::Plot>("/plot", 5);
+			ros::NodeHandle nhs;
+			m_pub_plot = nhs.advertise<plot_msgs::Plot>("plot", 25);
 		}
 
 		// Get/set functions
@@ -101,7 +101,7 @@ namespace plot_msgs
 			clear(ros::Time::now());
 		}
 		//! @brief Clears the current internal plot/event data and sets the plot data timestamp to @p stamp. Call one clear() overload at the start of every plot cycle.
-		void clear(ros::Time stamp)
+		void clear(const ros::Time& stamp)
 		{
 			// Clear the current plot/event data and set the timestamp
 			m_plot.header.stamp = stamp;
@@ -115,7 +115,7 @@ namespace plot_msgs
 			setTimestamp(ros::Time::now());
 		}
 		//! @brief Sets the plot data timestamp to @p stamp (this function should normally not be needed).
-		void setTimestamp(ros::Time stamp)
+		void setTimestamp(const ros::Time& stamp)
 		{
 			// Set the timestamp to the required value
 			m_plot.header.stamp = stamp;
@@ -286,21 +286,21 @@ namespace plot_msgs
 		 * ID numbers. Refer to the documentation of PlotManagerFS for an example.
 		 *
 		 * @param num_points The number of plot points to allocate space for.
-		 * @param baseName A `std::string` specifying the base name to use for all variables plotted by
+		 * @param baseName A resource name specifying the base name to use for all variables plotted by
 		 * this class instance. This controls the location of the data in the plotter tree hierarchy.
-		 * If the first character is @c ~ then it is replaced by the node name (e.g. @c ~foo becomes @c /node_name/foo/).
 		 * @param enabled This controls the initial enabled state of the PlotManagerFS. The enabled state
 		 * can later be changed using the enable() and disable() functions, and controls whether the
 		 * PlotManagerFS actually publishes anything.
 		 **/
-		explicit PlotManagerFS(unsigned int num_points, const std::string& baseName = std::string(), bool enabled = true) : size(num_points), enabled(enabled)
+		explicit PlotManagerFS(unsigned int num_points, const std::string& baseName = std::string(), bool enabled = true) : enabled(enabled)
 		{
-			// Terminate both ends of the basename with slashes
+			// Resolve the basename as required
 			basename = baseName;
 			if(basename.empty()) basename = "~";
-			if(basename.at(0) == '~') basename.replace(0, 1, ros::this_node::getName() + "/");
+			basename = ros::names::resolve(basename, false);
+			if(basename.empty()) basename = "/";
 			if(basename.at(0) != '/') basename.insert(0, "/");
-			if(basename.at(basename.length()-1) != '/') basename.insert(basename.length(), "/");
+			if(basename.at(basename.length() - 1) != '/') basename.insert(basename.length(), "/");
 
 			// Work out the vector basenames
 			basenamex = basename + "x/";
@@ -312,15 +312,28 @@ namespace plot_msgs
 			m_plot.header.stamp.fromNSec(0);
 			m_plot.header.frame_id = basename;
 
-			// Initialise m_plot with a suitable number of dud points
-			plot_msgs::PlotPoint point;
-			point.name = "";
-			point.value = 0.0;
-			if(size > 0) m_plot.points.assign(size, point);
+			// Initialise the empty point object
+			emptyPoint.name.clear();
+			emptyPoint.value = 0.0;
+
+			// Initialise the number of points to plot
+			setSize(num_points);
 
 			// Advertise on the plot topic
-			ros::NodeHandle nh("~");
-			m_pub_plot = nh.advertise<plot_msgs::Plot>("/plot", 5);
+			ros::NodeHandle nhs;
+			m_pub_plot = nhs.advertise<plot_msgs::Plot>("plot", 25);
+		}
+
+		// Size functions
+		unsigned int getSize() const { return size; } //!< @brief Retrieves the number of plots in the manager.
+		void setSize(unsigned int num_points) //!< @brief Sets the number of plots in the manager.
+		{
+			// Resize the points array as required
+			size = num_points;
+			if(size > 0)
+				m_plot.points.resize(num_points, emptyPoint);
+			else
+				m_plot.points.clear();
 		}
 
 		// Get/set functions
@@ -328,6 +341,7 @@ namespace plot_msgs
 		std::string getName(unsigned int id) const { return (id < size ? m_plot.points[id].name : ""); } //!< @brief Retrieves the current name of the nominated point in the internal point array.
 		ros::Time getTimestamp() const { return m_plot.header.stamp; } //!< @brief Retrieves the current timestamp of the plot data (updated automatically for example in calls to clear()).
 		void setName(unsigned int id, const std::string& name) { if(id < size) m_plot.points[id].name = basename + name; } //!< @brief Sets the name of the nominated point in the internal point array (avoid using this function to modify the names of points that are published to by the vector plot functions, use an initialisation call to the vector plot function instead).
+		bool haveEvents() const { return !m_plot.events.empty(); } //!< @brief Return whether there is at least one event ready to plot.
 		bool getEnabled() const { return enabled; } //!< @brief Return the current enabled state of the PlotManagerFS
 		void setEnabled(bool enable) { enabled = enable; } //!< @brief Sets the enabled state of the PlotManagerFS
 		void enable()  { enabled = true; } //!< @brief Enables the PlotManagerFS
@@ -392,7 +406,7 @@ namespace plot_msgs
 			clear(ros::Time::now());
 		}
 		//! @brief Clears the events list and updates the current header stamp to @p stamp. Call one clear() overload at the start of every plot cycle.
-		void clear(ros::Time stamp)
+		void clear(const ros::Time& stamp)
 		{
 			// Update the header stamp to the given time
 			m_plot.header.stamp = stamp;
@@ -405,7 +419,7 @@ namespace plot_msgs
 			setTimestamp(ros::Time::now());
 		}
 		//! @brief Sets the plot data timestamp to @p stamp (this function should normally not be needed).
-		void setTimestamp(ros::Time stamp)
+		void setTimestamp(const ros::Time& stamp)
 		{
 			// Set the timestamp to the required value
 			m_plot.header.stamp = stamp;
@@ -527,7 +541,8 @@ namespace plot_msgs
 
 	private:
 		// Internal variables
-		const unsigned int size;
+		unsigned int size;
+		plot_msgs::PlotPoint emptyPoint;
 		ros::Publisher m_pub_plot;
 		plot_msgs::Plot m_plot;
 		std::string basename, basenamex, basenamey, basenamez;

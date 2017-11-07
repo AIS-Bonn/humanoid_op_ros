@@ -1201,7 +1201,7 @@ function _nimbro()
 					COMPREPLY=($(compgen -W "$hostlistloc" -- "$cur"))
 					;;
 				set)
-					COMPREPLY=($(compgen -W "P1" -- "$cur"))
+					COMPREPLY=($(compgen -W "P1 A1" -- "$cur"))
 					;;
 				sim)
 					COMPREPLY=($(compgen -W "poke" -- "$cur"))
@@ -1271,6 +1271,7 @@ function _nimbro()
 					;;
 				set)
 					[[ "$subcmd" == "P1" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
+					[[ "$subcmd" == "A1" ]] && COMPREPLY=($(compgen -W "xs2" -- "$cur"))
 					;;
 			esac
 			;;
@@ -1325,6 +1326,7 @@ function _nimbro()
 					;;
 				set)
 					[[ "$subcmd" == "P1" ]] && COMPREPLY=($(compgen -W "nimbro_op nimbro_op_hull igus_op igus_op_hull" -- "$cur"))
+					[[ "$subcmd" == "A1" ]] && COMPREPLY=($(compgen -W "nimbro_adult nimbro_adult_hull nimbro_adult_sim" -- "$cur"))
 					;;
 			esac
 			;;

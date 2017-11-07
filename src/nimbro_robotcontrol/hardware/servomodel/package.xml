@@ -26,10 +26,12 @@
   <build_depend>kdl_parser</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>std_msgs</build_depend>
+  <build_depend>rqt_gui_cpp</build_depend>
   <run_depend>orocos_kdl</run_depend>
   <run_depend>kdl_parser</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>std_msgs</run_depend>
+  <run_depend>rqt_gui_cpp</run_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

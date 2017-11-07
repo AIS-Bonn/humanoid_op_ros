@@ -19,9 +19,9 @@
 
 #include <QtCore/QDebug>
 
-#include <QtGui/QPushButton>
-#include <QtGui/QProgressDialog>
-#include <QtGui/QFileDialog>
+#include <QPushButton>
+#include <QProgressDialog>
+#include <QFileDialog>
 #include <QMessageBox>
 
 #include "ui_plotter.h"

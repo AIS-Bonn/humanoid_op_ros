@@ -8,7 +8,6 @@
 
 // Includes
 #include <boost/circular_buffer.hpp>
-#include <boost/circular_buffer/base.hpp>
 #include <cstddef>
 
 // Robotcontrol utilities namespace
@@ -28,7 +27,7 @@ namespace rc_utils
 		// Constructor
 		explicit MeanFilter(size_t numPoints = 0) : m_mean(0.0), m_changed(true)
 		{
-			// Initialise the circular buffers
+			// Initialise the circular buffer
 			resize(numPoints);
 		}
 		
@@ -40,7 +39,7 @@ namespace rc_utils
 			reset();
 		}
 		
-		// Reset function (clears all points out of the circular buffer but does not change its capacity, use resetAll() to also zero the capacity)
+		// Reset function (zeros all points in the circular buffer but does not change its capacity, use resetAll() to also zero the capacity)
 		void reset()
 		{
 			// Reset all data members
@@ -98,6 +97,7 @@ namespace rc_utils
 		
 		// Forced update function (recalculation of the mean)
 		void update() { calculateMean(); }
+		double update(double value) { m_buf.push_front(value); calculateMean(); return m_mean; } // Equivalent to put() followed by value()
 		
 	private:
 		// Calculate the mean of the data currently in the buffer

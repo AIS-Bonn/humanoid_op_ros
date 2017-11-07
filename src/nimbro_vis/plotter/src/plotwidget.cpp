@@ -4,9 +4,16 @@
 #include "plotter/plotwidget.h"
 #include "plotter/plot.h"
 
-#include <QtGui/QPainter>
-#include <QtGui/QMouseEvent>
-#include <QtGui/QShortcut>
+#include <QtGlobal>
+#if QT_VERSION >= 0x050000
+#define QME_LOCAL_POS(pMouseEvent) ((pMouseEvent)->localPos())
+#else
+#define QME_LOCAL_POS(pMouseEvent) ((pMouseEvent)->posF())
+#endif
+
+#include <QPainter>
+#include <QMouseEvent>
+#include <QShortcut>
 
 #include <math.h>
 #include <boost/concept_check.hpp>
@@ -148,7 +155,7 @@ void PlotWidget::updatePlaying()
 
 void PlotWidget::mousePressEvent(QMouseEvent *event)
 {
-	m_mouseClick = event->posF();
+	m_mouseClick = QME_LOCAL_POS(event);
 	m_mappedMouseClick = m_screenTransform.inverted().map(m_mouseClick);
 	m_mouseClickElapsed.restart();
 	
@@ -165,7 +172,7 @@ void PlotWidget::mousePressEvent(QMouseEvent *event)
 
 void PlotWidget::mouseMoveEvent(QMouseEvent *event)
 {
-	updateMouse(event->posF());
+	updateMouse(QME_LOCAL_POS(event));
 
 	setCursor(Qt::ArrowCursor);
 
@@ -230,7 +237,7 @@ void PlotWidget::mouseReleaseEvent(QMouseEvent *event)
 	{
 		if(m_mouse != m_mouseClick)
 		{
-			updateMouse(event->posF());
+			updateMouse(QME_LOCAL_POS(event));
 			m_swipeFadeOutVelocity = m_mappedMouseVelocity;
 			m_swipeFadeOutElapsed.restart();
 			m_swipeFadeOutTimer.start();

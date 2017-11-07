@@ -39,11 +39,16 @@ public Q_SLOTS:
 	void setModel(std::string path_to_model);
 	void setModel(std::string path_to_model, std::vector<std::string> &new_joint_list);
 	void updateRobotDisplay(std::vector<std::string> &joint_list, std::vector<double> &joint_positions);
+	
+private:
+	void setAdultParallelJoints(const std::vector<std::string> &joint_list, std::vector<double> &joint_positions, const std::string side);
 
 private:
 	rviz::VisualizationManager* m_manager;
     boost::shared_ptr<urdf::Model> m_model;
+	std::string m_path_to_model;
 	RobotDisplay* m_robot;
+	std::vector<boost::shared_ptr<urdf::Joint> > m_mimic_joints; // All mimic joints in the model
 	
 	MyMarkerDisplay     *myDisplay;
 	rviz::MarkerDisplay *markerDisplay;

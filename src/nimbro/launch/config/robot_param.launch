@@ -1,8 +1,14 @@
 <launch>
-    <param name="/robot_name" value="$(env NIMBRO_ROBOT_NAME)" type="str" />
-    <param name="/robot_type" value="$(env NIMBRO_ROBOT_TYPE)" type="str" />
+    <arg name="robot_name" default="$(env NIMBRO_ROBOT_NAME)" />
+    <arg name="robot_type" default="$(env NIMBRO_ROBOT_TYPE)" />
+    <arg name="robot_variant" default="$(env NIMBRO_ROBOT_VARIANT)" />
+
+    <param name="robot_name" value="$(arg robot_name)" type="str" />
+    <param name="robot_type" value="$(arg robot_type)" type="str" />
    
-    <rosparam param="/robots">[xs1, xs4, xs5, xs6, xs7, xs8]</rosparam>
+    <rosparam param="robots">[xs1, xs2, xs3, xs4, xs5, xs6, xs7, xs8, xs9]</rosparam>
     
-    <include file="$(find nimbro_op_model)/launch/model.launch" />
+    <include file="$(find nimbro_op_model)/launch/model.launch">
+        <arg name="robot_variant" value="$(arg robot_variant)" />
+    </include>
 </launch>

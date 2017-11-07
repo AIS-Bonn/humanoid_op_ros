@@ -10,6 +10,7 @@
 #include <rc_utils/limited_low_pass.h>
 #include <rc_utils/lin_sin_fillet.h>
 #include <rc_utils/low_pass_filter.h>
+#include <rc_utils/hold_filter.h>
 #include <rc_utils/mean_filter.h>
 #include <rc_utils/slope_limiter.h>
 #include <rc_utils/smooth_deadband.h>
@@ -543,6 +544,106 @@ TEST(RCUtilsMiscTest, testLowPassFilter)
 	EXPECT_NEAR(0.96, value.z(), 1e-15);
 }
 
+// Test the HoldFilter class
+TEST(RCUtilsMiscTest, testHoldFilter)
+{
+	// Declare variables
+	const HoldFilter<true>::Buffer* buf;
+
+	// Test construction
+	HoldMaxFilter HMF1;
+	buf = &HMF1.buf();
+	EXPECT_TRUE(buf->empty());
+	EXPECT_EQ(0, HMF1.numPoints());
+	EXPECT_EQ(0.0, HMF1.value());
+	EXPECT_FALSE(HMF1.haveData());
+	HoldMaxFilter HMF2(3);
+	buf = &HMF2.buf();
+	EXPECT_TRUE(buf->empty());
+	EXPECT_EQ(3, HMF2.numPoints());
+	EXPECT_EQ(0.0, HMF2.value());
+	EXPECT_FALSE(HMF2.haveData());
+
+	// Test putting and resetting data
+	HMF2.put(-3.0);
+	EXPECT_FALSE(buf->empty());
+	EXPECT_EQ(1, HMF2.numData());
+	EXPECT_EQ(3, HMF2.numPoints());
+	EXPECT_EQ(-3.0, HMF2.value());
+	EXPECT_TRUE(HMF2.haveData());
+	HMF2.put(-5.0);
+	EXPECT_FALSE(buf->empty());
+	EXPECT_EQ(2, buf->size());
+	EXPECT_EQ(2, HMF2.numData());
+	EXPECT_EQ(3, HMF2.numPoints());
+	EXPECT_EQ(-3.0, HMF2.value());
+	EXPECT_TRUE(HMF2.haveData());
+	HMF2.put(2.0);
+	EXPECT_TRUE(buf->full());
+	EXPECT_EQ(3, HMF2.numData());
+	EXPECT_EQ(3, HMF2.numPoints());
+	EXPECT_EQ(2.0, HMF2.value());
+	EXPECT_TRUE(HMF2.haveData());
+	HMF2.put(1.0);
+	EXPECT_EQ(3, HMF2.numData());
+	EXPECT_EQ(2.0, HMF2.value());
+	HMF2.put(0.5);
+	EXPECT_EQ(3, HMF2.numData());
+	EXPECT_EQ(2.0, HMF2.value());
+	HMF2.put(0.8);
+	EXPECT_EQ(3, HMF2.numData());
+	EXPECT_EQ(1.0, HMF2.value());
+	HMF2.put(0.4);
+	EXPECT_EQ(3, HMF2.numData());
+	EXPECT_EQ(0.8, HMF2.value());
+	HMF2.reset();
+	buf = &HMF2.buf();
+	EXPECT_TRUE(buf->empty());
+	EXPECT_TRUE(buf->capacity());
+	EXPECT_EQ(3, HMF2.numPoints());
+	EXPECT_EQ(0.0, HMF2.value());
+	EXPECT_FALSE(HMF2.haveData());
+	EXPECT_EQ(3.0, HMF2.update(3.0));
+	EXPECT_EQ(1, HMF2.numData());
+	EXPECT_EQ(3.0, HMF2.value());
+	HMF2.resetAll();
+	buf = &HMF2.buf();
+	EXPECT_TRUE(buf->empty());
+	EXPECT_EQ(0, HMF2.numPoints());
+	EXPECT_EQ(0.0, HMF2.value());
+	EXPECT_FALSE(HMF2.haveData());
+	HMF2.resetAll(5);
+	buf = &HMF2.buf();
+	EXPECT_TRUE(buf->empty());
+	EXPECT_EQ(5, HMF2.numPoints());
+	EXPECT_EQ(0.0, HMF2.value());
+	EXPECT_FALSE(HMF2.haveData());
+
+	// Test resizing data
+	HMF2.resetAll(2);
+	HMF2.put(0.5);
+	HMF2.put(0.9);
+	HMF2.put(0.7);
+	EXPECT_EQ(2, HMF2.numPoints());
+	EXPECT_EQ(2, HMF2.numData());
+	EXPECT_EQ(0.9, HMF2.value());
+	HMF2.resize(5);
+	EXPECT_EQ(5, HMF2.numPoints());
+	EXPECT_EQ(2, HMF2.numData());
+	EXPECT_EQ(0.9, HMF2.value());
+	EXPECT_EQ(0.9, HMF2.update(0.1));
+	EXPECT_EQ(0.9, HMF2.update(0.6));
+	EXPECT_EQ(0.9, HMF2.update(0.3));
+	EXPECT_EQ(0.7, HMF2.update(0.4));
+	EXPECT_EQ(0.6, HMF2.update(0.2));
+	HMF2.resize(3);
+	EXPECT_EQ(3, HMF2.numPoints());
+	EXPECT_EQ(3, HMF2.numData());
+	EXPECT_EQ(0.4, HMF2.value());
+	EXPECT_EQ(0.4, HMF2.update(-0.2));
+	EXPECT_EQ(0.2, HMF2.update(-0.7));
+}
+
 // Test the MeanFilter class
 TEST(RCUtilsMiscTest, testMeanFilter)
 {
@@ -741,6 +842,58 @@ TEST(RCUtilsMiscTest, testSmoothDeadband)
 	EXPECT_DOUBLE_EQ( 0.50000, SmoothDeadband::eval( 1.5, 0.4, 0.6));
 }
 
+// Test the DeadSmoothDeadband class
+TEST(RCUtilsMiscTest, testDeadSmoothDeadband)
+{
+	// Test construction, set and reset
+	DeadSmoothDeadband DB;
+	EXPECT_EQ( 0.0, DB.centre());
+	EXPECT_EQ( 0.0, DB.zeroRadius());
+	EXPECT_EQ( 0.0, DB.deadRadius());
+	EXPECT_EQ(-1.0, DB.eval(-1.0));
+	EXPECT_EQ( 0.0, DB.eval( 0.0));
+	EXPECT_EQ( 1.0, DB.eval( 1.0));
+	DB.set(0.3, 0.7, 0.5);
+	EXPECT_EQ( 0.5, DB.centre());
+	EXPECT_EQ( 0.3, DB.zeroRadius());
+	EXPECT_EQ( 0.7, DB.deadRadius());
+	EXPECT_NE(-1.0, DB.eval(-1.0));
+	EXPECT_NE( 0.0, DB.eval( 0.0));
+	EXPECT_NE( 1.0, DB.eval( 1.0));
+	DB.reset();
+	EXPECT_EQ( 0.0, DB.centre());
+	EXPECT_EQ( 0.0, DB.zeroRadius());
+	EXPECT_EQ( 0.0, DB.deadRadius());
+	EXPECT_EQ(-1.0, DB.eval(-1.0));
+	EXPECT_EQ( 0.0, DB.eval( 0.0));
+	EXPECT_EQ( 1.0, DB.eval( 1.0));
+	DeadSmoothDeadband DBtmp(0.2, 0.4);
+	EXPECT_EQ( 0.0, DBtmp.centre());
+	EXPECT_EQ( 0.2, DBtmp.zeroRadius());
+	EXPECT_EQ( 0.4, DBtmp.deadRadius());
+	
+	// Test a normal case
+	DB.set(0.4, 0.6, 3.0);
+	EXPECT_DOUBLE_EQ(-1.00, DB.eval(1.0));
+	EXPECT_DOUBLE_EQ(-0.60, DB.eval(1.4));
+	EXPECT_DOUBLE_EQ(-0.15, DB.eval(2.0));
+	EXPECT_DOUBLE_EQ( 0.00, DB.eval(2.6));
+	EXPECT_DOUBLE_EQ( 0.00, DB.eval(3.0));
+	EXPECT_DOUBLE_EQ( 0.00, DB.eval(3.4));
+	EXPECT_DOUBLE_EQ( 0.15, DB.eval(4.0));
+	EXPECT_DOUBLE_EQ( 0.60, DB.eval(4.6));
+	EXPECT_DOUBLE_EQ( 1.20, DB.eval(5.2));
+	EXPECT_DOUBLE_EQ(-1.00, DeadSmoothDeadband::eval(1.0, 0.4, 0.6, 3.0));
+	EXPECT_DOUBLE_EQ(-0.60, DeadSmoothDeadband::eval(1.4, 0.4, 0.6, 3.0));
+	EXPECT_DOUBLE_EQ(-0.15, DeadSmoothDeadband::eval(2.0, 0.4, 0.6, 3.0));
+	EXPECT_DOUBLE_EQ( 0.00, DeadSmoothDeadband::eval(2.6, 0.4, 0.6, 3.0));
+	EXPECT_DOUBLE_EQ( 0.00, DeadSmoothDeadband::eval(3.0, 0.4, 0.6, 3.0));
+	EXPECT_DOUBLE_EQ( 0.00, DeadSmoothDeadband::eval(3.4, 0.4, 0.6, 3.0));
+	EXPECT_DOUBLE_EQ( 0.15, DeadSmoothDeadband::eval(4.0, 0.4, 0.6, 3.0));
+	EXPECT_DOUBLE_EQ( 0.60, DeadSmoothDeadband::eval(4.6, 0.4, 0.6, 3.0));
+	EXPECT_DOUBLE_EQ( 1.20, DeadSmoothDeadband::eval(5.2, 0.4, 0.6, 3.0));
+}
+
 // Test the SlopeLimiter class
 TEST(RCUtilsMiscTest, testSlopeLimiter)
 {
@@ -748,30 +901,42 @@ TEST(RCUtilsMiscTest, testSlopeLimiter)
 	SlopeLimiter SL;
 	EXPECT_EQ( 0.0, SL.maxDelta());
 	EXPECT_EQ( 0.0, SL.value());
+	EXPECT_FALSE(SL.valueSet());
 	SlopeLimiter SL2(0.4, -0.6);
 	EXPECT_EQ( 0.4, SL2.maxDelta());
 	EXPECT_EQ(-0.6, SL2.value());
+	EXPECT_TRUE(SL2.valueSet());
 	SlopeLimiter SL3(-0.4);
 	EXPECT_EQ( 0.4, SL3.maxDelta());
 	EXPECT_EQ( 0.0, SL3.value());
+	EXPECT_FALSE(SL3.valueSet());
 	
 	// Test reset and set
 	SL2.reset();
 	EXPECT_EQ( 0.0, SL2.maxDelta());
 	EXPECT_EQ( 0.0, SL2.value());
+	EXPECT_FALSE(SL2.valueSet());
 	SL.set(0.9, 1.7);
 	EXPECT_EQ( 0.9, SL.maxDelta());
 	EXPECT_EQ( 1.7, SL.value());
-	SL.set(-1.9);
+	EXPECT_TRUE(SL.valueSet());
+	SL.setMaxDelta(-1.9);
 	EXPECT_EQ( 1.9, SL.maxDelta());
-	EXPECT_EQ( 0.0, SL.value());
+	EXPECT_EQ( 1.7, SL.value());
+	EXPECT_TRUE(SL.valueSet());
 	SL.setValue(51311);
+	EXPECT_EQ( 1.9, SL.maxDelta());
 	EXPECT_EQ(51311, SL.value());
+	EXPECT_TRUE(SL.valueSet());
 	
 	// Test put
+	SL3.put(1.0);
+	EXPECT_EQ(0.4, SL3.value());
+	EXPECT_TRUE(SL3.valueSet());
 	SL.set(0.1, 3.0);
-	EXPECT_EQ( 0.1, SL.maxDelta());
-	EXPECT_EQ( 3.0, SL.value());
+	EXPECT_EQ(0.1, SL.maxDelta());
+	EXPECT_EQ(3.0, SL.value());
+	EXPECT_TRUE(SL.valueSet());
 	SL.put(2.8);
 	EXPECT_DOUBLE_EQ(2.9, SL.value());
 	SL.put(2.85);

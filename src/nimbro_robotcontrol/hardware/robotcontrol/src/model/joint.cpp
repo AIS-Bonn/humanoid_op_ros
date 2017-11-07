@@ -235,7 +235,7 @@ void Joint::Command::actuallySetFromPosVelAcc(double newPos, double newVel, doub
 }
 
 //
-// Joint feedback struct
+// Joint feedback class
 //
 
 // Constructor

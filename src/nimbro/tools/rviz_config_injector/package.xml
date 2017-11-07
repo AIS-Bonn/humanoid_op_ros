@@ -1,0 +1,11 @@
+<package format="2">
+	<name>rviz_config_injector</name>
+	<description>Injects the required configuration into RViz</description>
+	<version>0.0.0</version>
+
+	<license>BSD</license>
+	<maintainer email="pallgeuer@ais.uni-bonn.de">Philipp Allgeuer</maintainer>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<depend>rqt_gui_cpp</depend>
+</package>

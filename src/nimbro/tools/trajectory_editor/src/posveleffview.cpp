@@ -37,7 +37,7 @@ PosVelEffView::PosVelEffView(BasicSmallView::Alignment alignment, BasicSmallView
 	positionSpin->setToolTip("Position");
 	
 	// Configure effort view
-	effortSpin->setMaximum(1);
+	effortSpin->setMaximum(2);
 	effortSpin->setMinimum(0);
 	effortSpin->setValue(0);
 	effortSpin->setSingleStep(0.01);

@@ -23,7 +23,7 @@
 
 #include <tf/transform_broadcaster.h>
 
-#include <plot_msgs/Plot.h>
+#include <plot_msgs/plot_manager.h>
 
 namespace robotcontrol
 {
@@ -68,11 +68,14 @@ public:
 	void sendDiagnostics(const ros::TimerEvent&);
 
 	void printTimeDiagnostics();
-	void plotEvent(const std::string& event);
+	void plotEvent(const std::string& name);
 
 	void setTimerDuration(float sec) { m_robotModel.setTimerDuration(sec); }
 
 	boost::shared_ptr<HardwareInterface> hardwareInterface() { return m_hw; }
+
+	// Constants
+	static const std::string CONFIG_PARAM_PATH;
 
 private:
 	//! Initialize the motion modules
@@ -128,7 +131,6 @@ private:
 	config_server::Parameter<float> m_velLimit;
 	config_server::Parameter<float> m_accLimit;
 	config_server::Parameter<bool> m_publishCommand;
-	config_server::Parameter<bool> m_plotRobotControlData;
 	config_server::Parameter<float> m_fadeInMaxDelta;
 
 	bool m_shouldShutdown;
@@ -146,7 +148,7 @@ private:
 	ros::WallDuration m_dur_motion;
 
 	// Plotting
-	enum PlotIDs
+	enum PMIDs
 	{
 		PM_TIM_PERIOD = 0,
 		PM_TIM_MOTION,
@@ -154,8 +156,9 @@ private:
 		PM_TIM_RX,
 		PM_COUNT
 	};
-	plot_msgs::Plot m_plot;
-	ros::Publisher m_pub_plot;
+	plot_msgs::PlotManagerFS m_PM;
+	config_server::Parameter<bool> m_plotRobotControlData;
+	void configurePlotManager();
 
 	// Visualisations
 	RCMarkerMan m_markers;

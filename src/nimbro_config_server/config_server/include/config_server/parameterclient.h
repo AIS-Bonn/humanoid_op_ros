@@ -27,7 +27,7 @@ class ParameterBase;
 class ParameterClient
 {
 public:
-	static void initialize(ros::NodeHandle& nh);
+	static void initialize(ros::NodeHandle& nhs);
 	static ParameterClient* instance();
 
 	void registerParameter(ParameterBase* param, const ParameterDescription& desc);
@@ -45,14 +45,17 @@ public:
 
 private:
 	ParameterClient();
-	ParameterClient(ros::NodeHandle& nh);
+	ParameterClient(ros::NodeHandle& nhs);
 	virtual ~ParameterClient();
 
-	void init(ros::NodeHandle& nh);
+	void init(ros::NodeHandle& nhs);
 
 	bool handleSet(SetParameterRequest& req, SetParameterResponse& resp);
 
 	static ParameterClient* g_instance;
+
+	std::string m_serverNamespace;
+	std::string m_serverName;
 
 	typedef std::multimap<std::string, ParameterBase*> ParameterMap;
 	ParameterMap m_parameters;

@@ -8,6 +8,7 @@
 #include <ros/node_handle.h>
 
 static unsigned int g_statusLines = 2;
+static bool g_switchedTitle = false;
 
 void cleanup()
 {
@@ -21,6 +22,9 @@ void cleanup()
 
 	// Switch character echo on
 	term.setEcho(true);
+
+	// Restore window title (at least try)
+	term.setWindowTitle("%d : %n");
 }
 
 namespace rosmon
@@ -46,6 +50,14 @@ UI::UI(monitor::Monitor* monitor, const FDWatcher::Ptr& fdWatcher)
 
 	// Switch character echo off
 	m_term.setEcho(false);
+
+	// Configure window title
+	std::string title = m_monitor->config()->windowTitle();
+	if(!title.empty())
+	{
+		m_term.setWindowTitle(title);
+		g_switchedTitle = true;
+	}
 
 	fdWatcher->registerFD(STDIN_FILENO, boost::bind(&UI::handleInput, this));
 }
@@ -200,9 +212,9 @@ void UI::log(const std::string& channel, const std::string& log)
 		m_term.setSimplePair(Terminal::Black, Terminal::White);
 	}
 
-	m_term.clearToEndOfLine();
 	printf("%20s:", channel.c_str());
 	m_term.setStandardColors();
+	m_term.clearToEndOfLine();
 	putchar(' ');
 
 	unsigned int len = clean.length();
@@ -264,7 +276,7 @@ void UI::handleInput()
 		else if(c >= '0' && c <= '9')
 			nodeIndex = 26 + 26 + c - '0';
 
-		if(nodeIndex < 0 || (size_t)nodeIndex > m_monitor->nodes().size())
+		if(nodeIndex < 0 || (size_t)nodeIndex >= m_monitor->nodes().size())
 			return;
 
 		m_selectedNode = nodeIndex;

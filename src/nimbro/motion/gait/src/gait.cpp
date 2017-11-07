@@ -33,9 +33,13 @@ using namespace rc_utils;
 // Gait class
 //
 
+// Constants
+const std::string Gait::RESOURCE_PATH = "gait/";
+const std::string Gait::CONFIG_PARAM_PATH = GAIT_CONFIG_PARAM_PATH;
+
 // Constructor
 Gait::Gait()
- : CONFIG_PARAM_PATH("/gait/")
+ : m_nhs()
  , m_enableJoystick(CONFIG_PARAM_PATH + "enableJoystick", true)
  , m_plotData(CONFIG_PARAM_PATH + "plotData", false)
  , m_publishOdometry(CONFIG_PARAM_PATH + "publishOdometry", true)
@@ -60,7 +64,7 @@ Gait::Gait()
  , m_joystickConnected(false)
  , m_joystickGaitCmdLock(false)
  , m_gaitState(GS_INACTIVE)
- , m_PM(PM_COUNT, "/gait")
+ , m_PM(PM_COUNT, RESOURCE_PATH)
 {
 	// Initialise variables
 	for(int i = 0; i < JOY_BUTTONS; i++)
@@ -96,9 +100,6 @@ bool Gait::init(robotcontrol::RobotModel* model)
 	// Initialise the base class
 	if(!MotionModule::init(model)) return false;
 
-	// Retrieve ROS node handle
-	ros::NodeHandle nh("~");
-
 	// Save the robot model
 	m_model = model;
 
@@ -133,13 +134,13 @@ bool Gait::init(robotcontrol::RobotModel* model)
 	m_gaitCmdToUse.reset();
 
 	// Advertise the required services
-	m_srv_resetOdom = nh.advertiseService("/gait/resetOdom", &Gait::handleResetOdometry, this);
-	m_srv_setOdom = nh.advertiseService("/gait/setOdom", &Gait::handleSetOdometry, this);
+	m_srv_resetOdom = m_nhs.advertiseService(RESOURCE_PATH + "resetOdom", &Gait::handleResetOdometry, this);
+	m_srv_setOdom = m_nhs.advertiseService(RESOURCE_PATH + "setOdom", &Gait::handleSetOdometry, this);
 
 	// Subscribe to the required ROS topics
-	m_sub_gaitCommand = nh.subscribe("/gaitCommand", 1, &Gait::handleGaitCommand, this);
-	m_sub_joystickData = nh.subscribe("/joy", 1, &Gait::handleJoystickData, this);
-	m_sub_joystickStatus = nh.subscribe("/joy/diagnostics", 1, &Gait::handleJoystickStatus, this);
+	m_sub_gaitCommand = m_nhs.subscribe("gaitCommand", 1, &Gait::handleGaitCommand, this);
+	m_sub_joystickData = m_nhs.subscribe("joy", 1, &Gait::handleJoystickData, this);
+	m_sub_joystickStatus = m_nhs.subscribe("joy/diagnostics", 1, &Gait::handleJoystickStatus, this);
 
 	// Load the required gait engine (needs m_gaitName and getParamString())
 	if(!loadGaitEngine())
@@ -220,6 +221,7 @@ bool Gait::isTriggered()
 	{
 		if(enabled && standingState && shouldWalk)    // Are the preconditions for walking met?
 		{
+			resetGaitEngine();
 			m_gaitState = GS_REACHING_HALT_POSE;
 			m_model->setState(m_state_walking);
 			startReachHaltPose();
@@ -572,9 +574,9 @@ void Gait::plotGaitEngineOutputs(const GaitEngineOutput& out)
 		m_PM.plotScalar(out.jointEffort[i],   PM_JOINTEFFORT_FIRST + i);
 	}
 	m_PM.plotScalar(out.useRawJointCmds,      PM_USE_RAW_JOINT_CMDS);
-	m_PM.plotScalar(out.walking,              PM_WALKING);
 	m_PM.plotScalar(out.supportCoeffLeftLeg,  PM_LEFT_SUPPORT_COEFF);
 	m_PM.plotScalar(out.supportCoeffRightLeg, PM_RIGHT_SUPPORT_COEFF);
+	m_PM.plotScalar(out.walking,              PM_WALKING);
 	m_PM.plotScalar(out.odomPosition[0],      PM_GAIT_ODOM_X);
 	m_PM.plotScalar(out.odomPosition[1],      PM_GAIT_ODOM_Y);
 	m_PM.plotScalar(out.odomPosition[2],      PM_GAIT_ODOM_Z);
@@ -678,7 +680,7 @@ void Gait::startReachHaltPose()
 }
 
 // Continue blending to the robot's halt pose
-void Gait::continueReachHaltPose() // This function needs to set *all* gait engine outputs to appropriate values!
+void Gait::continueReachHaltPose() // This function needs to ensure *all* gait engine outputs have appropriate values!
 {
 	// Update the gait engine's halt pose
 	updateHaltPose();
@@ -693,9 +695,11 @@ void Gait::continueReachHaltPose() // This function needs to set *all* gait engi
 		m_engine->out.jointEffort[i] = m_jointEffortSpline[i].x(t);
 	}
 	m_engine->out.useRawJointCmds = m_engine->haltUseRawJointCmds;
+	m_engine->out.supportCoeffLeftLeg = m_engine->haltSupportCoeffLeftLeg;
+	m_engine->out.supportCoeffRightLeg = m_engine->haltSupportCoeffRightLeg;
 	m_engine->out.walking = false;
-	m_engine->out.supportCoeffLeftLeg = 0.5;
-	m_engine->out.supportCoeffRightLeg = 0.5;
+
+	// Note: Reaching the halt pose leaves the odometry untouched, so it retains whatever value it currently has!
 
 	// Check whether we have completed the required motion blend and successfully arrived at the halt pose (it may have changed in the meantime!)
 	if(t >= m_reachDuration + REACH_HALT_POSE_DELAY)
@@ -853,11 +857,8 @@ void Gait::callbackEnableJoystick()
 // Configure the TF transforms
 void Gait::configureTransforms()
 {
-	// Create ROS node handle
-	ros::NodeHandle nh("~");
-
 	// Advertise the gait odometry topic
-	m_pub_odom = nh.advertise<gait_msgs::GaitOdom>("/gait/odometry", 1);
+	m_pub_odom = m_nhs.advertise<gait_msgs::GaitOdom>(RESOURCE_PATH + "odometry", 1);
 
 	// Initialise the gait odometry information
 	m_gait_odom.header.frame_id = gait::gaitOdomFrame;
@@ -966,6 +967,16 @@ void Gait::resetGait()
 		m_model->setState(m_state_standing); // TODO: This is quite dirty as the robot is not necessarily in a correct standing pose at this point (think mid-gait or mid-reach halt pose or simply just halt pose). Introduce a post-gait state that captures this indeterminism?
 
 	// Reset the gait engine
+	resetGaitEngine();
+
+	// Update the plot data
+	plotRawGaitCommand();
+}
+
+// Reset the gait engine
+void Gait::resetGaitEngine()
+{
+	// Reset the gait engine
 	m_engine->reset();
 	m_engine->setOdometry(0.0, 0.0, 0.0);
 	m_engine->resetBase();
@@ -976,7 +987,6 @@ void Gait::resetGait()
 	m_gait_odom.ID++;
 
 	// Update the plot data
-	plotRawGaitCommand();
 	plotGaitEngineInputs (m_engine->in);
 	plotGaitEngineOutputs(m_engine->out);
 }
@@ -1013,9 +1023,9 @@ void Gait::configurePlotManager()
 		m_PM.setName(PM_JOINTEFFORT_FIRST + i, "jointEffort/" + gait::jointName[i]);
 	}
 	m_PM.setName(PM_USE_RAW_JOINT_CMDS,  "useRawJointCmds");
-	m_PM.setName(PM_WALKING,             "walking");
 	m_PM.setName(PM_LEFT_SUPPORT_COEFF,  "supportCoeff/leftLeg");
 	m_PM.setName(PM_RIGHT_SUPPORT_COEFF, "supportCoeff/rightLeg");
+	m_PM.setName(PM_WALKING,             "walking");
 	m_PM.setName(PM_GAIT_ODOM_X,         "gaitOdom/X");
 	m_PM.setName(PM_GAIT_ODOM_Y,         "gaitOdom/Y");
 	m_PM.setName(PM_GAIT_ODOM_Z,         "gaitOdom/Z");

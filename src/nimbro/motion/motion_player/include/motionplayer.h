@@ -88,11 +88,16 @@ public:
 	virtual void step();
 	virtual bool isTriggered();
 
+	static const std::string RESOURCE_PATH;
+	static const std::string CONFIG_PARAM_PATH;
+
 private:
+	ros::NodeHandle m_nh;
+
 	std::map<std::string, MappedMotion>  m_motionNames;
 	std::map<std::string, std::vector<FloatParamPtr> > m_ruleParameters;
 	BoolParamPtr  m_limit_inverse_space;
-	FloatParamPtr m_epsion;
+	FloatParamPtr m_epsilon;
 	
 	MappedMotion m_playingMotion;
 	

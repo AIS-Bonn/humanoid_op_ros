@@ -4,7 +4,7 @@ project(servomodel)
 set(SERVOMODEL_TESTBENCH OFF CACHE BOOL "Build the servomodel testbench")
 
 find_package(orocos_kdl REQUIRED)
-find_package(catkin REQUIRED COMPONENTS roscpp std_msgs kdl_parser)
+find_package(catkin REQUIRED COMPONENTS roscpp std_msgs kdl_parser rqt_gui_cpp)
 
 catkin_package(
    INCLUDE_DIRS include

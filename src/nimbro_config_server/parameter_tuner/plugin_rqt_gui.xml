@@ -4,7 +4,7 @@
 			Tool to set parameters
 		</description>
 		<qtgui>
-			<label>Parametertuner</label>
+			<label>Parameter Tuner</label>
 			<icon type="theme">hwinfo</icon>
 			<statustip>tip</statustip>
 		</qtgui>

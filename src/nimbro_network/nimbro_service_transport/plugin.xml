@@ -1,13 +1,15 @@
 <library path="lib/libservice_widget">
 	<class name="service_widget" type="nimbro_service_transport::ServiceWidget" base_class_type="rqt_gui_cpp::Plugin">
 		<description>
-			Display Service Status
+			Display service status
 		</description>
 		<qtgui>
 			<group>
-				<label>nimbro_network</label>
+				<label>NimbRo Network</label>
+				<icon type="theme">folder</icon>
 			</group>
 			<label>Service Status</label>
+			<icon type="theme">network-wireless</icon>
 			<statustip>Diagnostic information</statustip>
 		</qtgui>
 	</class>

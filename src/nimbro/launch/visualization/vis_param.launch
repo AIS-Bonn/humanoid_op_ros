@@ -1,0 +1,8 @@
+<launch>
+    <param name="/vis/use_sim_time" value="true" />
+    
+    <param name="/vis/config_server/server_namespace" value="/" />
+    
+    <param name="/vis/button_name" value="Retrieve" />
+    <param name="/vis/custom_command" value="xterm -hold -e bash -i -c 'echo &quot;Retrieving configs from ^^/robot_name$$.local...&quot;;nimbro config retrieve ^^/robot_name$$.local;echo Done.'" />
+</launch>

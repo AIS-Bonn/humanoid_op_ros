@@ -6,6 +6,7 @@
 #include <fstream>
 
 const std::string DEFAULT_KEYFRAME_SUPPORT  = "";
+const std::string DEFAULT_PERSPECTIVE = "P1";
 const double      DEFAULT_VELOCITY = 0;
 const double      DEFAULT_CONTROL_GAIN = 0;
 const double      DEFAULT_ANGLE = 0;
@@ -90,6 +91,11 @@ void Motion::nodeToMotion(const YAML::Node& node)
 	else
 		pidEnabled = DEFAULT_PID_ENABLED;
 	
+	if(header["perspective"]) 
+		perspective = header["perspective"].as< std::string >();
+	else
+		perspective = DEFAULT_PERSPECTIVE;
+	
 	parseRule(node);
 	
 	YAML::Node keyframes = node["motion"];
@@ -98,7 +104,7 @@ void Motion::nodeToMotion(const YAML::Node& node)
 	
 	// Construct joint list, sorted in alphabetical order
 	for (YAML::const_iterator jit=joints.begin(); jit!=joints.end(); ++jit)
-		jointList.push_back(jit->first.as<std::string>());	
+		jointList.push_back(jit->first.as<std::string>());
 	std::sort(jointList.begin(), jointList.end());
 
 	// Parse keyframes
@@ -208,7 +214,7 @@ void Motion::parseRule(const YAML::Node& node)
 	YAML::Node rulesNode = node["rules"];
 	YAML::Node partsNode;
 	
-	if(rulesNode.IsNull())
+	if(!rulesNode)
 		return;
 	
 	// Parse rules
@@ -370,6 +376,17 @@ int Motion::nameToIndex(const std::vector<std::string>& jointList, const std::st
 	return -1;
 }
 
+// Prints error message if requested joint was not found
+int Motion::nameToIndexPrintError(const std::vector< std::string >& jointList, const std::string& name)
+{
+	int id = motionfile::Motion::nameToIndex(jointList, name);
+	
+	if(id == -1)
+		ROS_ERROR("Joint '%s' was not found!", name.c_str());
+	
+	return id;
+}
+
 void Motion::motionToNode(YAML::Emitter& em)
 {
 	em << YAML::BeginMap;
@@ -383,6 +400,7 @@ void Motion::motionToNode(YAML::Emitter& em)
 	em << YAML::Key << "playState" << YAML::Value << playState;
 	em << YAML::Key << "postState" << YAML::Value << postState;
 	em << YAML::Key << "pid_enabled" << YAML::Value << (int)pidEnabled;
+	em << YAML::Key << "perspective" << YAML::Value << perspective;
 
 	em << YAML::EndMap;
 	

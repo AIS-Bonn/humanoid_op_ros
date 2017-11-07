@@ -13,7 +13,7 @@ namespace rc_utils
 class KalmanFilter
 {
 public:
-	static const double DefaultTimeStep = 0.010; // Default value used for the time step => Can be overridden using setTimeStep()
+	static const double DefaultTimeStep;
 
 	KalmanFilter();
 	~KalmanFilter();

@@ -308,6 +308,7 @@ namespace cap_gait
 		 , virtualSlopeMinAngle   (CONFIG_PARAM_PATH + "CL/basicFeedback/virtualSlope/virtualSlopeMinAngle", 0.0, 0.01, 1.0, 0.1)
 		 
 		 , cmdAllowCLStepSizeX    (CONFIG_PARAM_PATH + "CL/cmd/allowCLStepSizeX", false)
+		 , cmdAllowCLStepSizeY    (CONFIG_PARAM_PATH + "CL/cmd/allowCLStepSizeY", false)
 		 , cmdUseCLStepSize       (CONFIG_PARAM_PATH + "CL/cmd/useCLStepSize", false)
 		 , cmdUseCLTiming         (CONFIG_PARAM_PATH + "CL/cmd/useCLTiming", false)
 		 , cmdUseNonZeroZMP       (CONFIG_PARAM_PATH + "CL/cmd/useNonZeroZMP", false)
@@ -374,7 +375,7 @@ namespace cap_gait
 		///@{
 		config_server::Parameter<float> armLinkLength;          //!< @brief Length of each/both the upper and lower arm links
 		config_server::Parameter<float> legLinkLength;          //!< @brief Length of each/both the upper and lower leg links
-		config_server::Parameter<float> shoulderWidth;          //!< @brief Horizontal separation between the two hip joints (length of the hip line)
+		config_server::Parameter<float> shoulderWidth;          //!< @brief Horizontal separation between the two shoulder joints (length of the shoulder line)
 		config_server::Parameter<float> hipWidth;               //!< @brief Horizontal separation between the two hip joints (length of the hip line)
 		config_server::Parameter<float> trunkHeight;            //!< @brief Vertical height of the trunk from the hip line to the shoulder line
 		config_server::Parameter<float> trunkLinkOffsetX;       //!< @brief Forward offset of the trunk link tf frame from the hip midpoint
@@ -384,9 +385,9 @@ namespace cap_gait
 		config_server::Parameter<float> comOffsetZ;             //!< @brief Height of the CoM above the hip line
 		config_server::Parameter<float> footWidth;              //!< @brief Width of the robot foot (along y-axis, the foot plate is assumed to be rectangular)
 		config_server::Parameter<float> footLength;             //!< @brief Length of the robot foot (along x-axis, the foot plate is assumed to be rectangular)
-		config_server::Parameter<float> footOffsetX;            //!< @brief Backward offset from the foot plate geometric center to the ankle joint (along x-axis)
-		config_server::Parameter<float> footOffsetY;            //!< @brief Inward offset from the foot plate geometric center to the ankle joint (along y-axis)
-		config_server::Parameter<float> footOffsetZ;            //!< @brief Upward offset from the foot plate geometric center to the ankle joint (along z-axis)
+		config_server::Parameter<float> footOffsetX;            //!< @brief Forward offset from the ankle joint to the foot plate geometric center (along x-axis)
+		config_server::Parameter<float> footOffsetY;            //!< @brief Outward offset from the ankle joint to the foot plate geometric center (along y-axis)
+		config_server::Parameter<float> footOffsetZ;            //!< @brief Downward offset from the ankle joint to the foot plate geometric center (along z-axis)
 		config_server::Parameter<float> neckHeight;             //!< @brief Height of the neck joint vertically above the center of the shoulder line (not for analytic calculation)
 		config_server::Parameter<float> headOffsetX;            //!< @brief Forward offset from the neck joint to the center of the head (not for analytic calculation)
 		config_server::Parameter<float> headOffsetZ;            //!< @brief Upward offset from the neck joint to the center of the head (not for analytic calculation)
@@ -417,7 +418,7 @@ namespace cap_gait
 		config_server::Parameter<bool>  leftLegFirst;           //!< @brief Flag specifying whether the first leg to step with when starting walking should be the left leg
 		config_server::Parameter<float> stanceAdjustGcvMax;     //!< @brief The maximum GCV at which stance adjustments are allowed to occur during stopping
 		config_server::Parameter<float> stanceAdjustRate;       //!< @brief The dimensionless rate at which motion stance adjustment occurs while stopping walking
-		config_server::Parameter<float> stoppingGcvMag;         //!< @brief Unbiased gait command velocity 2-norm below which immediate walk stopping is allowed
+		config_server::Parameter<float> stoppingGcvMag;         //!< @brief Unbiased gait command vector 2-norm below which immediate walk stopping is allowed
 		config_server::Parameter<float> stoppingPhaseTolLB;     //!< @brief Gait phase tolerance below 0 and &pi;, in units of nominal phase increments (see gaitFrequency and the robotcontrol cycle time), within which intelligent walking stopping is allowed
 		config_server::Parameter<float> stoppingPhaseTolUB;     //!< @brief Gait phase tolerance above 0 and -&pi;, in units of nominal phase increments (see gaitFrequency and the robotcontrol cycle time), within which intelligent walking stopping is allowed
 		config_server::Parameter<float> supportCoeffRange;      //!< @brief The required difference between the symmetric support coefficients during walking (e.g. if this is 0.8 the support coefficients transition between 0.1 and 0.9, as 0.9 - 0.1 = 0.8 and 0.9 + 0.1 = 1.0)
@@ -500,7 +501,7 @@ namespace cap_gait
 		config_server::Parameter<float> haltLegAngleXNarrow;    //!< @brief Halt pose: Roll angle of the legs (positive is away from the body for both legs) for the narrow feet halt pose
 		config_server::Parameter<float> haltLegAngleY;          //!< @brief Halt pose: Pitch angle of the central axis of the legs (positive is moving the legs towards the back for both legs)
 		config_server::Parameter<float> haltLegAngleZ;          //!< @brief Halt pose: Yaw angle of the legs (toe-out is positive for both legs)
-		config_server::Parameter<float> haltFootAngleX;         //!< @brief Halt pose: Roll angle of the feet relative to the trunk (positive is tilting onto the inner feet for both feet)
+		config_server::Parameter<float> haltFootAngleX;         //!< @brief Halt pose: Roll angle of the feet relative to the trunk (positive is tilting the inside edges down for both feet)
 		config_server::Parameter<float> haltFootAngleXBias;     //!< @brief Halt pose: Additive anti-symmetric roll angle of the feet relative to the trunk (positive is a roll rotation about the positive x axis)
 		config_server::Parameter<float> haltFootAngleY;         //!< @brief Halt pose: Pitch angle of the feet relative to the trunk (positive is what would make the robot lean back for both feet)
 		config_server::Parameter<float> haltEffortArm;          //!< @brief Halt pose: Joint effort to use for the arms (in the range `[0,1]`)
@@ -514,7 +515,7 @@ namespace cap_gait
 
 		//! @name Arm motion parameters
 		///@{
-		config_server::Parameter<float> armSagSwingMag;         //!< @brief Magnitude in radians of the arm swing to use at zero biased gait command velocity (for a total peak-to-peak swing of double this value)
+		config_server::Parameter<float> armSagSwingMag;         //!< @brief Magnitude in radians of the arm swing to use for a zero biased gait command vector (for a total peak-to-peak swing of double this value)
 		config_server::Parameter<float> armSagSwingMagGradX;    //!< @brief Gradient of #armSagSwingMag with respect to the biased gait command x-velocity
 		///@}
 
@@ -522,10 +523,10 @@ namespace cap_gait
 		///@{
 		config_server::Parameter<float> legExtToAngleYGain;     //!< @brief Gain that determines how much the leg extension is also applied to the leg angle Y in order to modify the angle at which the robot lifts its feet, and thereby trim walking on the spot in the sagittal direction
 		config_server::Parameter<float> legHipAngleXLegExtGain; //!< @brief Gain that determines how much the appropriate leg is shortened to try to keep the feet level vertically when applying hip angle X
-		config_server::Parameter<float> legStepHeight;          //!< @brief Nominal swing leg step height (out of the ground, in units of leg extension) to use at zero biased gait command velocity
+		config_server::Parameter<float> legStepHeight;          //!< @brief Nominal swing leg step height (out of the ground, in units of leg extension) to use for a zero biased gait command vector
 		config_server::Parameter<float> legStepHeightGradX;     //!< @brief Gradient of #legStepHeight with respect to the absolute biased gait command x-velocity
 		config_server::Parameter<float> legStepHeightGradY;     //!< @brief Gradient of #legStepHeight with respect to the absolute biased gait command y-velocity
-		config_server::Parameter<float> legPushHeight;          //!< @brief Nominal support leg push height (into the ground, in units of leg extension) to use at zero biased gait command velocity
+		config_server::Parameter<float> legPushHeight;          //!< @brief Nominal support leg push height (into the ground, in units of leg extension) to use for a zero biased gait command vector
 		config_server::Parameter<float> legPushHeightGradX;     //!< @brief Gradient of #legPushHeight with respect to the absolute biased gait command x-velocity
 		config_server::Parameter<float> legSagSwingMagGradXBwd; //!< @brief Gradient of the sagittal leg swing magnitude (nominally zero radians) with respect to the biased gait command x-velocity, when this velocity is negative (backwards walking)
 		config_server::Parameter<float> legSagSwingMagGradXFwd; //!< @brief Gradient of the sagittal leg swing magnitude (nominally zero radians) with respect to the biased gait command x-velocity, when this velocity is positive (forwards walking)
@@ -536,7 +537,7 @@ namespace cap_gait
 		config_server::Parameter<float> legSagLeanGradVelZAbs;  //!< @brief Gradient of the sagittal lean (nominally zero radians) with respect to the absolute value of the biased gait command z-velocity
 		config_server::Parameter<float> legLatSwingMagGradY;    //!< @brief Gradient of the lateral leg swing magnitude (nominally zero radians) with respect to the biased gait command y-velocity
 		config_server::Parameter<float> legLatHipSwingBias;     //!< @brief Constant bias to the lateral hip swing waveform (hip roll angle, units of radians), used to try to correct for robot walking asymmetries
-		config_server::Parameter<float> legLatHipSwingMag;      //!< @brief Nominal lateral hip swing magnitude (hip roll angle, units of radians) to use at zero biased gait command velocity
+		config_server::Parameter<float> legLatHipSwingMag;      //!< @brief Nominal lateral hip swing magnitude (hip roll angle, units of radians) to use for a zero biased gait command vector
 		config_server::Parameter<float> legLatHipSwingMagGradX; //!< @brief Gradient of the lateral hip swing magnitude with respect to the absolute biased gait command x-velocity
 		config_server::Parameter<float> legLatHipSwingMagGradY; //!< @brief Gradient of the lateral hip swing magnitude with respect to the absolute biased gait command y-velocity
 		config_server::Parameter<float> legLatPushoutMagGradX;  //!< @brief Gradient of the outwards hip-roll-based lateral leg pushout (nominally zero radians) with respect to the absolute biased gait command x-velocity
@@ -691,6 +692,7 @@ namespace cap_gait
 		//! @name Capture step parameters
 		///@{
 		config_server::Parameter<bool>  cmdAllowCLStepSizeX;
+		config_server::Parameter<bool>  cmdAllowCLStepSizeY;
 		config_server::Parameter<bool>  cmdUseCLStepSize;       //!< @brief Boolean flag whether computed closed loop step sizes should be used to control the gait, or whether the internal gcv should just be controlled directly from the external gcv input (via maximum gcv acceleration rates)
 		config_server::Parameter<bool>  cmdUseCLTiming;         //!< @brief Boolean flag whether computed closed loop step timing should be used to control the gait, or whether the timing should just remain fixed at the nominal OL frequency
 		config_server::Parameter<bool>  cmdUseNonZeroZMP;       //!< @brief Boolean flag whether the target ZMPs calculated in the LimpModel should be used during walking (i.e. not artificially zeroed right after they are calculated)

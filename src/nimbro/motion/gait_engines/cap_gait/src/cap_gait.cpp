@@ -29,9 +29,14 @@ using margait_contrib::RobotModel;
 // CapGait class
 //
 
+// Constants
+const std::string CapGait::RESOURCE_PATH = "cap_gait/";
+const std::string CapGait::CONFIG_PARAM_PATH = "/cap_gait/";
+const double CapGait::USE_HALT_POSE = 1.0;
+const double CapGait::USE_CALC_POSE = 0.0;
+
 // Default constructor
 CapGait::CapGait() : GaitEngine()
- , CONFIG_PARAM_PATH("/cap_gait/")
  , config()
  , m_gcvAccSmoothX(9)
  , m_gcvAccSmoothY(9)
@@ -44,9 +49,9 @@ CapGait::CapGait() : GaitEngine()
  , rxModel(&config)
  , mxModel(&config)
  , txModel(&config)
- , m_gcvZeroTime("/gait/gcv/gcvZeroTime", 0.0, 0.05, 2.0, 0.0)
+ , m_gcvZeroTime(GAIT_CONFIG_PARAM_PATH + "gcv/gcvZeroTime", 0.0, 0.05, 2.0, 0.0)
  , m_plotData(CONFIG_PARAM_PATH + "plotData", false)
- , m_PM(PM_COUNT, "/cap_gait")
+ , m_PM(PM_COUNT, RESOURCE_PATH)
 {
 	// Reset the gait engine
 	CapGait::reset();
@@ -251,11 +256,11 @@ void CapGait::updateOdometry()
 	out.odomPosition[2] = trunkPos.z;
 
 	// Transcribe the orientation odometry information
-	Quaternion trunkRot = rxRobotModel.trunkLink.orientation();
-	out.odomOrientation[0] = trunkRot[3];
-	out.odomOrientation[1] = trunkRot[0];
-	out.odomOrientation[2] = trunkRot[1];
-	out.odomOrientation[3] = trunkRot[2];
+	Quaternion trunkOrient = rxRobotModel.trunkLink.orientation();
+	out.odomOrientation[0] = trunkOrient[3];
+	out.odomOrientation[1] = trunkOrient[0];
+	out.odomOrientation[2] = trunkOrient[1];
+	out.odomOrientation[3] = trunkOrient[2];
 }
 
 // Handle joystick button function
@@ -270,7 +275,7 @@ void CapGait::step()
 {
 	// Clear the plot manager for a new cycle
 	m_PM.clear();
-	
+
 	// Update the visualisation for a new cycle
 	m_rxVis.clear();
 	m_rxVis.setVisOffset(config.visOffsetX(), config.visOffsetY(), config.visOffsetZ());
@@ -802,6 +807,8 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	oldGcvTargetY = gcvTarget.y();
 	if(!config.cmdAllowCLStepSizeX())
 		gcvTarget.x() = 0.0;
+	if(!config.cmdAllowCLStepSizeY())
+		gcvTarget.y() = 0.0;
 
 	// Move the current gcv smoothly to the target gcv in timeToStep amount of time
 	Eigen::Vector3d CLGcv = gcvTarget;
@@ -809,6 +816,7 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 		CLGcv = m_gcv + (systemIterationTime / timeToStep) * (gcvTarget - m_gcv); // TODO: Build some kind of protection into this update strategy to avoid increasingly explosive GCV updates super-close to the end of the step, causing sharp joint curves.
 
 	// Handle the situation differently depending on whether we are using CL step sizes or not
+	double D = config.gcvDecToAccRatio();
 	if(config.cmdUseCLStepSize()) // Closed loop step sizes...
 	{
 		// Set the calculated closed loop GCV
@@ -823,11 +831,16 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 				m_gcv.x() = CLGcv.x();
 			else
 			{
-				double D = config.gcvDecToAccRatio();
 				if(gcvUnbiased.x() >= 0.0) m_gcv.x() += coerce(m_gcvInput.x() - m_gcv.x(), -truedT*config.gcvAccForwards()*D, truedT*config.gcvAccForwards()   );
 				else                       m_gcv.x() += coerce(m_gcvInput.x() - m_gcv.x(), -truedT*config.gcvAccBackwards() , truedT*config.gcvAccBackwards()*D);
 			}
-			m_gcv.y() = CLGcv.y();
+			if(config.cmdAllowCLStepSizeY())
+				m_gcv.y() = CLGcv.y();
+			else
+			{
+				if(gcvUnbiased.y() >= 0.0) m_gcv.y() += coerce(m_gcvInput.y() - m_gcv.y(), -truedT*config.gcvAccSidewards()*D , truedT*config.gcvAccSidewards()   );
+				else                       m_gcv.y() += coerce(m_gcvInput.y() - m_gcv.y(), -truedT*config.gcvAccSidewards()   , truedT*config.gcvAccSidewards()*D );
+			}
 			m_gcv.z() = CLGcv.z();
 		}
 	}
@@ -837,7 +850,6 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 		stepSize.x = stepSize.y = stepSize.z = 0.0;
 
 		// Update the internal gcv based on the gcv input using a slope-limiting approach
-		double D = config.gcvDecToAccRatio();
 		if(gcvUnbiased.x() >= 0.0) m_gcv.x() += coerce(m_gcvInput.x() - m_gcv.x(), -truedT*config.gcvAccForwards()*D  , truedT*config.gcvAccForwards()    );
 		else                       m_gcv.x() += coerce(m_gcvInput.x() - m_gcv.x(), -truedT*config.gcvAccBackwards()   , truedT*config.gcvAccBackwards()*D );
 		if(gcvUnbiased.y() >= 0.0) m_gcv.y() += coerce(m_gcvInput.y() - m_gcv.y(), -truedT*config.gcvAccSidewards()*D , truedT*config.gcvAccSidewards()   );
@@ -982,9 +994,6 @@ void CapGait::updateHaltPose()
 	double legAngleXFact = (config.enableMotionStances() ? m_motionLegAngleXFact : 1.0);
 	double legAngleX = legAngleXFact*config.haltLegAngleX() + (1.0 - legAngleXFact)*config.haltLegAngleXNarrow();
 
-	// Set whether to use raw joint commands
-	haltUseRawJointCmds = !config.useServoModel();
-
 	// Set the halt pose for the legs
 	m_abstractHaltPose.leftLeg .setPoseMirrored(config.haltLegExtension(), legAngleX, config.haltLegAngleY(), config.haltLegAngleZ());
 	m_abstractHaltPose.rightLeg.setPoseMirrored(config.haltLegExtension(), legAngleX, config.haltLegAngleY(), config.haltLegAngleZ());
@@ -1030,6 +1039,13 @@ void CapGait::updateHaltPose()
 	// Transcribe the joint halt pose to the required halt pose arrays
 	m_jointHaltPose.writeJointPosArray(haltJointCmd);
 	m_jointHaltPose.writeJointEffortArray(haltJointEffort);
+
+	// Set whether to use raw joint commands
+	haltUseRawJointCmds = !config.useServoModel();
+
+	// Set the halt pose support coefficients
+	haltSupportCoeffLeftLeg = m_jointHaltPose.leftLeg.cld.supportCoeff;
+	haltSupportCoeffRightLeg = m_jointHaltPose.rightLeg.cld.supportCoeff;
 }
 
 // Calculate common motion data
@@ -1353,7 +1369,7 @@ void CapGait::abstractLegMotion(AbstractLegPose& leg) // 'leg' is assumed to con
 	// Add the required hip angle X to the abstract pose
 	leg.angleX += hipAngleX;
 	leg.footAngleX += hipAngleX;
-	if(sign0(hipAngleX) == leg.cld.limbSign)
+	if(sign0(hipAngleX) == leg.cld.limbSign) // Note: Using sign0() instead of sign() is just to make doubly sure that if hipAngleX is zero then no leg extension is touched
 		leg.extension += config.legHipAngleXLegExtGain() * fabs(sin(hipAngleX));
 
 	// Add the required hip angle Y to the abstract pose
@@ -1644,12 +1660,12 @@ void CapGait::updateOutputs()
 	m_jointPose.writeJointEffortArray(out.jointEffort);
 	out.useRawJointCmds = haltUseRawJointCmds;
 
-	// Transcribe the walking flag
-	out.walking = m_walking || m_blending;
-
 	// Transcribe the leg support coefficients
 	out.supportCoeffLeftLeg  = m_jointPose.leftLeg.cld.supportCoeff;
 	out.supportCoeffRightLeg = m_jointPose.rightLeg.cld.supportCoeff;
+
+	// Transcribe the walking flag
+	out.walking = m_walking || m_blending;
 
 	// Update the odometry
 	updateOdometry();

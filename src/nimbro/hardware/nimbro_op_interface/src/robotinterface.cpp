@@ -14,6 +14,7 @@
 // Includes - Robotcontrol
 #include <robotcontrol/hw/dynamiccommandgenerator.h>
 #include <robotcontrol/model/robotmodel.h>
+#include <robotcontrol/robotcontrol.h>
 
 // Includes - Packages
 #include <cm730/dynamixel.h>
@@ -84,17 +85,24 @@ using namespace cm730;
 namespace nimbro_op_interface
 {
 
+// Constants
+const std::string RobotInterface::RESOURCE_PATH = "nimbro_op_interface/";
+const std::string RobotInterface::CONFIG_PARAM_PATH = "/nimbro_op_interface/";
+
+// Constants
+const std::string RobotInterface::DXLJoint::CONFIG_PARAM_PATH = RobotInterface::CONFIG_PARAM_PATH + "DXLJoint/";
+
 /**
  * DXLJoint constructor. This function creates parameters on the config server
  * for the joint.
  **/
 RobotInterface::DXLJoint::DXLJoint(const std::string& _name)
- : CONFIG_PARAM_PATH("/nimbro_op_interface/DXLJoint/")
- , type(CONFIG_PARAM_PATH + "joints/" + _name + "/type", "default_type")
+ : type(CONFIG_PARAM_PATH + "joints/" + _name + "/type", "default_type")
  , id(CONFIG_PARAM_PATH + "joints/" + _name + "/id", 1, 1, 253, 1)
  , tickOffset(CONFIG_PARAM_PATH + "offsets/" + _name, 0, 1, 4095, 2048)
  , invert(CONFIG_PARAM_PATH + "joints/" + _name + "/invert", false)
  , readFeedback(CONFIG_PARAM_PATH + "joints/" + _name + "/readFeedback", true)
+ , enabled(CONFIG_PARAM_PATH + "joints/" + _name + "/enabled", true)
  , realEffort(cmd.effort)
  , rawState(1.0)
 {
@@ -103,19 +111,27 @@ RobotInterface::DXLJoint::DXLJoint(const std::string& _name)
 	diag.name = name;
 }
 
+// Scaling constants
+const double RobotInterface::FULL_TORQUE = 1023.0; // The torque limit value that corresponds to full torque
+const double RobotInterface::FULL_EFFORT = 32.0; // The P gain value that an effort of 1.0 corresponds to
+const double RobotInterface::INT_TO_VOLTS = 0.1; // Multiply a voltage value read from the CM730 by this to convert it into volts (see 'cm730/firmware/CM730_HW/src/adc.c')
+const double RobotInterface::GYRO_SCALE = (M_PI / 180) * (2 * 250) / 65536; // From control register CTRL_REG4 in "cm730/firmware/CM730_HW/src/gyro_acc.c": +-250dps is 65536 LSb
+const double RobotInterface::ACC_SCALE = (2 * (4 * 9.81)) / 65536; // From control register CTRL_REG4 in "cm730/firmware/CM730_HW/src/gyro_acc.c": +-4g is 65536 LSb
+const double RobotInterface::MAG_SCALE = 1 / 820.0; // From Config Register B in "cm730/firmware/CM730_APP/src/compass.c": 820 LSb/gauss
+
 /**
  * RobotInterface constructor.
  **/
 RobotInterface::RobotInterface()
- : m_model(NULL)
- , CONFIG_PARAM_PATH("/nimbro_op_interface/")
+ : m_nh("~")
+ , m_model(NULL)
  , m_haveHardware(false)
  , m_buttonPress0(CONFIG_PARAM_PATH + "button/pressButton0", false)
  , m_buttonPress1(CONFIG_PARAM_PATH + "button/pressButton1", false)
  , m_buttonPress2(CONFIG_PARAM_PATH + "button/pressButton2", false)
  , m_relaxed(true)
  , m_statIndex(0)
- , m_statVoltage(15.0)
+ , m_statVoltage(-1.0)
  , m_resetGyroAccOffset(CONFIG_PARAM_PATH + "imuOffsets/resetGyroAccOffset", false)
  , m_resetMagOffset(CONFIG_PARAM_PATH + "imuOffsets/resetMagOffset", false)
  , m_gyroAccFusedYaw(CONFIG_PARAM_PATH + "imuOffsets/gyroAccFusedYaw", -M_PI, 0.01, M_PI, 0.0)
@@ -191,14 +207,13 @@ RobotInterface::RobotInterface()
  , m_magFirFilterX(rc_utils::FIRFilterType::FT_AVERAGE)
  , m_magFirFilterY(rc_utils::FIRFilterType::FT_AVERAGE)
  , m_magFirFilterZ(rc_utils::FIRFilterType::FT_AVERAGE)
- , m_magHardIronFilter(CONFIG_PARAM_PATH + "magFilter", DEFAULT_TIMER_DURATION)
+ , m_magHardIronFilter(RESOURCE_PATH + "magFilter/", CONFIG_PARAM_PATH + "magFilter/", DEFAULT_TIMER_DURATION)
  , m_useModel(CONFIG_PARAM_PATH + "useModel", false)
  , m_effortSlopeLimit(CONFIG_PARAM_PATH + "effortSlopeLimit", 0.0, 0.01, 1.0, 0.02)
  , m_rawStateSlopeLimit(CONFIG_PARAM_PATH + "rawStateSlopeLimit", 0.0, 0.01, 1.0, 0.02)
  , m_useServos(CONFIG_PARAM_PATH + "useServos", true)
- , m_PM(PM_COUNT, CONFIG_PARAM_PATH)
+ , m_PM(PM_COUNT, RESOURCE_PATH)
  , m_plotRobotInterfaceData(CONFIG_PARAM_PATH + "plotData", false)
- , m_act_fadeTorque("fade_torque")
  , m_lastButtons(0)
  , m_buttonTime0(0, 0)
  , m_buttonTime1(0, 0)
@@ -225,16 +240,20 @@ RobotInterface::RobotInterface()
  , m_lastCM730Time(0, 0)
  , m_hadRX(false)
  , m_hadTX(false)
- , m_robPause("pause", false) // See main() in robotcontrol.cpp for the main use of this config variable
- , m_fadeTorqueClient("/robotcontrol/fade_torque")
+ , m_robPause(RobotControl::CONFIG_PARAM_PATH + "pause", false) // See main() in robotcontrol.cpp for the main use of this config variable
+ , m_fadeTorqueClient(m_nh, "fade_torque")
  , m_fadingIsTriggered(false)
 {
 	// Retrieve the node handle
-	ros::NodeHandle nh("~");
+	ros::NodeHandle nhs;
 
 	// Retrieve the name and type of the robot
-	nh.param<std::string>("/robot_name", m_robotNameStr, std::string());
-	nh.param<std::string>("/robot_type", m_robotTypeStr, std::string());
+	nhs.param<std::string>("robot_name", m_robotNameStr, std::string());
+	nhs.param<std::string>("robot_type", m_robotTypeStr, std::string());
+	if(m_robotNameStr.empty())
+		ROS_ERROR("Robot name is empty or unconfigured!");
+	if(m_robotTypeStr.empty())
+		ROS_ERROR("Robot type is empty or unconfigured!");
 
 	// Initialise logger heartbeat message
 	m_loggerMsg.sourceNode = "robotcontrol";
@@ -242,18 +261,18 @@ RobotInterface::RobotInterface()
 	m_loggerStamp.fromNSec(0);
 
 	// Initialize statistics timer
-	m_statisticsTimer = nh.createTimer(ros::Duration(0.1), &RobotInterface::handleStatistics, this, false, false);
+	m_statisticsTimer = m_nh.createTimer(ros::Duration(0.1), &RobotInterface::handleStatistics, this, false, false);
 
 	// Advertise topics
-	m_pub_buttons = nh.advertise<nimbro_op_interface::Button>("/button", 1);
-	m_pub_led_state = nh.advertise<nimbro_op_interface::LEDCommand>("/led_state", 1);
-	m_pub_logger = nh.advertise<rrlogger::LoggerHeartbeat>("/rclogger/heartbeat", 1);
+	m_pub_buttons = nhs.advertise<nimbro_op_interface::Button>("button", 1);
+	m_pub_led_state = nhs.advertise<nimbro_op_interface::LEDCommand>("led_state", 1);
+	m_pub_logger = nhs.advertise<rrlogger::LoggerHeartbeat>("rclogger/heartbeat", 1);
 
 	// Subscribe topics
-	m_sub_led = nh.subscribe("/led", 5, &RobotInterface::handleLEDCommand, this);
+	m_sub_led = nhs.subscribe("led", 5, &RobotInterface::handleLEDCommand, this);
 
 	// Set up the buzzer
-	m_sub_buzzer = nh.subscribe(CONFIG_PARAM_PATH + "buzzer", 1, &RobotInterface::handleBuzzerCommand, this);
+	m_sub_buzzer = nhs.subscribe(RESOURCE_PATH + "buzzer", 1, &RobotInterface::handleBuzzerCommand, this);
 	m_buzzerData.playLength = 0xFF;
 	m_buzzerData.data = 0;
 	m_haveBuzzerData = false;
@@ -316,16 +335,17 @@ RobotInterface::RobotInterface()
 	m_buttonPress2.set(false);
 
 	// Advertise provided services
-	m_srv_readOffsets = nh.advertiseService(CONFIG_PARAM_PATH + "readOffsets", &RobotInterface::handleReadOffsets, this);
-	m_srv_readOffset = nh.advertiseService(CONFIG_PARAM_PATH + "readOffset", &RobotInterface::handleReadOffset, this);
-	m_srv_attEstCalibrate = nh.advertiseService(CONFIG_PARAM_PATH + "attEstCalibrate", &RobotInterface::handleAttEstCalibrate, this);
-	m_srv_calibrateGyroStart = nh.advertiseService(CONFIG_PARAM_PATH + "calibrateGyroStart", &RobotInterface::handleCalibrateGyroStart, this);
-	m_srv_calibrateGyroReturn = nh.advertiseService(CONFIG_PARAM_PATH + "calibrateGyroReturn", &RobotInterface::handleCalibrateGyroReturn, this);
-	m_srv_calibrateGyroStop = nh.advertiseService(CONFIG_PARAM_PATH + "calibrateGyroStop", &RobotInterface::handleCalibrateGyroStop, this);
-	m_srv_calibrateGyroAbort = nh.advertiseService(CONFIG_PARAM_PATH + "calibrateGyroAbort", &RobotInterface::handleCalibrateGyroAbort, this);
-	m_srv_imuOffsetsCalibGyroAccStart = nh.advertiseService(CONFIG_PARAM_PATH + "imuOffsets/calibGyroAccStart", &RobotInterface::handleCalibGyroAccStart, this);
-	m_srv_imuOffsetsCalibGyroAccNow = nh.advertiseService(CONFIG_PARAM_PATH + "imuOffsets/calibGyroAccNow", &RobotInterface::handleCalibGyroAccNow, this);
-	m_srv_imuOffsetsCalibGyroAccStop = nh.advertiseService(CONFIG_PARAM_PATH + "imuOffsets/calibGyroAccStop", &RobotInterface::handleCalibGyroAccStop, this);
+	m_srv_listJoints = nhs.advertiseService(RESOURCE_PATH + "listJoints", &RobotInterface::handleListJoints, this);
+	m_srv_readOffsets = nhs.advertiseService(RESOURCE_PATH + "readOffsets", &RobotInterface::handleReadOffsets, this);
+	m_srv_readOffset = nhs.advertiseService(RESOURCE_PATH + "readOffset", &RobotInterface::handleReadOffset, this);
+	m_srv_attEstCalibrate = nhs.advertiseService(RESOURCE_PATH + "attEstCalibrate", &RobotInterface::handleAttEstCalibrate, this);
+	m_srv_calibrateGyroStart = nhs.advertiseService(RESOURCE_PATH + "calibrateGyroStart", &RobotInterface::handleCalibrateGyroStart, this);
+	m_srv_calibrateGyroReturn = nhs.advertiseService(RESOURCE_PATH + "calibrateGyroReturn", &RobotInterface::handleCalibrateGyroReturn, this);
+	m_srv_calibrateGyroStop = nhs.advertiseService(RESOURCE_PATH + "calibrateGyroStop", &RobotInterface::handleCalibrateGyroStop, this);
+	m_srv_calibrateGyroAbort = nhs.advertiseService(RESOURCE_PATH + "calibrateGyroAbort", &RobotInterface::handleCalibrateGyroAbort, this);
+	m_srv_imuOffsetsCalibGyroAccStart = nhs.advertiseService(RESOURCE_PATH + "imuOffsets/calibGyroAccStart", &RobotInterface::handleCalibGyroAccStart, this);
+	m_srv_imuOffsetsCalibGyroAccNow = nhs.advertiseService(RESOURCE_PATH + "imuOffsets/calibGyroAccNow", &RobotInterface::handleCalibGyroAccNow, this);
+	m_srv_imuOffsetsCalibGyroAccStop = nhs.advertiseService(RESOURCE_PATH + "imuOffsets/calibGyroAccStop", &RobotInterface::handleCalibGyroAccStop, this);
 
 	// Configure the plot manager
 	configurePlotManager();
@@ -364,11 +384,12 @@ boost::shared_ptr<Joint> RobotInterface::createJoint(const std::string& name)
 	// If the config parameters change, call the update callback automatically
 	joint->type.setCallback(boost::bind(updateCb));
 	joint->readFeedback.setCallback(boost::bind(updateCb));
+	joint->enabled.setCallback(boost::bind(updateCb));
 
 	// Initialize the joint parameters
 	joint->commandGenerator = commandGenerator(joint->type());
-	joint->voltage = (int)((15.0 / INT_TO_VOLTS) + 0.5); // Note: The 0.5 is for rounding purposes
-	joint->temperature = 0;
+	joint->voltage = -1;
+	joint->temperature = -1;
 
 	// Call the update callback once to begin with
 	updateJointSettings(joint.get());
@@ -379,9 +400,9 @@ boost::shared_ptr<Joint> RobotInterface::createJoint(const std::string& name)
 
 /**
  * @return pointer to the DXLJoint corresponding to the given servo @p id,
- *    0 if not found.
+ *    nullptr if not found.
  **/
-RobotInterface::DXLJoint* RobotInterface::dxlJointForID(int id)
+RobotInterface::DXLJoint* RobotInterface::dxlJointForID(int id) const
 {
 	// Search for the given ID in the RobotModel joint array
 	for(size_t i = 0; i < m_model->numJoints(); ++i)
@@ -392,7 +413,24 @@ RobotInterface::DXLJoint* RobotInterface::dxlJointForID(int id)
 	}
 
 	// Return a null pointer if the ID isn't found
-	return 0;
+	return nullptr;
+}
+
+/**
+ * Returns the pointer to the DXLJoint corresponding to the given joint name, nullptr if not found.
+ **/
+RobotInterface::DXLJoint* RobotInterface::dxlJointForName(const std::string& name) const
+{
+	// Search for the given ID in the RobotModel joint array
+	for(size_t i = 0; i < m_model->numJoints(); ++i)
+	{
+		DXLJoint* joint = dxlJoint(i);
+		if(joint->name == name)
+			return joint;
+	}
+
+	// Return a null pointer if the ID isn't found
+	return nullptr;
 }
 
 /**
@@ -411,7 +449,7 @@ void RobotInterface::updateJointSettings(RobotInterface::DXLJoint* joint)
 	);
 
 	// Add the joint to the list of servos for the CM730 to query, or remove it.
-	if(joint->readFeedback())
+	if(joint->enabled() && joint->readFeedback())
 	{
 		// Currently not in queryset => Append it
 		if(it == m_cm730_queryset.end())
@@ -428,6 +466,138 @@ void RobotInterface::updateJointSettings(RobotInterface::DXLJoint* joint)
 	if(m_board) m_board->updateTxBRPacket(m_cm730_queryset);
 }
 
+// Joint command dependency function: Assign the command of another joint
+void RobotInterface::jointCmdEqual(DXLJoint::Command* cmd, const DXLJoint::Command* cmdA)
+{
+	// Apply the required dependency
+	cmd->pos = cmdA->pos;
+	cmd->vel = cmdA->vel;
+	cmd->acc = cmdA->acc;
+	cmd->effort = cmdA->effort;
+	cmd->raw = cmdA->raw;
+}
+
+// Joint command dependency function: Assign the negative command of another joint
+void RobotInterface::jointCmdNegate(DXLJoint::Command* cmd, const DXLJoint::Command* cmdA)
+{
+	// Apply the required dependency
+	cmd->pos = -cmdA->pos;
+	cmd->vel = -cmdA->vel;
+	cmd->acc = -cmdA->acc;
+	cmd->effort = cmdA->effort;
+	cmd->raw = cmdA->raw;
+}
+
+// Joint command dependency function: Assign the sum of two joint commands
+void RobotInterface::jointCmdSum(DXLJoint::Command* cmd, const DXLJoint::Command* cmdA, const DXLJoint::Command* cmdB)
+{
+	// Apply the required dependency
+	cmd->pos = cmdA->pos + cmdB->pos;
+	cmd->vel = cmdA->vel + cmdB->vel;
+	cmd->acc = cmdA->acc + cmdB->acc;
+	cmd->effort = 0.5*(cmdA->effort + cmdB->effort);
+	cmd->raw = (cmdA->raw || cmdB->raw);
+}
+
+// Joint command dependency function: Assign the difference between two joint commands
+void RobotInterface::jointCmdDiff(DXLJoint::Command* cmd, const DXLJoint::Command* cmdA, const DXLJoint::Command* cmdB)
+{
+	// Apply the required dependency
+	cmd->pos = cmdA->pos - cmdB->pos;
+	cmd->vel = cmdA->vel - cmdB->vel;
+	cmd->acc = cmdA->acc - cmdB->acc;
+	cmd->effort = 0.5*(cmdA->effort + cmdB->effort);
+	cmd->raw = (cmdA->raw || cmdB->raw);
+}
+
+// Joint torque dependency function: Assign the torque of another joint
+void RobotInterface::jointTorqueEqual(double* torque, const double* torqueA)
+{
+	// Apply the required dependency
+	*torque = *torqueA;
+}
+
+// Joint torque dependency function: Assign the negative torque of another joint
+void RobotInterface::jointTorqueNegate(double* torque, const double* torqueA)
+{
+	// Apply the required dependency
+	*torque = -(*torqueA);
+}
+
+// Joint torque dependency function: Assign the sum of two joint torques
+void RobotInterface::jointTorqueSum(double* torque, const double* torqueA, const double* torqueB)
+{
+	// Apply the required dependency
+	*torque = *torqueA + *torqueB;
+}
+
+// Joint torque dependency function: Assign the difference between two joint torques
+void RobotInterface::jointTorqueDiff(double* torque, const double* torqueA, const double* torqueB)
+{
+	// Apply the required dependency
+	*torque = *torqueA - *torqueB;
+}
+
+// Joint feedback dependency function: Assign the feedback of another joint
+void RobotInterface::jointFeedEqual(DXLJoint::Feedback* feed, const DXLJoint::Feedback* feedA)
+{
+	// Apply the required dependency
+	feed->pos = feedA->pos;
+	feed->torque = feedA->torque;
+}
+
+// Joint feedback dependency function: Assign the negative feedback of another joint
+void RobotInterface::jointFeedNegate(DXLJoint::Feedback* feed, const DXLJoint::Feedback* feedA)
+{
+	// Apply the required dependency
+	feed->pos = -feedA->pos;
+	feed->torque = -feedA->torque;
+}
+
+// Joint feedback dependency function: Assign the sum of two joint feedbacks
+void RobotInterface::jointFeedSum(DXLJoint::Feedback* feed, const DXLJoint::Feedback* feedA, const DXLJoint::Feedback* feedB)
+{
+	// Apply the required dependency
+	feed->pos = feedA->pos + feedB->pos;
+	feed->torque = feedA->torque + feedB->torque;
+}
+
+// Joint feedback dependency function: Assign the difference between two joint feedbacks
+void RobotInterface::jointFeedDiff(DXLJoint::Feedback* feed, const DXLJoint::Feedback* feedA, const DXLJoint::Feedback* feedB)
+{
+	// Apply the required dependency
+	feed->pos = feedA->pos - feedB->pos;
+	feed->torque = feedA->torque - feedB->torque;
+}
+
+/**
+ * Add dependencies for all mimic joints
+ **/
+bool RobotInterface::addMimicJointDependencies()
+{
+	// Find all mimic joints and try to create dependencies for them
+	for(size_t i = 0; i < m_model->numJoints(); i++)
+	{
+		DXLJoint* joint = dxlJoint(i);
+		if(!joint->mimic) continue;
+		if(joint->mimic->multiplier == 0.0)
+		{
+			ROS_WARN("Ignoring mimic joint '%s' because it has a multiplier of 0!", joint->name.c_str());
+			continue;
+		}
+		const DXLJoint* source = dxlJointForName(joint->mimic->joint_name);
+		if(!source)
+		{
+			ROS_WARN("Failed to find source joint '%s' of mimic joint '%s' => Not creating mimic dependency!", joint->mimic->joint_name.c_str(), joint->name.c_str());
+			continue;
+		}
+		addJointAlias(joint, source, joint->mimic->multiplier, joint->mimic->offset);
+	}
+
+	// Return success in any case
+	return true;
+}
+
 /**
  * Initialize the robot interface and connect to the robot.
  * It is assumed that `createJoint()` has already been called for all our joints.
@@ -440,6 +610,15 @@ bool RobotInterface::init(RobotModel* model)
 	// Get a state reference for the relaxed state
 	m_state_relaxed = m_model->registerState("relaxed");
 	m_state_setting_pose = m_model->registerState("setting_pose");
+
+	// Initialise any joint aliases and dependencies
+	ROS_INFO("Initialising joint dependencies...");
+	clearJointDependencies();
+	if(!initJointDependencies())
+	{
+		ROS_ERROR("Failed to initialise joint dependencies!");
+		return false;
+	}
 
 	// Find the largest servo ID in the RobotModel joint struct array (needed to set the size of m_servoData below)
 	int max_addr = 0;
@@ -496,7 +675,7 @@ bool RobotInterface::init(RobotModel* model)
 bool RobotInterface::initCM730()
 {
 	// Initialise the CM730
-	m_board.reset(new CM730);
+	m_board.reset(new CM730(RESOURCE_PATH, CONFIG_PARAM_PATH));
 	m_board->updateTxBRPacket(m_cm730_queryset);
 
 	// Stop here if connecting to the CM730 was unsuccessful
@@ -663,8 +842,9 @@ void RobotInterface::waitForRelaxedServos()
 		ss << "Servos with torque enabled: ";
 		for(size_t i = 0; i < m_model->numJoints(); i++)
 		{
-			int servoID = dxlJoint(i)->id();
-			if(servoID >= CM730::ID_MIN && servoID <= CM730::ID_MAX && servoID != CM730::ID_CM730)
+			const DXLJoint* joint = dxlJoint(i);
+			int servoID = joint->id();
+			if(joint->enabled() && servoID >= CM730::ID_MIN && servoID <= CM730::ID_MAX && servoID != CM730::ID_CM730)
 			{
 				int value = 0;
 				if(m_board->readByte(servoID, DynamixelMX::P_TORQUE_ENABLE, &value) == CM730::RET_SUCCESS)
@@ -1003,6 +1183,7 @@ bool RobotInterface::readJointStates()
 		setJointFeedbackTime(bulkReadTime);
 	else
 	{
+		// Retrieve the feedback from each joint
 		for(size_t i = 0; i < m_model->numJoints(); i++)
 		{
 			// Retrieve pointers to joint and bulk read data
@@ -1013,12 +1194,12 @@ bool RobotInterface::readJointStates()
 			// Set the feedback time stamp
 			joint->feedback.stamp = bulkReadTime; // Note: This line replaces the need to call setJointFeedbackTime()
 
-			// Write either the real feedback or just the commanded values into the joint, depending on the readFeedback config parameter
-			if(joint->readFeedback())
+			// Write either the real feedback or just the commanded values into the joint, depending on the enabled and readFeedback config parameters
+			if(joint->enabled() && joint->readFeedback())
 			{
 				// Convert the feedback to an angular position
 				if(data.position >= 0) // Valid position data is always non-negative in terms of ticks
-					joint->feedback.pos = (data.position - joint->tickOffset()) / TICKS_PER_RAD;
+					joint->feedback.pos = (data.position - joint->tickOffset()) / joint->commandGenerator->ticksPerRad();
 				else
 					joint->feedback.pos = 0.0;
 
@@ -1030,7 +1211,7 @@ bool RobotInterface::readJointStates()
 				int pValue = joint->realEffort * FULL_EFFORT;
 				if(pValue < 2) pValue = 2;
 				joint->commandGenerator->setPValue(pValue);
-				joint->commandGenerator->setVoltage(m_voltage); // Note: This could use m_statVoltage, but as statistics are disabled this is a decent drop-in replacement
+				joint->commandGenerator->setVoltage(m_voltage); // Note: This could use m_statVoltage (check if >0.0 before using it), but as statistics are disabled this is a decent drop-in replacement
 
 				// Estimate the produced torque using the position displacement
 				joint->feedback.torque = joint->commandGenerator->servoTorqueFromCommand(joint->cmd.rawPos, joint->feedback.pos, joint->cmd.vel);
@@ -1042,6 +1223,9 @@ bool RobotInterface::readJointStates()
 				joint->feedback.torque = joint->feedback.modelTorque;
 			}
 		}
+
+		// Process the joint feedback
+		processJointFeedback();
 	}
 
 	//
@@ -1576,6 +1760,37 @@ CommandGeneratorPtr RobotInterface::commandGenerator(const std::string& type)
 }
 
 /**
+ * List the joints of the robot and their properties.
+ **/
+bool RobotInterface::handleListJoints(std_srvs::EmptyRequest& req, std_srvs::EmptyResponse& resp)
+{
+	// Vector for joints sorted by ID
+	std::vector<DXLJoint*> sorted;
+
+	// List information about all joints in RobotModel
+	ROS_INFO(" ");
+	ROS_WARN("All joints in RobotModel:");
+	for(size_t i = 0; i < m_model->numJoints(); i++)
+	{
+		DXLJoint* joint = dxlJoint(i);
+		ROS_INFO("Joint %2d: ID %-3d %-33s ==> Ticks %-4d Type %s%s%s%s", (int) i, joint->id(), joint->name.c_str(), joint->tickOffset(), joint->type().c_str(), (joint->enabled() ? "" : " DISABLED"), (joint->readFeedback() ? "" : " NOREAD"), (joint->invert() ? " INVERT" : ""));
+		sorted.push_back(joint);
+	}
+	ROS_INFO(" ");
+	ROS_WARN("Sorted by ID:");
+	std::sort(sorted.begin(), sorted.end(), [](DXLJoint* a, DXLJoint* b) -> bool { return (a->id() < b->id()); });
+	for(std::size_t i = 0; i < sorted.size(); i++)
+	{
+		DXLJoint* joint = sorted[i];
+		ROS_INFO("ID %-3d %-33s ==> Ticks %-4d Type %s%s%s%s", joint->id(), joint->name.c_str(), joint->tickOffset(), joint->type().c_str(), (joint->enabled() ? "" : " DISABLED"), (joint->readFeedback() ? "" : " NOREAD"), (joint->invert() ? " INVERT" : ""));
+	}
+	ROS_INFO(" ");
+
+	// Return that the service was successfully handled
+	return true;
+}
+
+/**
  * Callback that processes commands for the LED display.
  **/
 void RobotInterface::handleLEDCommand(const LEDCommandConstPtr& cmd)
@@ -1645,6 +1860,57 @@ void RobotInterface::sendCM730LedCommand()
 }
 
 /**
+ * Process joint commands right after the motion modules generate them
+ **/
+void RobotInterface::processJointCommands()
+{
+	// Apply the joint command dependencies
+	for(const boost::function<void ()>& executeDependency : m_jointCommandDependencies)
+		executeDependency();
+
+	// Apply joint aliases to the commands
+	for(const JointAliasType& JA : m_jointAliases)
+	{
+		JA.alias->cmd.pos = JA.source->cmd.pos * JA.multiplier + JA.offset;
+		JA.alias->cmd.vel = JA.source->cmd.vel * JA.multiplier;
+		JA.alias->cmd.acc = JA.source->cmd.acc * JA.multiplier;
+		JA.alias->cmd.effort = JA.source->cmd.effort;
+		JA.alias->cmd.raw = JA.source->cmd.raw;
+	}
+}
+
+/**
+ * Process joint torques right after the inverse dynamics generate them
+ **/
+void RobotInterface::processJointTorques()
+{
+	// Apply the joint torque dependencies
+	for(const boost::function<void ()>& executeDependency : m_jointTorqueDependencies)
+		executeDependency();
+
+	// Apply joint aliases to the torques
+	for(const JointAliasType& JA : m_jointAliases)
+		JA.alias->feedback.modelTorque = JA.source->feedback.modelTorque / JA.multiplier;
+}
+
+/**
+ * Process joint feedback right after it is collected
+ **/
+void RobotInterface::processJointFeedback()
+{
+	// Apply the joint feedback dependencies
+	for(const boost::function<void ()>& executeDependency : m_jointFeedbackDependencies)
+		executeDependency();
+
+	// Apply joint aliases to the read feedback
+	for(const JointAliasType& JA : m_jointAliases)
+	{
+		JA.alias->feedback.pos = JA.source->feedback.pos * JA.multiplier + JA.offset;
+		JA.alias->feedback.torque = JA.source->feedback.torque / JA.multiplier;
+	}
+}
+
+/**
  * @internal Perform a servo command sync write (via the CM730).
  **/
 bool RobotInterface::sendJointTargets()
@@ -1669,13 +1935,17 @@ bool RobotInterface::sendJointTargets()
 	JointCmdSyncWriteData* paramData = (JointCmdSyncWriteData*) &params[0];
 
 	// Fill in the sync write buffer with the servo commands
+	size_t count = 0;
 	for(size_t i = 0; i < m_model->numJoints(); i++)
 	{
 		// Retrieve a pointer to the corresponding DXL joint
 		DXLJoint* joint = dxlJoint(i);
 
+		// Do not sync write to servos that are not enabled
+		if(!joint->enabled()) continue;
+
 		// Retrieve a pointer to the required JointCmdSyncWriteData in the array
-		JointCmdSyncWriteData* data = &paramData[i];
+		JointCmdSyncWriteData* data = &paramData[count++];
 
 		// Slope-limit the servo effort to avoid large instantaneous steps
 		joint->realEffort = rc_utils::slopeLimited<double>(joint->realEffort, joint->cmd.effort, m_effortSlopeLimit());
@@ -1689,7 +1959,7 @@ bool RobotInterface::sendJointTargets()
 		int pValue = realpValue;
 		if(pValue < 2) pValue = 2;
 		joint->commandGenerator->setPValue(pValue);
-		joint->commandGenerator->setVoltage(m_voltage); // Note: This could use m_statVoltage, but as statistics are disabled this is a decent drop-in replacement
+		joint->commandGenerator->setVoltage(m_voltage); // Note: This could use m_statVoltage (check if >0.0 before using it), but as statistics are disabled this is a decent drop-in replacement
 
 		// If requested, use the servo model to generate the final position command
 		// We create a linear mix between the raw command (goal position) and
@@ -1709,21 +1979,24 @@ bool RobotInterface::sendJointTargets()
 			rawPosCmd = -rawPosCmd;
 
 		// Convert the command into a servo position in ticks
-		int goal = TICKS_PER_RAD*rawPosCmd + joint->tickOffset();
+		int goal = (int) (joint->commandGenerator->ticksPerRad()*rawPosCmd + joint->tickOffset() + 0.5);
 
 		// Goal position saturation
-		// TODO: Increase P if saturation occurs and provide some sort of statistics/warnings if this occurs
-		if(goal > 4095) goal = 4095;
-		else if(goal < 0) goal = 0;
+		int minTicks = joint->commandGenerator->minTickValue();
+		int maxTicks = joint->commandGenerator->maxTickValue();
+		if(goal > maxTicks)
+			goal = maxTicks;
+		else if(goal < minTicks)
+			goal = minTicks;
 
 		// Write the calculated values into the required JointCmdSyncWriteData struct
 		data->id = joint->id();
 		data->p_gain = realpValue;
 		data->goal_position = (uint16_t) goal;
 	}
-	
+
 	// Sync write the required joint targets
-	if(!syncWriteJointTargets(m_model->numJoints(), &params[0]))
+	if(!syncWriteJointTargets(count, &params[0]))
 		return false;
 	
 	// Return success
@@ -1765,14 +2038,18 @@ bool RobotInterface::setStiffness(float torque)
 		TorqueEnableSyncWriteData* paramData = (TorqueEnableSyncWriteData*) &params[0];
 
 		// Populate the struct array with the required data
+		size_t count = 0;
 		for(size_t i = 0; i < m_model->numJoints(); i++)
 		{
-			paramData[i].id = dxlJoint(i)->id();
-			paramData[i].torque_enable = 0; // 0 => Off, 1 => On
+			const DXLJoint* joint = dxlJoint(i);
+			if(!joint->enabled()) continue;
+			paramData[count].id = joint->id();
+			paramData[count].torque_enable = 0; // 0 => Off, 1 => On
+			count++;
 		}
 
 		// Perform a sync write of the generated packet to the servos via the CM730
-		if(!syncWriteTorqueEnable(m_model->numJoints(), &params[0]))
+		if(!syncWriteTorqueEnable(count, &params[0]))
 			return false;
 
 		// Update the relaxed flag
@@ -1792,14 +2069,18 @@ bool RobotInterface::setStiffness(float torque)
 	TorqueLimitSyncWriteData* paramData = (TorqueLimitSyncWriteData*) &params[0];
 
 	// Populate the struct array with the required data
+	size_t count = 0;
 	for(size_t i = 0; i < m_model->numJoints(); i++)
 	{
-		paramData[i].id = dxlJoint(i)->id();
-		paramData[i].torque_limit = (uint16_t)(torque * FULL_TORQUE); // 0 => Limit to 0% of maximum available torque, 1023 => Limit to 100% of maximum available torque
+		const DXLJoint* joint = dxlJoint(i);
+		if(!joint->enabled()) continue;
+		paramData[count].id = joint->id();
+		paramData[count].torque_limit = (uint16_t)(torque * FULL_TORQUE); // 0 => Limit to 0% of maximum available torque, FULL_TORQUE => Limit to 100% of maximum available torque
+		count++;
 	}
 
 	// Perform a sync write of the generated packet to the servos via the CM730
-	if(!syncWriteTorqueLimit(m_model->numJoints(), &params[0]))
+	if(!syncWriteTorqueLimit(count, &params[0]))
 		return false;
 
 	// Return success
@@ -1840,29 +2121,51 @@ void RobotInterface::handleStatistics(const ros::TimerEvent&)
 	if(!m_robPause() && (!m_haveHardware || !m_board->isSuspended()))
 	{
 		// Get statistics from the servos
-		if(m_haveHardware)
+		if(m_haveHardware && m_model->numJoints() >= 1)
 		{
 // 			// Note: This block has been commented out in an attempt to minimise communications issues!
+// 
+// 			// Increment (and if required wrap) the statistics servo ID
+// 			if(++m_statIndex >= m_model->numJoints())
+// 				m_statIndex = 0;
+// 
 // 			// Retrieve the joint that we are going to pick on this time
 // 			DXLJoint* joint = dxlJoint(m_statIndex);
 // 
 // 			// Query the servo for the required statistics data
-// 			StatisticsReadData statReadData;
-// 			if(m_board->readData(joint->id(), DynamixelMX::P_PRESENT_VOLTAGE, &statReadData, sizeof(statReadData)) == CM730::SUCCESS)
+// 			if(joint->enabled() && joint->readFeedback())
 // 			{
-// 				joint->temperature = statReadData.temperature;
-// 				joint->voltage = statReadData.voltage;
+// 				StatisticsReadData statReadData;
+// 				if(m_board->readData(joint->id(), DynamixelMX::P_PRESENT_VOLTAGE, &statReadData, sizeof(statReadData)) == CM730::SUCCESS)
+// 				{
+// 					joint->voltage = statReadData.voltage;
+// 					joint->temperature = statReadData.temperature;
+// 				}
+// 			}
+// 
+// 			// Apply joint aliases to the read statistics
+// 			for(const JointAliasType& JA : m_jointAliases)
+// 			{
+// 				JA.alias->voltage = JA.source->voltage;
+// 				JA.alias->temperature = JA.source->temperature;
 // 			}
 // 
 // 			// Average all the servo voltages to get a single 'current voltage'
-// 			m_statVoltage = 0;
+// 			int count = 0;
+// 			m_statVoltage = 0.0;
 // 			for(size_t i = 0; i < m_model->numJoints(); i++)
-// 				m_statVoltage += INT_TO_VOLTS * dxlJoint(i)->voltage;
-// 			m_statVoltage /= m_model->numJoints();
-// 
-// 			// Increment (and if required wrap) the statistics servo ID
-// 			if(++m_statIndex == m_model->numJoints())
-// 				m_statIndex = 0;
+// 			{
+// 				DXLJoint* jnt = dxlJoint(i);
+// 				if(jnt->enabled() && jnt->readFeedback() && jnt->voltage > 0)
+// 				{
+// 					m_statVoltage += INT_TO_VOLTS * jnt->voltage;
+// 					count++;
+// 				}
+// 			}
+// 			if(count > 0)
+// 				m_statVoltage /= count;
+// 			else
+// 				m_statVoltage = -1.0;
 		}
 
 		// Send the latest LED commands
@@ -1931,6 +2234,9 @@ bool RobotInterface::handleReadOffsets(std_srvs::EmptyRequest& req, std_srvs::Em
 		// Retrieve a pointer to the joint
 		DXLJoint* joint = dxlJoint(i);
 
+		// Do not attempt to read offsets from servos that are not enabled
+		if(!joint->enabled()) continue;
+
 		// Get the present servo position
 		int present_pos;
 		if(m_board->readWord(joint->id(), DynamixelMX::P_PRESENT_POSITION_L, &present_pos) != CM730::RET_SUCCESS) continue;
@@ -1967,7 +2273,7 @@ bool RobotInterface::handleReadOffset(ReadOffsetRequest& req, ReadOffsetResponse
 
 	// Retrieve a pointer to the required joint by name (std::string)
 	DXLJoint* joint = (DXLJoint*) m_model->getJoint(req.joint).get();
-	if(!joint) return false;
+	if(!joint || !joint->enabled()) return false;
 
 	// Get the present servo position
 	int present_pos;

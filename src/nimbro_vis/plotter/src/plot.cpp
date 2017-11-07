@@ -10,7 +10,7 @@
 #include <QtCore/QTextStream>
 #include <QtCore/QVector>
 #include <QtCore/QDebug>
-#include <QtGui/QPainter>
+#include <QPainter>
 #include <boost/iterator/iterator_concepts.hpp>
 #include <boost/foreach.hpp>
 #include <ros/time.h>
@@ -79,8 +79,9 @@ Plot::~Plot()
 	if(parent())
 	{
 		Plot* p = ((Plot*)parent());
+		p->hierarchyChanged(false);
 		p->m_children.removeOne(this);
-		p->hierarchyChanged();
+		p->hierarchyChanged(true);
 	}
 
 	QList<Plot*> children = m_children;
@@ -116,7 +117,7 @@ void Plot::addChild(Plot* plot)
 	connect(plot, SIGNAL(changed(Plot*)), this, SIGNAL(changed(Plot*)));
 	connect(plot, SIGNAL(beginAddChild(Plot*,int)), this, SIGNAL(beginAddChild(Plot*,int)));
 	connect(plot, SIGNAL(childAdded(Plot*)), this, SIGNAL(childAdded(Plot*)));
-	connect(plot, SIGNAL(hierarchyChanged()), this, SIGNAL(hierarchyChanged()));
+	connect(plot, SIGNAL(hierarchyChanged(bool)), this, SIGNAL(hierarchyChanged(bool)));
 
 	childAdded(this);
 }

@@ -4,7 +4,7 @@
 			Controls for walking
 		</description>
 		<qtgui>
-			<label>WalkControl</label>
+			<label>Walk Control</label>
 			<icon type="theme">hwinfo</icon>
 			<statustip>tip</statustip>
 		</qtgui>

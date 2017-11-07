@@ -4,7 +4,7 @@
 #ifndef PLOTWIDGET_H
 #define PLOTWIDGET_H
 
-#include <QtGui/QWidget>
+#include <QWidget>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QTimer>
 

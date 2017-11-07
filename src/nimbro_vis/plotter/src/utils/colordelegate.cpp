@@ -3,9 +3,9 @@
 
 #include "plotter/utils/colordelegate.h"
 
-#include <QtGui/QPainter>
-#include <QtGui/QMouseEvent>
-#include <QtGui/QColorDialog>
+#include <QPainter>
+#include <QMouseEvent>
+#include <QColorDialog>
 
 ColorDelegate::ColorDelegate(QObject* parent)
  : QStyledItemDelegate(parent)

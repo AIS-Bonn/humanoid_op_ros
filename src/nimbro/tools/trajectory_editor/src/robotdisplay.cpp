@@ -81,7 +81,6 @@ void RobotDisplay::onInitialize()
 	rviz::Display::onInitialize();
 
 	m_robot = new rviz::Robot(scene_node_, context_, "robot", this);
-
 	m_robot->load(*m_model, true, false);
 
 	RigidBodyDynamics::Math::VectorNd Q = RigidBodyDynamics::Math::VectorNd::Constant(m_rbdl->dof_count, 0);

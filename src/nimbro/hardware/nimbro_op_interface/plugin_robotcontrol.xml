@@ -12,3 +12,17 @@
 		</description>
 	</class>
 </library>
+<library path="lib/libnimbro_op_interface">
+	<class type="nimbro_op_interface::RobotPKInterface" base_class_type="robotcontrol::HardwareInterface">
+		<description>
+			NimbRo-OP robot hardware interface (parallel kinematics)
+		</description>
+	</class>
+</library>
+<library path="lib/libnimbro_op_interface">
+	<class type="nimbro_op_interface::DummyPKInterface" base_class_type="robotcontrol::HardwareInterface">
+		<description>
+			NimbRo-OP robot hardware interface (dummy parallel kinematics)
+		</description>
+	</class>
+</library>

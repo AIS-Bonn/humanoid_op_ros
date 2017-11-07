@@ -2,7 +2,7 @@
 <package>
 	<name>nimbro_op_interface</name>
 	<version>0.0.0</version>
-	<description>robotcontrol hardware interface plugin for NimbRo-OP</description>
+	<description>robotcontrol hardware interface plugins for NimbRo-OP and NimbRo-OP2</description>
 
 	<maintainer email="pallgeuer@ais.uni-bonn.de">Philipp Allgeuer</maintainer>
 	<license>TODO</license>

@@ -22,26 +22,26 @@ ParameterClient* ParameterClient::instance()
 	return g_instance;
 }
 
-void ParameterClient::initialize(ros::NodeHandle& nh)
+void ParameterClient::initialize(ros::NodeHandle& nhs)
 {
 	if(g_instance)
 		return;
 
-	g_instance = new ParameterClient(nh);
+	g_instance = new ParameterClient(nhs);
 }
 
-ParameterClient::ParameterClient(ros::NodeHandle& nh)
+ParameterClient::ParameterClient(ros::NodeHandle& nhs)
 {
-	init(nh);
+	init(nhs);
 }
 
 ParameterClient::ParameterClient()
 {
-	ros::NodeHandle nh("~");
-	init(nh);
+	ros::NodeHandle nhs;
+	init(nhs);
 }
 
-void ParameterClient::init(ros::NodeHandle& nh)
+void ParameterClient::init(ros::NodeHandle& nhs)
 {
 	m_serverUid.fromNSec(0);
 	m_registeredUid.fromNSec(0);
@@ -49,19 +49,35 @@ void ParameterClient::init(ros::NodeHandle& nh)
 	m_corked = 0;
 	m_serverEnabled = true;
 
+	ros::NodeHandle nh("~");
+
+	const std::string serverNamespaceParam = "config_server/server_namespace";
+	m_serverNamespace.clear();
+	if(nh.getParam(serverNamespaceParam, m_serverNamespace));
+	else if(nhs.getParam(serverNamespaceParam, m_serverNamespace));
+	if(!m_serverNamespace.empty() && m_serverNamespace[m_serverNamespace.size()-1] != '/')
+		m_serverNamespace += '/';
+	m_serverName = ros::names::resolve(m_serverNamespace + "config_server");
+
 	m_srv = nh.advertiseService("configure", &ParameterClient::handleSet, this);
 	m_srv_name = m_srv.getService();
 
-	m_sub_serverUid = nh.subscribe("/config_server/uid", 1, &ParameterClient::handleUid, this);
+	m_sub_serverUid = nhs.subscribe(m_serverName + "/uid", 1, &ParameterClient::handleUid, this);
 
 	m_subscribe.request.callback = m_srv_name;
 
-	double secs;
-	nh.param("/config_server/wait_duration", secs, 5.0);
-	nh.getParam("config_server/wait_duration", secs);
+	const std::string waitDurationParam = "config_server/wait_duration";
+	double secs = 5.0;
+	if(nh.getParam(waitDurationParam, secs));
+	else if(nhs.getParam(waitDurationParam, secs));
+	else if(nhs.getParam(m_serverNamespace + waitDurationParam, secs));
 	m_waitDuration = ros::WallDuration(secs);
 
-	nh.param("/config_server/enabled", m_serverEnabled, true);
+	const std::string enabledParam = "config_server/enabled";
+	m_serverEnabled = true;
+	if(nh.getParam(enabledParam, m_serverEnabled));
+	else if(nhs.getParam(enabledParam, m_serverEnabled));
+	else if(nhs.getParam(m_serverNamespace + enabledParam, m_serverEnabled));
 }
 
 ParameterClient::~ParameterClient()
@@ -101,20 +117,22 @@ void ParameterClient::registerParameter(ParameterBase* param, const ParameterDes
 		srv.request.desc = desc;
 		srv.request.desc.name = param->name();
 
+		const std::string subscribeService = m_serverName + "/subscribe";
+
 		if(!g_waited)
 		{
 			// Note: ros::service::waitForService() does a ros time sleep, which hangs if time is simulated & stopped...
 			bool displayed = false;
 			ros::WallRate rate(1.0);
 			ros::WallTime start = ros::WallTime::now();
-			while(!ros::service::exists("/config_server/subscribe", false) && (m_waitDuration.toSec() < 0.0 || ros::WallTime::now() - start < m_waitDuration))
+			while(!ros::service::exists(subscribeService, false) && (m_waitDuration.toSec() < 0.0 || ros::WallTime::now() - start < m_waitDuration))
 			{
 				if(!displayed)
 				{
 					if(m_waitDuration.toSec() < 0.0)
-						ROS_INFO("Waiting forever for config_server...");
+						ROS_INFO("Waiting forever for %s...", m_serverName.c_str());
 					else
-						ROS_INFO("Waiting %.1fs for config_server...", m_waitDuration.toSec());
+						ROS_INFO("Waiting %.1fs for %s...", m_waitDuration.toSec(), m_serverName.c_str());
 					displayed = true;
 				}
 				rate.sleep();
@@ -127,9 +145,9 @@ void ParameterClient::registerParameter(ParameterBase* param, const ParameterDes
 			g_waited = true;
 		}
 
-		if(!ros::service::call("/config_server/subscribe", srv))
+		if(!ros::service::call(subscribeService, srv))
 		{
-			ROS_ERROR("Could not call /config_server/subscribe for parameter '%s'", param->name().c_str());
+			ROS_ERROR("Could not call '%s' for parameter '%s'", subscribeService.c_str(), param->name().c_str());
 			param->handleSet(srv.request.desc.default_value);
 			m_haveUidDiscrepancy = true;
 			m_registeredUid.fromNSec(0);
@@ -204,9 +222,11 @@ void ParameterClient::sync()
 {
 	boost::recursive_mutex::scoped_lock lock(m_mutex);
 
-	if(!ros::service::call("/config_server/subscribe_list", m_subscribe))
+	const std::string subscribeListService = m_serverName + "/subscribe_list";
+
+	if(!ros::service::call(subscribeListService, m_subscribe))
 	{
-		ROS_ERROR("Could not call /config_server/subscribe_list");
+		ROS_ERROR("Could not call service '%s'", subscribeListService.c_str());
 		m_haveUidDiscrepancy = true;
 		m_registeredUid.fromNSec(0);
 		return;
@@ -214,7 +234,7 @@ void ParameterClient::sync()
 
 	if(m_subscribe.response.values.size() != m_subscribe.request.parameters.size())
 	{
-		ROS_ERROR("Invalid response size from service call /config_server/subscribe_list => Initial parameter values will be wrong");
+		ROS_ERROR("Invalid response size from service call '%s' => Initial parameter values will be wrong", subscribeListService.c_str());
 		m_haveUidDiscrepancy = true;
 		m_registeredUid.fromNSec(0);
 		return;
@@ -290,8 +310,8 @@ void ParameterClient::notify(ParameterBase* param, const std::string& value)
 	srv.request.value = value;
 	srv.request.no_notify = m_srv_name;
 
-	if(!ros::service::call("/config_server/set_parameter", srv))
-		ROS_ERROR("Could not set parameter '%s' on the parameter server", param->name().c_str());
+	if(!ros::service::call(m_serverName + "/set_parameter", srv))
+		ROS_ERROR("Could not set parameter '%s' on the config server '%s'", param->name().c_str(), m_serverName.c_str());
 }
 
 }

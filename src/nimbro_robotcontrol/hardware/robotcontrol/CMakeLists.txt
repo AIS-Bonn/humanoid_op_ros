@@ -18,7 +18,7 @@ if(CMAKE_CXX_FLAGS STREQUAL "")
 	)
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-address")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-address -std=c++11")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -86,7 +86,7 @@ generate_messages(
 catkin_package(
 	INCLUDE_DIRS include
 	LIBRARIES robotmodel magfilter
-	CATKIN_DEPENDS config_server rbdl message_runtime eigen_conversions vis_utils rc_utils
+	CATKIN_DEPENDS config_server rbdl message_runtime eigen_conversions vis_utils rc_utils plot_msgs
 #	DEPENDS system_lib
 )
 

@@ -1,0 +1,1760 @@
+bench_vis:
+  forceLogging: 0
+  general:
+    plotData: 0
+cap_gait:
+  config:
+    CL:
+      basicFeedback:
+        comShift:
+          comShiftXBuf: 0
+          comShiftXMax: 0
+          comShiftXMin: 0
+          comShiftXUseLimits: 0
+          comShiftYBuf: 0
+          comShiftYMax: 0
+          comShiftYMin: 0
+          comShiftYUseLimits: 0
+        dFused:
+          enabledLat: 0
+          enabledSag: 1
+          filterN: 30
+          lat:
+            deadbandRadiusX: 0
+            gainAllLat: 0
+            gainArmAngleX: 0
+            gainComShiftY: 0
+            gainFootAngleX: 0
+            gainHipAngleX: 0
+          sag:
+            deadbandRadiusY: 0.08
+            gainAllSag: 0.1
+            gainArmAngleY: 2.4
+            gainComShiftX: 0
+            gainFootAngleY: 0
+            gainHipAngleY: 0
+        enable:
+          enableArmAngleX: 0
+          enableArmAngleY: 1
+          enableComShiftX: 0
+          enableComShiftY: 0
+          enableFootAngleCtsX: 0
+          enableFootAngleCtsY: 0
+          enableFootAngleX: 0
+          enableFootAngleY: 0
+          enableHipAngleX: 0
+          enableHipAngleY: 0
+          enableTiming: 0
+          enableVirtualSlope: 0
+          globalEnable: 1
+        feedbackBias:
+          biasArmAngleX: 0
+          biasArmAngleY: 0
+          biasComShiftX: 0
+          biasComShiftY: 0
+          biasFootAngleCtsX: 0
+          biasFootAngleCtsY: 0
+          biasFootAngleX: 0
+          biasFootAngleY: 0
+          biasHipAngleX: 0
+          biasHipAngleY: 0
+        footAngle:
+          transitionPhaseLen: 0.5
+        fused:
+          enabledLat: 0
+          enabledSag: 1
+          filterN: 9
+          lat:
+            deadbandRadiusX: 0
+            expectedXSinMag: 0
+            expectedXSinOffset: 0
+            expectedXSinPhase: 0
+            gainAllLat: 0
+            gainArmAngleX: 0
+            gainComShiftY: 0
+            gainFootAngleX: 0
+            gainHipAngleX: 0
+          sag:
+            deadbandRadiusY: 0.035
+            expectedYSinMag: 0
+            expectedYSinOffset: 0
+            expectedYSinPhase: 0
+            gainAllSag: 1
+            gainArmAngleY: 0.2
+            gainComShiftX: 0
+            gainFootAngleY: 0
+            gainHipAngleY: 0.1
+        gyro:
+          enabledLat: 0
+          enabledSag: 0
+          filterN: 35
+          lat:
+            deadbandRadiusX: 0
+            expectedGyroX: 0
+            gainAllLat: 1
+            gainArmAngleX: 0
+            gainComShiftY: 0
+            gainFootAngleX: 0
+            gainHipAngleX: 0
+          sag:
+            deadbandRadiusY: 0
+            expectedGyroY: 0
+            gainAllSag: 1
+            gainArmAngleY: 0
+            gainComShiftX: 0
+            gainFootAngleY: 0
+            gainHipAngleY: 0
+        iFused:
+          enabledLat: 0
+          enabledSag: 0
+          filterN: 1
+          halfLifeTime: 5
+          lat:
+            gainAllLat: 0
+            gainArmAngleX: 0
+            gainComShiftY: 0
+            gainFootAngleCtsX: 0
+            gainFootAngleX: 0
+            gainHipAngleX: 0
+          sag:
+            gainAllSag: 0
+            gainArmAngleY: 0
+            gainComShiftX: 0
+            gainFootAngleCtsY: 0
+            gainFootAngleY: 0
+            gainHipAngleY: 0
+          timeToDecay: 20
+          timeToFreeze: 0.1
+        timing:
+          feedDeadRadius: 0
+          gainSlowDown: 5
+          gainSpeedUp: 3
+          weightFactor: 1
+        virtualSlope:
+          virtualSlopeGainAsc: 0
+          virtualSlopeGainDsc: 0
+          virtualSlopeMidAngle: 0
+          virtualSlopeMinAngle: 0.1
+          virtualSlopeOffset: 0
+      cmd:
+        allowCLStepSizeX: 0
+        allowCLStepSizeY: 0
+        useCLStepSize: 0
+        useCLTiming: 0
+        useNonZeroZMP: 0
+        useRXFeedback: 0
+        useTXStepSize: 0
+        useTXTiming: 0
+      mg:
+        LIPM:
+          Alpha: 0
+          C: 10
+          Delta: 0
+          Gamma: 0
+          Omega: 0
+          Sigma: 0
+        comOffsetX: 0
+        comOffsetY: 0
+        comOffsetYBias: 0
+        fusedOffsetX: 0
+        fusedOffsetY: 0
+        latency: 0.05
+        maxComPositionX: 0
+        maxStepRadiusX: 0.4
+        maxStepRadiusY: 0.4
+        postStepStateCorrAng: 0
+        zmpXMax: 0
+        zmpXMin: 0
+        zmpYMax: 0
+        zmpYMin: 0
+      noiseSuppression:
+        adaptationGain: 1
+        fusedXRangeLBnd: 0
+        fusedXRangeUBnd: 0
+        fusedYRangeLBnd: 0
+        fusedYRangeUBnd: 0
+        gain: 1
+        maxAdaptation: 1
+        stepNoiseTime: 0.1
+    OL:
+      armMotion:
+        sagSwingMag: 0
+        sagSwingMagGradX: 0.16
+      haltPose:
+        armAngleX: 0.12
+        armAngleXBias: 0
+        armAngleY: -0.3
+        armExtension: 0.09
+        effortAnklePitch: 1
+        effortAnkleRoll: 0.65
+        effortArm: 0.35
+        effortHipPitch: 0.8
+        effortHipRoll: 0.8
+        effortHipYaw: 0.65
+        effortKneePitch: 0.8
+        footAngleX: 0.02
+        footAngleXBias: -0.003
+        footAngleY: -0.012
+        legAngleX: 0.14
+        legAngleXBias: -0.003
+        legAngleXNarrow: 0.02
+        legAngleY: 0
+        legAngleZ: 0
+        legExtension: 0.03
+        legExtensionBias: 0
+      legMotion:
+        extToAngleYGain: 0.75
+        hipAngleXLegExtGain: 0.2
+        latHipSwingBias: 0
+        latHipSwingMag: 0.02
+        latHipSwingMagGradX: 0
+        latHipSwingMagGradY: 0
+        latLeanGradXZBwd: 0
+        latLeanGradXZFwd: 0
+        latPushoutMagGradX: 0
+        latPushoutMagGradY: 0.05
+        latPushoutMagGradZ: 0.05
+        latSwingMagGradY: 0.1
+        pushHeight: 0
+        pushHeightGradX: 0
+        rotSwingMagGradZ: 0.15
+        rotVPushoutMagGradZ: 0.05
+        sagLeanGradAccXBwd: 0
+        sagLeanGradAccXFwd: 0
+        sagLeanGradVelXBwd: 0.005
+        sagLeanGradVelXFwd: 0.05
+        sagLeanGradVelZAbs: 0
+        sagSwingMagGradXBwd: 0.1
+        sagSwingMagGradXFwd: 0.1
+        stepHeight: 0.06
+        stepHeightGradX: 0.025
+        stepHeightGradY: 0.02
+      phase:
+        doubleSupportPhaseLen: 0.6
+        filletPushPhaseLen: 0.4
+        filletStepPhaseLen: 0.4
+        startBlendPhaseLen: 3.14159
+        stopBlendPhaseLen: 3.1416
+        suppTransStartRatio: 1
+        suppTransStopRatio: 1
+        swingMinPhaseLen: 1
+        swingStartPhaseOffset: 0
+        swingStopPhaseOffset: 0.25
+    gcv:
+      gcvAccJerk:
+        accJerkLimitX: 0.1
+        accJerkLimitY: 0.1
+        accJerkLimitZ: 0.1
+      gcvAccLimits:
+        accBackwards: 0.2
+        accForwards: 0.3
+        accRotational: 0.69
+        accSidewards: 0.6
+        decToAccRatio: 1
+      gcvBias:
+        angVelZ: 0
+        linVelX: -0.29
+        linVelY: 0
+      gcvPrescaler:
+        angVelZ: 0.9
+        linVelX: 1
+        linVelY: 0.6
+    general:
+      enableMotionStances: 0
+      gaitFrequency: 2
+      gaitFrequencyMax: 2.4
+      leftLegFirst: 1
+      stanceAdjustGcvMax: 0.4
+      stanceAdjustRate: 1.5
+      stoppingGcvMag: 0.01
+      stoppingPhaseTolLB: 5
+      stoppingPhaseTolUB: 5
+      supportCoeffRange: 1
+      useServoModel: 1
+    poseLimits:
+      armAngleXBuf: 0.1
+      armAngleXMax: 0.8
+      armAngleXMin: 0.05
+      armAngleXUseLimits: 1
+      armAngleYBuf: 0.15
+      armAngleYMax: 0.8
+      armAngleYMin: -0.8
+      armAngleYUseLimits: 1
+      footAngleXBuf: 0.1
+      footAngleXMax: 0.4
+      footAngleXMin: -0.4
+      footAngleXUseLimits: 1
+      footAngleYBuf: 0.1
+      footAngleYMax: 0.5
+      footAngleYMin: -0.5
+      footAngleYUseLimits: 1
+      legAngleXBuf: 0.1
+      legAngleXMax: 0.5
+      legAngleXMin: -0.2
+      legAngleXUseLimits: 1
+      legAngleYBuf: 0.1
+      legAngleYMax: 0.6
+      legAngleYMin: -0.5
+      legAngleYUseLimits: 1
+      legExtBuf: 0.015
+      legExtMin: 0
+      legExtUseLimits: 1
+    robotModel:
+      footHeightHysteresis: 0.009
+    robotSpec:
+      armLinkLength: 0.26391
+      comOffsetX: 0.00895
+      comOffsetZ: 0
+      footLength: 0.3
+      footOffsetX: 0.05198
+      footOffsetY: 0.00575
+      footOffsetZ: 0.055
+      footWidth: 0.1685
+      headOffsetX: -0.011
+      headOffsetZ: 0.06
+      hipWidth: 0.16
+      legLinkLength: 0.33559
+      neckHeight: 0.125
+      shoulderWidth: 0.4125
+      trunkHeight: 0.2965
+      trunkLinkOffsetX: 0.0025
+      trunkLinkOffsetY: 0
+      trunkLinkOffsetZ: 0.0605
+    robotVis:
+      armThickness: 0.045
+      headDiameter: 0.156
+      jointDiameter: 0.025
+      legThickness: 0.055
+      markVectors: 0
+      visOffsetX: 0
+      visOffsetY: -0.5
+      visOffsetZ: 0
+    tuning:
+      noArmBasicFeedback: 0
+      noArmSwing: 0
+      noArms: 0
+      noLegBasicFeedback: 0
+      noLegHipSwing: 0
+      noLegLeaning: 0
+      noLegLifting: 0
+      noLegPushout: 0
+      noLegSupportCoeff: 0
+      noLegSwing: 0
+      noLegVirtual: 0
+      noLegs: 0
+  plotData: 0
+  resetIntegrators: 0
+  saveIFeedToHaltPose: 0
+  showRxVis: 0
+fallProtection:
+  angleToRelaxAfterLanding: 0.8
+  fallProtectionEnabled: 1
+  landingEnabled: 0
+  landingProneEnabled: 0
+  landingSupineEnabled: 0
+  maxLandingDuration: 0.3
+  maxRollForLanding: 0.35
+  sideGetupRollAngle: 0.8
+  sideGetupsEnabled: 1
+  triggerAngle: 0.7
+  triggerAngleKick: 0.8
+  triggerAngleRelaxed: 0.7
+gait:
+  enableCapGait: 1
+  enableJoystick: 1
+  gcv:
+    gcvNormMax: 1
+    gcvNormP: 2
+    gcvZeroTime: 0
+    minWalkingTime: 2
+  plotData: 0
+  publishOdometry: 1
+  publishTransforms: 1
+game_controller:
+  enableGameController: 0
+  enableSecondaryTimeFilter: 1
+  enableSecsRemainingFilter: 1
+  enableVersion8: 1
+  robotNumber: 0
+  serverIP: 192.168.101.10
+  teamNumber: 0
+  useLastServerIP: 0
+hand_shaking_demo:
+  handShakingDemoEnabled: 1
+headcontrol:
+  calib:
+    paramString: ""
+    plotCalibData: 0
+    safetyMargin: 0.05
+  enableJoystick: 1
+  headControlEnabled: 1
+  pitch:
+    defaultEffort: 0.25
+    maxAcc: 10
+    maxVel: 3
+    relax: 0
+  plotData: 0
+  yaw:
+    defaultEffort: 0.25
+    maxAcc: 10
+    maxVel: 3
+    relax: 0
+limbControl:
+  limbControlEnabled: 1
+localization:
+  coef:
+    TOTALGAIN: 1
+    UPDATENORMAL: 0.1
+    UPDATESTRONG: 0.2
+    UPDATEWEAK: 0.05
+  coefs:
+    VerLineMinDistanceToUpdate: 0.7
+  enable: 1
+  forwardRobotTrackerXY: 0
+  forwardRobotTrackerZ: 0
+  minLineLen: 1.5
+  useKalman: 0
+motion_player:
+  rule:
+    limit_inverse:
+      enable: 0
+      epsilon: 0.005
+    trajectory_editor_motion:
+      Lateral: 0
+      Sagittal: 0
+nimbro_op_interface:
+  DXLJoint:
+    joints:
+      head_pitch:
+        enabled: 1
+        id: 20
+        invert: 1
+        readFeedback: 1
+        type: MX-106
+      left_ankle_pitch:
+        enabled: 0
+        id: 216
+        invert: 0
+        readFeedback: 0
+        type: MX-106Q
+      left_ankle_roll:
+        enabled: 0
+        id: 218
+        invert: 0
+        readFeedback: 0
+        type: MX-106DG
+      left_elbow_pitch:
+        enabled: 1
+        id: 6
+        invert: 1
+        readFeedback: 1
+        type: MX-106
+      left_hip_pitch:
+        enabled: 0
+        id: 212
+        invert: 0
+        readFeedback: 0
+        type: MX-106Q
+      left_hip_roll:
+        enabled: 1
+        id: 10
+        invert: 1
+        readFeedback: 1
+        type: MX-106DG
+      left_hip_yaw:
+        enabled: 1
+        id: 8
+        invert: 0
+        readFeedback: 1
+        type: MX-106G
+      left_knee_pitch:
+        enabled: 0
+        id: 214
+        invert: 0
+        readFeedback: 0
+        type: MX-106Q
+      left_shoulder_pitch:
+        enabled: 1
+        id: 2
+        invert: 0
+        readFeedback: 1
+        type: MX-106
+      left_shoulder_roll:
+        enabled: 1
+        id: 4
+        invert: 1
+        readFeedback: 1
+        type: MX-106
+      neck_yaw:
+        enabled: 1
+        id: 19
+        invert: 0
+        readFeedback: 1
+        type: MX-106
+      parallel_left_ankle_roll:
+        enabled: 1
+        id: 18
+        invert: 0
+        readFeedback: 1
+        type: MX-106DG
+      parallel_left_shank_pitch:
+        enabled: 1
+        id: 14
+        invert: 1
+        readFeedback: 1
+        type: MX-106Q
+      parallel_left_shank_pitch_mimic1:
+        enabled: 0
+        id: 141
+        invert: 0
+        readFeedback: 0
+        type: NONE
+      parallel_left_shank_pitch_mimic2:
+        enabled: 0
+        id: 142
+        invert: 0
+        readFeedback: 0
+        type: NONE
+      parallel_left_thigh_pitch:
+        enabled: 1
+        id: 12
+        invert: 1
+        readFeedback: 1
+        type: MX-106Q
+      parallel_left_thigh_pitch_mimic1:
+        enabled: 0
+        id: 121
+        invert: 0
+        readFeedback: 0
+        type: NONE
+      parallel_left_thigh_pitch_mimic2:
+        enabled: 0
+        id: 122
+        invert: 0
+        readFeedback: 0
+        type: NONE
+      parallel_left_thigh_pitch_mimic3:
+        enabled: 0
+        id: 123
+        invert: 0
+        readFeedback: 0
+        type: NONE
+      parallel_right_ankle_roll:
+        enabled: 1
+        id: 17
+        invert: 0
+        readFeedback: 1
+        type: MX-106DG
+      parallel_right_shank_pitch:
+        enabled: 1
+        id: 13
+        invert: 0
+        readFeedback: 1
+        type: MX-106Q
+      parallel_right_shank_pitch_mimic1:
+        enabled: 0
+        id: 131
+        invert: 0
+        readFeedback: 0
+        type: NONE
+      parallel_right_shank_pitch_mimic2:
+        enabled: 0
+        id: 132
+        invert: 0
+        readFeedback: 0
+        type: NONE
+      parallel_right_thigh_pitch:
+        enabled: 1
+        id: 11
+        invert: 0
+        readFeedback: 1
+        type: MX-106Q
+      parallel_right_thigh_pitch_mimic1:
+        enabled: 0
+        id: 111
+        invert: 0
+        readFeedback: 0
+        type: NONE
+      parallel_right_thigh_pitch_mimic2:
+        enabled: 0
+        id: 112
+        invert: 0
+        readFeedback: 0
+        type: NONE
+      parallel_right_thigh_pitch_mimic3:
+        enabled: 0
+        id: 113
+        invert: 0
+        readFeedback: 0
+        type: NONE
+      right_ankle_pitch:
+        enabled: 0
+        id: 215
+        invert: 0
+        readFeedback: 0
+        type: MX-106Q
+      right_ankle_roll:
+        enabled: 0
+        id: 217
+        invert: 0
+        readFeedback: 0
+        type: MX-106DG
+      right_elbow_pitch:
+        enabled: 1
+        id: 5
+        invert: 0
+        readFeedback: 1
+        type: MX-106
+      right_hip_pitch:
+        enabled: 0
+        id: 211
+        invert: 0
+        readFeedback: 0
+        type: MX-106Q
+      right_hip_roll:
+        enabled: 1
+        id: 9
+        invert: 1
+        readFeedback: 1
+        type: MX-106DG
+      right_hip_yaw:
+        enabled: 1
+        id: 7
+        invert: 0
+        readFeedback: 1
+        type: MX-106G
+      right_knee_pitch:
+        enabled: 0
+        id: 213
+        invert: 0
+        readFeedback: 0
+        type: MX-106Q
+      right_shoulder_pitch:
+        enabled: 1
+        id: 21
+        invert: 1
+        readFeedback: 1
+        type: MX-106
+      right_shoulder_roll:
+        enabled: 1
+        id: 3
+        invert: 1
+        readFeedback: 1
+        type: MX-106
+    offsets:
+      head_pitch: 2048
+      left_ankle_pitch: 2048
+      left_ankle_roll: 2048
+      left_elbow_pitch: 2048
+      left_hip_pitch: 2048
+      left_hip_roll: 2048
+      left_hip_yaw: 2048
+      left_knee_pitch: 2048
+      left_shoulder_pitch: 2048
+      left_shoulder_roll: 2048
+      neck_yaw: 2048
+      parallel_left_ankle_roll: 2048
+      parallel_left_shank_pitch: 2048
+      parallel_left_shank_pitch_mimic1: 2048
+      parallel_left_shank_pitch_mimic2: 2048
+      parallel_left_thigh_pitch: 2048
+      parallel_left_thigh_pitch_mimic1: 2048
+      parallel_left_thigh_pitch_mimic2: 2048
+      parallel_left_thigh_pitch_mimic3: 2048
+      parallel_right_ankle_roll: 2048
+      parallel_right_shank_pitch: 2048
+      parallel_right_shank_pitch_mimic1: 2048
+      parallel_right_shank_pitch_mimic2: 2048
+      parallel_right_thigh_pitch: 2048
+      parallel_right_thigh_pitch_mimic1: 2048
+      parallel_right_thigh_pitch_mimic2: 2048
+      parallel_right_thigh_pitch_mimic3: 2048
+      right_ankle_pitch: 2048
+      right_ankle_roll: 2048
+      right_elbow_pitch: 2048
+      right_hip_pitch: 2048
+      right_hip_roll: 2048
+      right_hip_yaw: 2048
+      right_knee_pitch: 2048
+      right_shoulder_pitch: 2048
+      right_shoulder_roll: 2048
+  acc:
+    lowPassMeanTs: 1
+  attEstGyroCalib:
+    forceUpdateGyroBias: 0
+    gyroBiasX: 0
+    gyroBiasY: 0
+    gyroBiasZ: 0
+    setGyroBiasFromMean: 0
+    setGyroBiasFromSmoothMean: 0
+  attEstMagCalib:
+    x: 1
+    y: 0
+    z: 0
+  attEstPIGains:
+    Kp: 2.2
+    KpQuick: 10
+    KpYaw: 4
+    KpYawQuick: 4
+    Ti: 2.65
+    TiQuick: 1.25
+  attEstUseFusedMethod: 0
+  button:
+    pressButton0: 0
+    pressButton1: 0
+    pressButton2: 0
+  effortSlopeLimit: 0.02
+  gyro:
+    lowPassMeanTs: 2
+    lowPassMeanTsHigh: 8
+    scaleFactorHT: 1
+    scaleFactorLT: 1
+    temperatureHigh: 50
+    temperatureLow: 30
+  gyroAutoCalib:
+    biasTsFast: 0.5
+    biasTsSlow: 1.5
+    enable: 0
+    fadeTimeDuration: 1.2
+    fadeTimeStart: 1
+    stabilityBound: 0
+  imuOffsets:
+    calibMaxRelAccScale: 0.4
+    calibMinYawAgreement: 0.8
+    gyroAccFusedYaw: 0
+    gyroAccTiltAngle: 0
+    gyroAccTiltAxisAngle: 0
+    magFlip: 0
+    magFusedYaw: 0
+    magTiltAngle: 0
+    magTiltAxisAngle: 0
+    resetGyroAccOffset: 0
+    resetMagOffset: 0
+  magFilter:
+    autoCalib:
+      bufSize: 100
+      clearBufData: 0
+      confidences:
+        meanDistLarge: 0.5
+        meanDistSmall: 0.15
+        planarSpreadLarge: 0.3
+        planarSpreadSmall: 0.1
+        preferRadius: 0.5
+        radiusErrLimit: 0.15
+        requiredFittedConf: 1
+        spreadAngleMin: 0.7
+        spreadAngleTol: 0.2
+        spreadErrorMax: 0.13
+        spreadErrorMin: 0.02
+      countForUpdate: 100
+      enable: 0
+      enableFilter:
+        enableFilterR: 0
+        enableFilterXY: 0
+        enableFilterZ: 0
+      filter:
+        TsR: 50
+        TsXY: 20
+        TsZ: 50
+        deltaR: 0.002
+        deltaXY: 0.005
+        deltaZ: 0.002
+      resetToHardIron: 0
+      showAllData: 0
+      showDebugMessages: 0
+      tiltBound: 0.05
+      tiltBoundZ: 0.2
+      timeForUpdate: 10
+      useTiltBoundZ: 1
+    calibDataDebounce: 0.008
+    clearCalibMarkers: 0
+    hard:
+      B: 1
+      R: 1
+      enableHardIron: 0
+      setFromAutoCalib: 0
+      x: 0
+      y: 0
+      z: 0
+      zR: 0
+    plotData: 0
+    showAutoCalib: 0
+    showCalib: 0
+    soft:
+      B: 1
+      enableSoftIron: 0
+      hx: 0
+      hy: 0
+      hz: 0
+      w1: 1
+      w2: 0
+      w3: 0
+      w4: 1
+      w5: 0
+      w6: 1
+    warp:
+      enableAngleWarping: 0
+      paramString: ""
+      useDegrees: 1
+  magSpikeMaxDelta: 0.07
+  models:
+    MX-106:
+      km: 0.17
+      maxTickValue: 4095
+      minTickValue: 0
+      stribeckOne: -0.0023
+      stribeckTwo: 0.0250731405677264
+      ticksPerRev: 4096
+      viscuous: 0.553952330165401
+    MX-106DG:
+      km: 0.0425
+      maxTickValue: 4095
+      minTickValue: 0
+      stribeckOne: -0.0023
+      stribeckTwo: 0.0250731405677264
+      ticksPerRev: 8192
+      viscuous: 0.553952330165401
+    MX-106G:
+      km: 0.085
+      maxTickValue: 4095
+      minTickValue: 0
+      stribeckOne: -0.0023
+      stribeckTwo: 0.0250731405677264
+      ticksPerRev: 8192
+      viscuous: 0.553952330165401
+    MX-106Q:
+      km: 0.0425
+      maxTickValue: 4095
+      minTickValue: 0
+      stribeckOne: -0.0023
+      stribeckTwo: 0.0250731405677264
+      ticksPerRev: 4096
+      viscuous: 0.553952330165401
+    NONE:
+      km: 0.17
+      maxTickValue: 4095
+      minTickValue: 0
+      stribeckOne: -0.0023
+      stribeckTwo: 0.0250731405677264
+      ticksPerRev: 4096
+      viscuous: 0.553952330165401
+  plotData: 0
+  rawStateSlopeLimit: 0.02
+  showButtonPresses: 0
+  showServoFailures: 0
+  temperature:
+    lowPassTs: 10
+  useMagnetometer: 0
+  useModel: 0
+  useServos: 1
+  voltage:
+    lowPassTs: 15
+nimbro_op_interface_dummy:
+  addDelay: 1
+  button:
+    pressButton0: 0
+    pressButton1: 0
+    pressButton2: 0
+  fakeAttitude:
+    enabled: 1
+    fusedHemi: 1
+    fusedX: 0
+    fusedY: 0
+    fusedZ: 0
+  fakeIMU:
+    accX: 0
+    accY: 0
+    accZ: 9.81
+    gyroX: 0
+    gyroY: 0
+    gyroZ: 0
+    magX: 0.5
+    magY: 0
+    magZ: 0
+  fakeTemperature: 35
+  noise:
+    enabled: 1
+    magnitude: 0.002
+  useModel: 0
+plotter:
+  cursorStep: 0.01
+  playbackSpeedExp: 0
+  showEventsInLegend: 1
+  vertScaleFactor: 4
+  wheelScaleFactor: 1.2
+robotcontrol:
+  fadeInMaxDelta: 0.005
+  jointAccLimit: 0.5
+  jointVelLimit: 0.5
+  joints:
+    head_pitch:
+      velocityMode: 0
+    left_ankle_pitch:
+      velocityMode: 0
+    left_ankle_roll:
+      velocityMode: 0
+    left_elbow_pitch:
+      velocityMode: 0
+    left_hip_pitch:
+      velocityMode: 0
+    left_hip_roll:
+      velocityMode: 0
+    left_hip_yaw:
+      velocityMode: 0
+    left_knee_pitch:
+      velocityMode: 0
+    left_shoulder_pitch:
+      velocityMode: 0
+    left_shoulder_roll:
+      velocityMode: 0
+    neck_yaw:
+      velocityMode: 0
+    parallel_left_ankle_roll:
+      velocityMode: 0
+    parallel_left_shank_pitch:
+      velocityMode: 0
+    parallel_left_shank_pitch_mimic1:
+      velocityMode: 0
+    parallel_left_shank_pitch_mimic2:
+      velocityMode: 0
+    parallel_left_thigh_pitch:
+      velocityMode: 0
+    parallel_left_thigh_pitch_mimic1:
+      velocityMode: 0
+    parallel_left_thigh_pitch_mimic2:
+      velocityMode: 0
+    parallel_left_thigh_pitch_mimic3:
+      velocityMode: 0
+    parallel_right_ankle_roll:
+      velocityMode: 0
+    parallel_right_shank_pitch:
+      velocityMode: 0
+    parallel_right_shank_pitch_mimic1:
+      velocityMode: 0
+    parallel_right_shank_pitch_mimic2:
+      velocityMode: 0
+    parallel_right_thigh_pitch:
+      velocityMode: 0
+    parallel_right_thigh_pitch_mimic1:
+      velocityMode: 0
+    parallel_right_thigh_pitch_mimic2:
+      velocityMode: 0
+    parallel_right_thigh_pitch_mimic3:
+      velocityMode: 0
+    right_ankle_pitch:
+      velocityMode: 0
+    right_ankle_roll:
+      velocityMode: 0
+    right_elbow_pitch:
+      velocityMode: 0
+    right_hip_pitch:
+      velocityMode: 0
+    right_hip_roll:
+      velocityMode: 0
+    right_hip_yaw:
+      velocityMode: 0
+    right_knee_pitch:
+      velocityMode: 0
+    right_shoulder_pitch:
+      velocityMode: 0
+    right_shoulder_roll:
+      velocityMode: 0
+  pause: 0
+  plotRobotControlData: 0
+  publishCommand: 0
+  robotModel:
+    egoRotIncludesHeading: 0
+    headingIsFusedYaw: 1
+    plotData: 0
+    useFeedbackPos: 0
+    useSupportInfo: 1
+    warnZeroTotalSuppCoeff: 1
+  rosControlInterface:
+    jointMechDampingRatio: 0.15
+    joints:
+      head_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_ankle_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_ankle_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_elbow_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_hip_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_hip_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_hip_yaw:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_knee_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_shoulder_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      left_shoulder_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      neck_yaw:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_left_ankle_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_left_shank_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_left_shank_pitch_mimic1:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_left_shank_pitch_mimic2:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_left_thigh_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_left_thigh_pitch_mimic1:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_left_thigh_pitch_mimic2:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_left_thigh_pitch_mimic3:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_right_ankle_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_right_shank_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_right_shank_pitch_mimic1:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_right_shank_pitch_mimic2:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_right_thigh_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_right_thigh_pitch_mimic1:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_right_thigh_pitch_mimic2:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      parallel_right_thigh_pitch_mimic3:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_ankle_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_ankle_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_elbow_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_hip_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_hip_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_hip_yaw:
+        DGain: 0.8
+        IGain: 0
+        PGain: 110
+      right_knee_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_shoulder_pitch:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+      right_shoulder_roll:
+        DGain: 0.9
+        IGain: 0
+        PGain: 100
+  timerDuration: 0.01
+settings:
+  general:
+    isPenaltyShoot: 0
+    kickoffType: 4
+    listenToGC: 0
+    listenToTC: 0
+    playAsCyan: 0
+    playOnYellow: 1
+    useAutoPositioning: 1
+    waitTime: 15
+  robot:
+    enableDribble: 1
+    enableKick: 1
+    enableObstacles: 1
+    forceKickFoot: 0
+    gameRole: 1
+sitting_demo:
+  sittingDemoEnabled: 1
+standing_demo:
+  standingDemoEnabled: 1
+tw:
+  enableImageWarping: 0
+  tfCacheTime: 180
+vision:
+  ball:
+    cascade:
+      BiggerRectHB: 2
+      BiggerRectHT: 1.4
+      BiggerRectW: 2
+      cascadeNinNeighbors: 10
+      cascadeScale: 1.1
+      dist2cascade: 220
+      enable: 1
+      histogramH_C: 0.7
+      histogramS_C: 0.7
+      histogramV_C: 0.7
+      loadCascadeFile: 0
+    enable: 1
+    gui:
+      addHistogram: 0
+      addSizeDistance: 0
+      clearDistSizeVec: 0
+      clearHistogram: 0
+      popHistogram: 0
+      popSizeDistance: 0
+      rectResizeHeight: 0
+      rectResizeWidth: 0
+      rectRotationMax: 20
+      rectRotationStep: 10
+      saveNegative: 0
+      saveNegativeFull: 0
+      savePositive: 0
+    hough:
+      DP: 2
+      canny: 200
+      circle: 100
+      houghCandHDownRatio: 1
+      houghCandHTopRatio: 1
+      houghCandWRatio: 1
+      kernelBlur: 15
+      maxDist: 100
+      maxR: 1
+      minR: 1
+      pyrDown: 1
+      sigmaBlur: 2
+    hsv:
+      active: 0
+      h0: 0
+      h1: 0
+      histogramH: 0.5
+      histogramS: 0.5
+      histogramV: 0.5
+      s0: 0
+      s1: 0
+      v0: 0
+      v1: 0
+    mergeResult: 0
+    morph:
+      dilate: 1
+      dilate2: 0
+      erode: 1
+      erode2: 0
+    printBallDetection: 0
+    reject:
+      btnGCheckBoxW: 1.3
+      btnGCheckBoxdown: 1.3
+      btnGCheckBoxtop: 0
+      btnGCheckPercent: 50
+      notGPercent: 10
+      whitePercent: 10
+    showAllCircle: 0
+    showBoxs: 0
+    showCandidate: 0
+    showInput: 0
+    showMask: 0
+    showResult: 0
+    subResultFromCanny: 1
+  calib:
+    boardHeight: 10
+    boardWidth: 7
+    delay: 200
+    filePath: cCFile.yml
+    frameCount: 60
+    high_dimension: 1
+    squareSize: 58
+  camera:
+    aspW: 4
+    diagonalAngleView: 75
+    flipHor: 0
+    flipVer: 0
+    freezInput: 0
+  circle:
+    Coef:
+      radiusMaxCoef: 1.5
+      radiusMinCoef: 0.7
+    confiusedDist: 1
+    enable: 1
+    maxDistBetween2LS: 0.3
+    maxLineLen: 1.5
+    minLineLen: 0.2
+    minLineSegmentCount: 3
+  debug:
+    publishTime: 1
+    showCameraPoints: 0
+    showHorizonBox: 0
+    showPCL: 0
+    showTopView: 0
+    webpublishTime: 7
+  field:
+    enable: 1
+    hsv:
+      active: 0
+      h0: 0
+      h1: 0
+      s0: 0
+      s1: 0
+      v0: 0
+      v1: 0
+    morph:
+      dilate: 1
+      dilate2: 0
+      erode: 1
+      erode2: 15
+    real:
+      approxPoly: 0.02
+    shape:
+      maxAcceptDistance: 10.81
+      maxContourCount: 2
+      maxDownDiffPixel: 200
+      minAcceptX: -1
+      minArea: 0
+    showDebug: 0
+    showMask: 0
+    showResult: 0
+  goal:
+    enable: 1
+    gui:
+      addSizeDistance: 0
+      clearDistSizeVec: 0
+      popSizeDistance: 0
+    hsv:
+      active: 1
+      h0: 0
+      h1: 0
+      s0: 0
+      s1: 0
+      v0: 0
+      v1: 0
+    shape:
+      DistanceToMerge: 15
+      FarMaxLen: 640
+      FarMinLen: 0
+      FarestDistance: 10.81
+      MaxOutField: 0
+      MinLineLength: 50
+      NearMaxLen: 640
+      NearMinLen: 0
+      NearestDistance: 0
+    showAllLines: 0
+    showMask: 0
+    showResLine: 0
+    showResult: 0
+    showVote: 0
+    vote:
+      JumpDouble: 2
+      VoteDouble: 40
+      minContinuesColor: 7
+      minDoubleLength: 3
+  gui:
+    calibDistSize_Ball: 0
+    calibDistSize_Goal: 0
+    debugBallCandidates: 0
+    debugCascade: 0
+    printUnderMouseInfo: 0
+    rviz:
+      setCalibTF: 0
+      setLoc: 0
+      setRobotTFOrigin: 0
+    saveHistogram: 0
+    saveSample: 0
+    showDistSize_Ball: 0
+    showDistSize_Goal: 0
+    tfCalib: 0
+  igus:
+    hsv:
+      active: 0
+      h0: 0
+      h1: 0
+      s0: 0
+      s1: 0
+      v0: 0
+      v1: 0
+  line:
+    canny:
+      blurSize: 3
+      cannyThreadshold: 23
+      cannyaperture: 3
+    enable: 1
+    hough:
+      MinLineLength: 100
+      maxLineGapHough: 20
+      rhoHough: 1
+      thetaHough: 45
+      threasholdHough: 20
+    hsv:
+      active: 0
+      h0: 0
+      h1: 0
+      s0: 0
+      s1: 0
+      v0: 0
+      v1: 0
+    shape:
+      AngleToMerge: 10
+      DistanceToMerge: 0.1
+    showAllLine: 0
+    showCanny: 0
+    showMask: 0
+    showResult: 0
+    showVote: 0
+    vote:
+      aprxDist: 1
+      colorVEnd: 1
+      colorVStart: 0
+      colorVote: 60
+      colorVoteUse: 1
+      doubleVEnd: 1
+      doubleVStart: 0
+      doubleVote: 60
+      doubleVoteUse: 1
+      greenVEnd: 1
+      greenVStart: 0
+      greenVote: 60
+      greenVoteUse: 1
+      jumpMax: 20
+      jumpMin: 3
+      widthCheck: 0.07
+  obstacle:
+    enable: 1
+    hsv:
+      active: 0
+      h0: 0
+      h1: 0
+      s0: 0
+      s1: 0
+      v0: 0
+      v1: 0
+    model:
+      decayConfidence: 0.99
+      lowPassCoef: 0.9
+      maxPossibleJump: 0.4
+    morph:
+      dilate: 1
+      erode: 1
+    shape:
+      maxDistance: 10.81
+      minArea: 500
+      minDistance: 0
+    showMask: 0
+    showResult: 0
+  tf:
+    kinCalibHill: 0
+    kinCalibSimplex: 0
+    location:
+      x: 0
+      y: 0
+      z: 0
+    maxIteration: 100
+    orientation:
+      x: 0
+      y: 0
+      z: 0
+    precalculateProjection: 0
+    robot:
+      x: 0
+      y: 0
+      z: 0
+    timeToShift: 0.2
+  topView:
+    scale: 3
+    width: 900
+walk_and_kick:
+  behFSM:
+    dribbleBall:
+      approach:
+        adjustPathAngleHigh: 0.6
+        adjustWalkAngleMax: 0
+        angleErrLimit: 0.8
+        changeFootWormTime: 1
+        funnelCurveRadius: 0.5
+        funnelEdgeExtra: 0.2
+        funnelNeckMag: 0.1
+        gcvSpeedLimit: 1
+        gcvSpeedX: 1
+        gcvSpeedY: 1
+        gcvSpeedZ: 1
+        maxPathTargetSlope: 0.6
+        minPathTargetX: 0.5
+        pathOverdriveY: 1
+        pathTargetLineOffsetX: 0.2
+      conditions:
+        ballDistForFarBall: 0.5
+        ballMaxX: 2
+        ballMaxYMag: 0.15
+        ballMaxYMagExtra: 0.05
+        ballSpreadAcc: 0
+        ballSpreadAccExtra: 0
+        ballSpreadSlope: 0.15
+        ballSpreadSlopeExtra: 0.05
+        okToDribbleWormTime: 0.4
+        stillOkToDribbleWormTime: 0.4
+        targetDistForMinWedge: 1
+        targetDistForMinWedgeHigh: 3
+        targetMinWedgeHigh: 0.8
+        targetWedgeForFarBall: 2
+    gazeAtBall:
+      TsFar: 0.5
+      TsMax: 3
+      TsMin: 0.1
+      TsNear: 1.5
+      boxXMax: 0.1
+      boxXMin: 0
+      boxYMax: 0.1
+      boxYMin: -0.1
+      distFar: 1.5
+      distHorizon: 3
+      distNear: 0.5
+      pitchFar: 0.5
+      pitchHorizon: 0
+      yawDeadband: 1
+      yawFreeLook: 2
+    goBehindBall:
+      absBetaHigh: 1.5
+      absBetaLow: 0.5
+      angleLimitFar: 0.8
+      angleLimitNear: 1
+      footSel:
+        ballPoseYRatio: 0.4
+        changeFootMinConf: 0.5
+        changeFootWormTime: 2
+        minLRDist: 0.1
+        unforceFootTime: 2
+        weightBallPose: 1
+        weightLessDist: 1
+      fullPathLen: 0.9
+      minBallDistLeft: 0.5
+      minBallDistRight: 0.5
+      proximity:
+        betaDistTol: 0.08
+        radiusTol: 0.08
+        valueMax: 0.7
+      psiAwayFromBallBuf: 0.15
+      psiAwayFromBallMax: 1
+      radiusFar: 1.5
+      radiusNear: 1
+      reqBallOffsetFadingAngle: 0.6
+      speed:
+        speedFarX: 1
+        speedFarZ: 1
+        speedLimitXYZ: 1
+        speedNearXY: 1
+        speedNearXYMin: 0.05
+        speedNearZ: 1
+        speedNearZMin: 0.05
+      stuck:
+        maxBallDist: 1
+        maxGcv: 0.4
+        time: 10
+      vis:
+        showRobotHalo: 0
+        simpleVis: 0
+    kickBall:
+      conditions:
+        ballErrorXFwd: 0.1
+        ballErrorXFwdExtra: 0.05
+        ballErrorYIwd: 0.05
+        ballErrorYIwdExtra: 0.02
+        ballErrorYOwd: 0.05
+        ballErrorYOwdExtra: 0.02
+        okToKickWormTime: 0.4
+    lookAround:
+      gazeDownFirstFactor: 0.5
+      magInc: 0.3
+      magInitial: 0.3
+      pitchLookDown: 0.5
+      pitchLookUp: 0
+      splineAccMax: 4
+      splineVelMax: 1
+    lookLeftRight:
+      gazeFreqScaler: 0.5
+      gazePitch: 0
+    obstacleAvoidance:
+      adjustAngleXYHigh: 1
+      adjustGcvZHigh: 0.7
+      angleAtObstacleHigh: 0.8
+      enableObstacleAvoidance: 1
+      maxRadialGcvHigh: 1
+      maxRadialGcvLow: -1
+      radiusHigh: 0.7
+      radiusLow: 0
+      radiusMid: 0.5
+    panicAttack:
+      timeout: 10
+    searchForBall:
+      backup:
+        enabled: 1
+        margin: 0.6
+        waitTime: 1.5
+        walkGcvX: -0.5
+        walkTime: 3
+      lastBallPose:
+        ballPoseFreshTime: 3
+        maxBallPoseDurFar: 1
+        maxBallPoseDurNear: 10
+        minBallPoseDurFar: 0.3
+        minBallPoseDurNear: 2
+        minTimeToWalkFar: 8
+        minTimeToWalkNear: 2
+        radiusFar: 6
+        radiusNear: 1.5
+      resumeCycleTime: 5
+      spinDebounceTime: 8
+      spinGcvZ: 0.7
+      spinGcvZSlow: 0.35
+      spinInsteadRadiusBwd: 2
+      spinInsteadRadiusFwd: 1.5
+      spinTime: 8
+      stateRequestTimeout: 5
+      stayCoolTime: 5
+      tcBallPose:
+        debounce: 1.5
+        enable: 1
+      walkFwdGcvX: 0.7
+      walkFwdTime: 6
+      walkFwdWaitTime: 1
+      walkToGlobalPose:
+        distanceHigh: 7
+        distanceLow: 1
+        doneRadius: 0.4
+        doneTime: 2
+        failTime: 2
+        timeoutHigh: 50
+        timeoutLow: 10
+    walkToGlobalPose:
+      angleErrorCost: 2
+      angleLimitFar: 0.8
+      angleLimitNear: 0.5
+      distFar: 0.8
+      distNear: 0.3
+      speedFarX: 0.7
+      speedFarZ: 0.7
+      speedNearXY: 0.7
+      speedNearZ: 0.7
+    walkToPose:
+      arrivedCostMaxDefault: 0.5
+      arrivedWormTime: 3
+  debug:
+    blockGCPackets: 0
+    forceHalt: 1
+    forceNoBall: 0
+    forceNoDive: 0
+    forceNoKick: 0
+    forceNoPose: 0
+    msgDB: 0
+    msgGBB: 0
+    msgKB: 0
+    msgROSTopics: 0
+    msgSFB: 0
+    msgSensors: 0
+    msgWTGP: 0
+    msgWTP: 0
+    noStoppedGcv: 0
+  enableWAK: 1
+  gameController:
+    enableGameController: 0
+    gcFreshTime: 5
+    ignoreSetIfIllegalPose: 1
+    smoothingTime: 0.75
+    timeoutKickoffType: 12
+    timeoutReadyFirst: 30
+    timeoutSetFirstNormal: 10
+    timeoutSetFirstPenalty: 10
+    timeoutSetLast: 5
+    timeoutTimeoutLast: 5
+  gameFSM:
+    defaultBallHandling:
+      corner:
+        adjustmentAngle: 0.8
+        footSelDisable: 0
+        footSelInsideX: 0.5
+        footSelOutsideX: 1
+        footSelPostOffY: 0.8
+        tangentAngleHigh: 1
+        tangentAngleLow: 0.2
+        tangentWedgeLow: -0.3
+      dribbleZone:
+        centreRadius: 0.4
+        disableAnnulusZone: 0
+        disableCentreZone: 0
+        disableGoalZones: 0
+        nearOppGoalDepth: 0.7
+        nearOwnGoalDepth: 0.8
+      goalPostRadius: 0.25
+      goalPostRadiusExtra: 0.35
+      nearPostTargetWedge: 0.8
+    defaultGoalie:
+      arrivedCostMax: 0.5
+      ballDistChaseBall: 1.8
+      chaseBallIfClose: 1
+      chaseBallWormTime: 3
+      distBufFromPosts: 0.6
+      lookForBallRadius: 0.6
+      scoringDistChaseBall: 2.2
+      scoringDistHigh: 3.5
+      scoringDistLow: 2
+      targetRadiusHigh: 1
+      targetRadiusLow: 0.2
+      targetTimeAgoTimeout: 30
+    obstacleBallHandling:
+      angleAdjustForFootSel: 0.3
+      angleAdjustWedgeRatio: 0.6
+      clearanceAngleHighMax: 1.2
+      clearanceAngleLowMax: 0.3
+      enableObstacleBallHandling: 1
+      footSelObstBallDistMax: 1
+      obstBeforeBallBuf: 0.5
+      obstBeyondTargetBuf: 0.6
+      obstClearanceHigh: 0.4
+      obstClearanceLow: 0.2
+    positioning:
+      arrivedCostMax: 0.5
+      commonTarget:
+        enable: 0
+        targetRot: 0
+        targetX: 0
+        targetY: 0
+      poseAttackingT: 0
+      poseAttackingX: -0.4
+      poseAttackingY: 0
+      poseDefendingT: 0
+      poseDefendingX: -0.2
+      poseDefendingY: 0
+      poseGoalieT: 0
+      poseGoalieX: 0.2
+      poseGoalieY: 0
+      poseLegalWormTime: 1.5
+      poseLegalityBuffer: 0.2
+  gazeLimits:
+    pitchMax: 1
+    pitchMin: 0
+    pitchNeutral: 0
+    velLimit: 2.5
+    yawAbsMax: 1
+  general:
+    ballTarget:
+      maxBallTargetWedge: 1.1
+      minBallTargetWedge: 0.3
+      minBallTargetWedgeExtra: 0.1
+      minBallToTargetDist: 0.6
+    dribble:
+      accuracyWedge: 0.2
+    forceDribbleIfChoice: 0
+    forceKickIfChoice: 0
+    globalGcvBwdLimit: 1
+    globalGcvShearXY: 1
+    globalGcvSpeedLimit: 1
+    kick:
+      accuracyWedge: 0.4
+      angleDriftLeftKick: 0
+      angleDriftRightKick: 0
+      maxDist: 4.5
+      minDist: 3.5
+    reqBallOffset:
+      x: 0.3
+      xDribble: 0.3
+      yDribbleMag: 0.08
+      yLeft: 0.12
+      yRight: -0.12
+    simpleModeButton: 1
+    targetPoseReevalTime: 2
+  pauseWAK: 0
+  plotData: 0
+  publishTF: 0
+  publishVis: 0
+  sensors:
+    ballHasMoved:
+      centreRadius: 0.4
+      disable: 0
+      maxRobotDist: 2
+      wormTime: 1.5
+    ballStableMaxDist: 4
+    ballStableTime: 5
+    confDecay:
+      halfLifeBall: 1
+      halfLifeGoal: 1
+      halfLifeObstacle: 1
+      halfLifeRobotPose: 1
+      timeToDecay: 1
+    confLimit:
+      ball: 0.2
+      ballTarget: 0.2
+      robotPose: 0.2
+    localisation:
+      locHintTimeout: 5
+      setToGoalsEnable: 1
+      setToGoalsHeadingTol: 0.3
+      setToSideEnable: 1
+      setToSideHeadingTol: 0.2
+      setToSideOffsetX: 0.4
+    maxBallDist: 10
+    timeoutBallInPlay: 10
+    timeoutDirectGoal: 20
+    waitTimeReduction: 0
+  teamComms:
+    enableTeamComms: 0
+    tcFreshTime: 5
+  visualisation:
+    footLength: 0.2
+    footOffsetX: 0
+    footOffsetY: 0.15
+    footWidth: 0.1

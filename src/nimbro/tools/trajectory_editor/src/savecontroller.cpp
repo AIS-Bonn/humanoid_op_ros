@@ -19,6 +19,7 @@ QString SaveController::newMotion(motionfile::Motion& motion)
 {
 	// Choose which robot model to use
 	std::string model;
+	std::string perspective;
 	QStringList robots;
 	const std::vector<joint_perspective::JointPerspective> perspectives = m_perspective_manager->getPerspectives();
 	
@@ -32,7 +33,10 @@ QString SaveController::newMotion(motionfile::Motion& motion)
 	{
 		for(unsigned i = 0; i < perspectives.size(); i++)
 			if(item.toStdString() == perspectives.at(i).m_robot_name)
+			{
 				model = perspectives.at(i).m_model;
+				perspective = perspectives.at(i).m_name;
+			}
 	}
 	else
 		return "";
@@ -49,12 +53,13 @@ QString SaveController::newMotion(motionfile::Motion& motion)
 		return "";
 	
 	// Set up new motion
-	motion.motionName = getFileNameFromPath(path);
-	motion.preState   = "";
-	motion.playState  = "";
-	motion.postState  = "";
-	motion.pidEnabled = false;
-	motion.filePath   = path.toStdString();
+	motion.motionName  = getFileNameFromPath(path);
+	motion.preState    = "";
+	motion.playState   = "";
+	motion.postState   = "";
+	motion.pidEnabled  = false;
+	motion.filePath    = path.toStdString();
+	motion.perspective = perspective;
 	
 	// Get joint list from the model
 	motion.jointList.clear();

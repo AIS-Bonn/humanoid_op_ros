@@ -1,3 +1,6 @@
 <launch>
-	<param name="robot_description" command="$(find xacro)/xacro.py $(find nimbro_op_model)/robots/$(env NIMBRO_ROBOT_VARIANT).xacro" />
+	<arg name="robot_variant" default="$(env NIMBRO_ROBOT_VARIANT)" />
+
+	<param name="robot_variant" value="$(arg robot_variant)" type="str" />
+	<param name="robot_description" command="$(find xacro)/xacro --inorder $(find nimbro_op_model)/robots/$(arg robot_variant).xacro" />
 </launch>

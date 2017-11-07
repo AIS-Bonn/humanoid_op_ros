@@ -14,19 +14,124 @@ using namespace rc_utils;
 // Math functions tests
 //
 
-// Test: picut
+// Test: picut, picutMod, picutMax, picutMin
 TEST(MathFuncsTest, test_picut)
 {
-	// Check that we are getting the expected values
+	// Constants
+	double eps = 1e-15; // Must be larger than epsilon(2*pi)
+	double tmp = 0.0;
+
+	// Test picut
 	EXPECT_DOUBLE_EQ(0.0, picut(-M_2PI));
 	EXPECT_DOUBLE_EQ(M_PI_2, picut(-3.0*M_PI_2));
 	EXPECT_DOUBLE_EQ(M_PI, picut(-M_PI));
+	EXPECT_DOUBLE_EQ(-M_PI + eps, picut(-M_PI + eps));
 	EXPECT_DOUBLE_EQ(-M_PI_2, picut(-M_PI_2));
 	EXPECT_DOUBLE_EQ(0.0, picut(0.0));
 	EXPECT_DOUBLE_EQ(M_PI_2, picut(M_PI_2));
 	EXPECT_DOUBLE_EQ(M_PI, picut(M_PI));
+	EXPECT_DOUBLE_EQ(-M_PI + eps, picut(M_PI + eps));
 	EXPECT_DOUBLE_EQ(-M_PI_2, picut(3.0*M_PI_2));
 	EXPECT_DOUBLE_EQ(0.0, picut(M_2PI));
+
+	// Test picutMod
+	EXPECT_DOUBLE_EQ(M_2PI - eps, picutMod(-M_2PI - eps));
+	EXPECT_DOUBLE_EQ(0.0, picutMod(-M_2PI));
+	EXPECT_DOUBLE_EQ(M_PI_2, picutMod(-3.0*M_PI_2));
+	EXPECT_DOUBLE_EQ(M_PI, picutMod(-M_PI));
+	EXPECT_DOUBLE_EQ(3.0*M_PI_2, picutMod(-M_PI_2));
+	EXPECT_DOUBLE_EQ(0.0, picutMod(0.0));
+	EXPECT_DOUBLE_EQ(M_PI_2, picutMod(M_PI_2));
+	EXPECT_DOUBLE_EQ(M_PI, picutMod(M_PI));
+	EXPECT_DOUBLE_EQ(3.0*M_PI_2, picutMod(3.0*M_PI_2));
+	EXPECT_DOUBLE_EQ(M_2PI - eps, picutMod(M_2PI - eps));
+	EXPECT_DOUBLE_EQ(0.0, picutMod(M_2PI));
+
+	// Test picutMax
+	EXPECT_DOUBLE_EQ(M_2PI, picutMax(-M_2PI, 10.0));
+	EXPECT_DOUBLE_EQ(M_2PI + M_PI_2, picutMax(-3.0*M_PI_2, 10.0));
+	EXPECT_DOUBLE_EQ(M_2PI + M_PI, picutMax(-M_PI, 10.0));
+	EXPECT_DOUBLE_EQ(M_2PI - M_PI_2, picutMax(-M_PI_2, 10.0));
+	EXPECT_DOUBLE_EQ(M_2PI, picutMax(0.0, 10.0));
+	EXPECT_DOUBLE_EQ(M_2PI + M_PI_2, picutMax(M_PI_2, 10.0));
+	EXPECT_DOUBLE_EQ(M_2PI + M_PI, picutMax(M_PI, 10.0));
+	EXPECT_DOUBLE_EQ(M_2PI - M_PI_2, picutMax(3.0*M_PI_2, 10.0));
+	EXPECT_DOUBLE_EQ(M_2PI, picutMax(M_2PI, 10.0));
+	EXPECT_DOUBLE_EQ(10.0, picutMax(10.0 - M_2PI, 10.0));
+	EXPECT_DOUBLE_EQ((10.0 - M_2PI) + eps, picutMax((10.0 - M_2PI) + eps, 10.0));
+	EXPECT_DOUBLE_EQ(10.0, picutMax(10.0, 10.0));
+	EXPECT_DOUBLE_EQ((10.0 - M_2PI) + eps, picutMax(10.0 + eps, 10.0));
+
+	// Test picutMin
+	EXPECT_DOUBLE_EQ(M_2PI, picutMin(-M_2PI, 4.0));
+	EXPECT_DOUBLE_EQ(M_2PI + M_PI_2, picutMin(-3.0*M_PI_2, 4.0));
+	EXPECT_DOUBLE_EQ(M_2PI + M_PI, picutMin(-M_PI, 4.0));
+	EXPECT_DOUBLE_EQ(M_2PI - M_PI_2, picutMin(-M_PI_2, 4.0));
+	EXPECT_DOUBLE_EQ(M_2PI, picutMin(0.0, 4.0));
+	EXPECT_DOUBLE_EQ(M_2PI + M_PI_2, picutMin(M_PI_2, 4.0));
+	EXPECT_DOUBLE_EQ(M_2PI + M_PI, picutMin(M_PI, 4.0));
+	EXPECT_DOUBLE_EQ(M_2PI - M_PI_2, picutMin(3.0*M_PI_2, 4.0));
+	EXPECT_DOUBLE_EQ(M_2PI, picutMin(M_2PI, 4.0));
+	EXPECT_DOUBLE_EQ(4.0 + M_2PI, picutMin(4.0, 4.0));
+	EXPECT_DOUBLE_EQ(4.0 + eps, picutMin(4.0 + eps, 4.0));
+	EXPECT_DOUBLE_EQ(4.0 + M_2PI, picutMin(4.0 + M_2PI, 4.0));
+	EXPECT_DOUBLE_EQ(4.0 + eps, picutMin(4.0 + M_2PI + eps, 4.0));
+
+	// Test picutVar
+	tmp = -M_2PI; picutVar(tmp); EXPECT_DOUBLE_EQ(0.0, tmp);
+	tmp = -3.0*M_PI_2; picutVar(tmp); EXPECT_DOUBLE_EQ(M_PI_2, tmp);
+	tmp = -M_PI; picutVar(tmp); EXPECT_DOUBLE_EQ(M_PI, tmp);
+	tmp = -M_PI + eps; picutVar(tmp); EXPECT_DOUBLE_EQ(-M_PI + eps, tmp);
+	tmp = -M_PI_2; picutVar(tmp); EXPECT_DOUBLE_EQ(-M_PI_2, tmp);
+	tmp = 0.0; picutVar(tmp); EXPECT_DOUBLE_EQ(0.0, tmp);
+	tmp = M_PI_2; picutVar(tmp); EXPECT_DOUBLE_EQ(M_PI_2, tmp);
+	tmp = M_PI; picutVar(tmp); EXPECT_DOUBLE_EQ(M_PI, tmp);
+	tmp = M_PI + eps; picutVar(tmp); EXPECT_DOUBLE_EQ(-M_PI + eps, tmp);
+	tmp = 3.0*M_PI_2; picutVar(tmp); EXPECT_DOUBLE_EQ(-M_PI_2, tmp);
+	tmp = M_2PI; picutVar(tmp); EXPECT_DOUBLE_EQ(0.0, tmp);
+
+	// Test picutVarMod
+	tmp = -M_2PI - eps; picutVarMod(tmp); EXPECT_DOUBLE_EQ(M_2PI - eps, tmp);
+	tmp = -M_2PI; picutVarMod(tmp); EXPECT_DOUBLE_EQ(0.0, tmp);
+	tmp = -3.0*M_PI_2; picutVarMod(tmp); EXPECT_DOUBLE_EQ(M_PI_2, tmp);
+	tmp = -M_PI; picutVarMod(tmp); EXPECT_DOUBLE_EQ(M_PI, tmp);
+	tmp = -M_PI_2; picutVarMod(tmp); EXPECT_DOUBLE_EQ(3.0*M_PI_2, tmp);
+	tmp = 0.0; picutVarMod(tmp); EXPECT_DOUBLE_EQ(0.0, tmp);
+	tmp = M_PI_2; picutVarMod(tmp); EXPECT_DOUBLE_EQ(M_PI_2, tmp);
+	tmp = M_PI; picutVarMod(tmp); EXPECT_DOUBLE_EQ(M_PI, tmp);
+	tmp = 3.0*M_PI_2; picutVarMod(tmp); EXPECT_DOUBLE_EQ(3.0*M_PI_2, tmp);
+	tmp = M_2PI - eps; picutVarMod(tmp); EXPECT_DOUBLE_EQ(M_2PI - eps, tmp);
+	tmp = M_2PI; picutVarMod(tmp); EXPECT_DOUBLE_EQ(0.0, tmp);
+
+	// Test picutVarMax
+	tmp = -M_2PI; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ(M_2PI, tmp);
+	tmp = -3.0*M_PI_2; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ(M_2PI + M_PI_2, tmp);
+	tmp = -M_PI; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ(M_2PI + M_PI, tmp);
+	tmp = -M_PI_2; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ(M_2PI - M_PI_2, tmp);
+	tmp = 0.0; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ(M_2PI, tmp);
+	tmp = M_PI_2; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ(M_2PI + M_PI_2, tmp);
+	tmp = M_PI; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ(M_2PI + M_PI, tmp);
+	tmp = 3.0*M_PI_2; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ(M_2PI - M_PI_2, tmp);
+	tmp = M_2PI; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ(M_2PI, tmp);
+	tmp = 10.0 - M_2PI; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ(10.0, tmp);
+	tmp = (10.0 - M_2PI) + eps; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ((10.0 - M_2PI) + eps, tmp);
+	tmp = 10.0; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ(10.0, tmp);
+	tmp = 10.0 + eps; picutVarMax(tmp, 10.0); EXPECT_DOUBLE_EQ((10.0 - M_2PI) + eps, tmp);
+
+	// Test picutVarMin
+	tmp = -M_2PI; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(M_2PI, tmp);
+	tmp = -3.0*M_PI_2; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(M_2PI + M_PI_2, tmp);
+	tmp = -M_PI; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(M_2PI + M_PI, tmp);
+	tmp = -M_PI_2; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(M_2PI - M_PI_2, tmp);
+	tmp = 0.0; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(M_2PI, tmp);
+	tmp = M_PI_2; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(M_2PI + M_PI_2, tmp);
+	tmp = M_PI; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(M_2PI + M_PI, tmp);
+	tmp = 3.0*M_PI_2; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(M_2PI - M_PI_2, tmp);
+	tmp = M_2PI; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(M_2PI, tmp);
+	tmp = 4.0; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(4.0 + M_2PI, tmp);
+	tmp = 4.0 + eps; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(4.0 + eps, tmp);
+	tmp = 4.0 + M_2PI; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(4.0 + M_2PI, tmp);
+	tmp = 4.0 + M_2PI + eps; picutVarMin(tmp, 4.0); EXPECT_DOUBLE_EQ(4.0 + eps, tmp);
 }
 
 // Test: sign, sign0
@@ -58,10 +163,15 @@ TEST(MathFuncsTest, test_sign)
 // Test: coerce, coerceAbs, coerceMax, coerceMin
 TEST(MathFuncsTest, test_coerce)
 {
-	// Check that we are getting the expected values (we want exact comparisons to be possible)
-	EXPECT_EQ( 2.0, coerce(1.0, 2.0, 8.0));
-	EXPECT_EQ( 5.0, coerce(5.0, 2.0, 8.0));
-	EXPECT_EQ( 8.0, coerce(9.0, 2.0, 8.0));
+	// Test the standard overloads
+	EXPECT_EQ(2, coerce(1, 2, 7));
+	EXPECT_EQ(5, coerce(5, 2, 7));
+	EXPECT_EQ(7, coerce(9, 2, 7));
+	EXPECT_EQ(4, coerce(6, 7, 2));
+	EXPECT_EQ(2.0, coerce(1.0, 2.0, 7.0));
+	EXPECT_EQ(5.0, coerce(5.0, 2.0, 7.0));
+	EXPECT_EQ(7.0, coerce(9.0, 2.0, 7.0));
+	EXPECT_EQ(4.5, coerce(6.0, 7.0, 2.0));
 	EXPECT_EQ(-8.0, coerceAbs(-9.0, 8.0));
 	EXPECT_EQ( 1.0, coerceAbs( 1.0, 8.0));
 	EXPECT_EQ( 8.0, coerceAbs( 9.0, 8.0));
@@ -69,6 +179,50 @@ TEST(MathFuncsTest, test_coerce)
 	EXPECT_EQ(-8.0, coerceMax(-8.0,-5.0));
 	EXPECT_EQ( 0.0, coerceMin( 0.0,-5.0));
 	EXPECT_EQ(-5.0, coerceMin(-8.0,-5.0));
+	EXPECT_EQ(0.7, coerceEll(0.7, 1.9, 2.0, 5.0));
+	EXPECT_EQ(4.0177692190172261, coerceEll(7.0, 1.9, 2.0, 5.0));
+	EXPECT_EQ(-4.0177692190172261, coerceEll(-6.0, 1.9, 2.0, 5.0));
+	EXPECT_EQ(2.0, coerceEll(7.0, 0.0, 2.0, 5.0));
+	EXPECT_EQ(5.0, coerceEll(7.0, M_PI_2, 2.0, 5.0));
+	EXPECT_EQ(2.0, coerceEll(7.0, M_PI, 2.0, 5.0));
+	EXPECT_EQ(5.0, coerceEll(7.0, 3.0*M_PI_2, 2.0, 5.0));
+
+	// Test boolean variant overloads
+	bool coerced = false;
+	EXPECT_EQ(2, coerce(1, 2, 7, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(2, coerce(2, 2, 7, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(5, coerce(5, 2, 7, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(7, coerce(7, 2, 7, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(7, coerce(9, 2, 7, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(4, coerce(6, 7, 2, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(4, coerce(4, 7, 2, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(2.0, coerce(1.0, 2.0, 7.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(2.0, coerce(2.0, 2.0, 7.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(5.0, coerce(5.0, 2.0, 7.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(7.0, coerce(7.0, 2.0, 7.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(7.0, coerce(9.0, 2.0, 7.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(4.5, coerce(6.0, 7.0, 2.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(4.5, coerce(4.5, 7.0, 2.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(-8.0, coerceAbs(-9.0, 8.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(-8.0, coerceAbs(-8.0, 8.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ( 1.0, coerceAbs( 1.0, 8.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ( 8.0, coerceAbs( 8.0, 8.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ( 8.0, coerceAbs( 9.0, 8.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ( 0.0, coerceAbs(-9.0, -8.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ( 0.0, coerceAbs( 0.0, -8.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(-5.0, coerceMax( 0.0, -5.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(-5.0, coerceMax(-5.0, -5.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(-8.0, coerceMax(-8.0, -5.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ( 0.0, coerceMin( 0.0, -5.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(-5.0, coerceMin(-5.0, -5.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(-5.0, coerceMin(-8.0, -5.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(0.7, coerceEll(0.7, 1.9, 2.0, 5.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(4.0177692190172261, coerceEll(7.0, 1.9, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(-4.0177692190172261, coerceEll(-6.0, 1.9, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(2.0, coerceEll(7.0, 0.0, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(5.0, coerceEll(7.0, M_PI_2, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(2.0, coerceEll(7.0, M_PI, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(5.0, coerceEll(7.0, 3.0*M_PI_2, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
 }
 
 // Test: coerceSoft, coerceSoftAbs, coerceSoftMax, coerceSoftMin
@@ -81,10 +235,10 @@ TEST(MathFuncsTest, test_coerceSoft)
 	EXPECT_EQ(2.0, coerceSoft(1.0, 2.0, 8.0, 0.0));
 	EXPECT_EQ(5.0, coerceSoft(5.0, 2.0, 8.0, 0.0));
 	EXPECT_EQ(8.0, coerceSoft(9.0, 2.0, 8.0, 0.0));
-	EXPECT_DOUBLE_EQ(coerceSoft(1.0, 2.0, 8.0, 3.0), coerceSoft(1.0, 2.0, 8.0, 10.0));
-	EXPECT_DOUBLE_EQ(coerceSoft(5.0, 2.0, 8.0, 3.0), coerceSoft(5.0, 2.0, 8.0, 10.0));
-	EXPECT_DOUBLE_EQ(coerceSoft(9.0, 2.0, 8.0, 3.0), coerceSoft(9.0, 2.0, 8.0, 10.0));
-	
+	EXPECT_DOUBLE_EQ(3.5472799993675128, coerceSoft(1.0, 2.0, 8.0, 10.0));
+	EXPECT_DOUBLE_EQ(5.0000000000000000, coerceSoft(5.0, 2.0, 8.0, 10.0));
+	EXPECT_DOUBLE_EQ(6.4527200006324872, coerceSoft(9.0, 2.0, 8.0, 10.0));
+
 	// Check that we are getting the expected values for coerceSoftAbs
 	EXPECT_DOUBLE_EQ(-7.3835075901459835, coerceSoftAbs(-9.0, 8.0, 2.5));
 	EXPECT_DOUBLE_EQ( 7.3835075901459835, coerceSoftAbs( 9.0, 8.0, 2.5));
@@ -92,10 +246,11 @@ TEST(MathFuncsTest, test_coerceSoft)
 	EXPECT_EQ(-8.0, coerceSoftAbs(-9.0, 8.0, 0.0));
 	EXPECT_EQ( 1.0, coerceSoftAbs( 1.0, 8.0, 0.0));
 	EXPECT_EQ( 8.0, coerceSoftAbs( 9.0, 8.0, 0.0));
-	EXPECT_DOUBLE_EQ(coerceSoftAbs(1.0, 8.0, 8.0), coerceSoftAbs(1.0, 8.0, 10.0));
-	EXPECT_DOUBLE_EQ(coerceSoftAbs(5.0, 8.0, 8.0), coerceSoftAbs(5.0, 8.0, 10.0));
-	EXPECT_DOUBLE_EQ(coerceSoftAbs(9.0, 8.0, 8.0), coerceSoftAbs(9.0, 8.0, 10.0));
-	
+	EXPECT_DOUBLE_EQ(0.0000000000000000, coerceSoftAbs(0.0, 8.0, 10.0));
+	EXPECT_DOUBLE_EQ(0.7782291165556883, coerceSoftAbs(1.0, 8.0, 10.0));
+	EXPECT_DOUBLE_EQ(3.2042274025080628, coerceSoftAbs(5.0, 8.0, 10.0));
+	EXPECT_DOUBLE_EQ(4.8152638489847330, coerceSoftAbs(9.0, 8.0, 10.0));
+
 	// Check that we are getting the expected values for coerceSoftMax
 	EXPECT_DOUBLE_EQ(-5.5518191617571633, coerceSoftMax(-5.0, -5.0, 1.5));
 	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, 1.5));
@@ -103,7 +258,7 @@ TEST(MathFuncsTest, test_coerceSoft)
 	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, 0.0));
 	EXPECT_EQ(-5.0, coerceSoftMax(-4.5, -5.0, -1.0));
 	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, -1.0));
-	
+
 	// Check that we are getting the expected values for coerceSoftMin
 	EXPECT_DOUBLE_EQ(-4.4481808382428367, coerceSoftMin(-5.0, -5.0, 1.5));
 	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, 1.5));
@@ -111,6 +266,68 @@ TEST(MathFuncsTest, test_coerceSoft)
 	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, 0.0));
 	EXPECT_EQ(-5.0, coerceSoftMin(-5.5, -5.0, -1.0));
 	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, -1.0));
+
+	// Check that we are getting the expected values for coerceSoftEll
+	EXPECT_EQ(0.7, coerceSoftEll(0.7, 1.9, 2.0, 5.0, 1.0));
+	EXPECT_EQ(-2.4, coerceSoftEll(-2.4, 1.9, 2.0, 5.0, 1.0));
+	EXPECT_EQ(3.1843602357410350, coerceSoftEll(3.2, 1.9, 2.0, 5.0, 1.0));
+	EXPECT_EQ(3.9991252167894755, coerceSoftEll(7.0, 1.9, 2.0, 5.0, 1.0));
+	EXPECT_EQ(1.9975212478233337, coerceSoftEll(7.0, 0.0, 2.0, 5.0, 1.0));
+	EXPECT_EQ(4.9502129316321364, coerceSoftEll(7.0, M_PI_2, 2.0, 5.0, 1.0));
+	EXPECT_EQ(1.9975212478233337, coerceSoftEll(7.0, M_PI, 2.0, 5.0, 1.0));
+	EXPECT_EQ(4.9502129316321364, coerceSoftEll(7.0, 3.0*M_PI_2, 2.0, 5.0, 1.0));
+
+	// Variable for checking whether coercion was necessary
+	bool coerced = false;
+
+	// Check that we are getting the expected values for coerceSoft
+	EXPECT_DOUBLE_EQ(2.0248935341839318, coerceSoft(1.0, 2.0, 8.0, 0.5, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_DOUBLE_EQ(7.9751064658160677, coerceSoft(9.0, 2.0, 8.0, 0.5, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(5.0, coerceSoft(5.0, 2.0, 8.0, 0.5, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(2.0, coerceSoft(1.0, 2.0, 8.0, 0.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(5.0, coerceSoft(5.0, 2.0, 8.0, 0.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(8.0, coerceSoft(9.0, 2.0, 8.0, 0.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_DOUBLE_EQ(3.5472799993675128, coerceSoft(1.0, 2.0, 8.0, 10.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_DOUBLE_EQ(5.0000000000000000, coerceSoft(5.0, 2.0, 8.0, 10.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_DOUBLE_EQ(6.4527200006324872, coerceSoft(9.0, 2.0, 8.0, 10.0, coerced)); EXPECT_TRUE(coerced);
+
+	// Check that we are getting the expected values for coerceSoftAbs
+	EXPECT_DOUBLE_EQ(-7.3835075901459835, coerceSoftAbs(-9.0, 8.0, 2.5, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_DOUBLE_EQ( 7.3835075901459835, coerceSoftAbs( 9.0, 8.0, 2.5, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ( 1.0, coerceSoftAbs( 1.0, 8.0, 2.5, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(-8.0, coerceSoftAbs(-9.0, 8.0, 0.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ( 1.0, coerceSoftAbs( 1.0, 8.0, 0.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ( 8.0, coerceSoftAbs( 9.0, 8.0, 0.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_DOUBLE_EQ(0.0000000000000000, coerceSoftAbs(0.0, 8.0, 10.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_DOUBLE_EQ(0.7782291165556883, coerceSoftAbs(1.0, 8.0, 10.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_DOUBLE_EQ(3.2042274025080628, coerceSoftAbs(5.0, 8.0, 10.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_DOUBLE_EQ(4.8152638489847330, coerceSoftAbs(9.0, 8.0, 10.0, coerced)); EXPECT_TRUE(coerced);
+
+	// Check that we are getting the expected values for coerceSoftMax
+	EXPECT_DOUBLE_EQ(-5.5518191617571633, coerceSoftMax(-5.0, -5.0, 1.5, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, 1.5, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(-5.0, coerceSoftMax(-4.5, -5.0, 0.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, 0.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(-5.0, coerceSoftMax(-4.5, -5.0, -1.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, -1.0, coerced)); EXPECT_FALSE(coerced);
+
+	// Check that we are getting the expected values for coerceSoftMin
+	EXPECT_DOUBLE_EQ(-4.4481808382428367, coerceSoftMin(-5.0, -5.0, 1.5, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, 1.5, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(-5.0, coerceSoftMin(-5.5, -5.0, 0.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, 0.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(-5.0, coerceSoftMin(-5.5, -5.0, -1.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, -1.0, coerced)); EXPECT_FALSE(coerced);
+
+	// Check that we are getting the expected values for coerceSoftEll
+	EXPECT_EQ(0.7, coerceSoftEll(0.7, 1.9, 2.0, 5.0, 1.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(-2.4, coerceSoftEll(-2.4, 1.9, 2.0, 5.0, 1.0, coerced)); EXPECT_FALSE(coerced);
+	EXPECT_EQ(3.1843602357410350, coerceSoftEll(3.2, 1.9, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(3.9991252167894755, coerceSoftEll(7.0, 1.9, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(1.9975212478233337, coerceSoftEll(7.0, 0.0, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(4.9502129316321364, coerceSoftEll(7.0, M_PI_2, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(1.9975212478233337, coerceSoftEll(7.0, M_PI, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
+	EXPECT_EQ(4.9502129316321364, coerceSoftEll(7.0, 3.0*M_PI_2, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
 }
 
 // Test: interpolate
@@ -137,7 +354,7 @@ TEST(MathFuncsTest, test_interpolate)
 	EXPECT_DOUBLE_EQ(2.0, interpolate(4.0, 4.0, 1.0, 3.0, 3.0));
 	EXPECT_DOUBLE_EQ(2.0, interpolate(4.0, 4.0, 1.0, 3.0, 4.0));
 	EXPECT_DOUBLE_EQ(2.0, interpolate(4.0, 4.0, 1.0, 3.0, 5.0));
-	
+
 	// Check that we are getting the expected values for the u form
 	EXPECT_DOUBLE_EQ(0.4, interpolate(1.0, 3.0, -0.3));
 	EXPECT_DOUBLE_EQ(1.0, interpolate(1.0, 3.0, 0.0));
@@ -177,7 +394,7 @@ TEST(MathFuncsTest, test_interpolateCoerced)
 	EXPECT_DOUBLE_EQ(2.0, interpolateCoerced(4.0, 4.0, 1.0, 3.0, 3.0));
 	EXPECT_DOUBLE_EQ(2.0, interpolateCoerced(4.0, 4.0, 1.0, 3.0, 4.0));
 	EXPECT_DOUBLE_EQ(2.0, interpolateCoerced(4.0, 4.0, 1.0, 3.0, 5.0));
-	
+
 	// Check that we are getting the expected values for the u form
 	EXPECT_DOUBLE_EQ(1.0, interpolateCoerced(1.0, 3.0, -0.3));
 	EXPECT_DOUBLE_EQ(1.0, interpolateCoerced(1.0, 3.0, 0.0));
@@ -314,7 +531,7 @@ TEST(MathSplineTest, test_TrapVelSpline1)
 
 	// Test the static evaluation function
 	EXPECT_DOUBLE_EQ(1.5, TrapVelSpline::eval(1, 0, 2, 0, 1, 5, 0.6));
-	
+
 	// Create a trapezoidal spline object
 	TrapVelSpline spline(1, 0, 2, 0, 1, 5);
 
@@ -973,7 +1190,7 @@ TEST(MathVecMatTest, test_eigenToTF)
 	EXPECT_EQ(eigenvec.y(), tfvec.y());
 	EXPECT_EQ(eigenvec.z(), tfvec.z());
 	EXPECT_EQ(0.0         , tfvec.w());
-	
+
 	// Check that we are getting the expected matrix conversion
 	Eigen::Matrix3d eigenmat;
 	eigenmat << 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0;
@@ -992,7 +1209,7 @@ TEST(MathVecMatTest, test_tfToEigen)
 	EXPECT_EQ(tfvec.x(), eigenvec.x());
 	EXPECT_EQ(tfvec.y(), eigenvec.y());
 	EXPECT_EQ(tfvec.z(), eigenvec.z());
-	
+
 	// Check that we are getting the expected matrix conversion
 	tf::Matrix3x3 tfmat(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
 	Eigen::Matrix3d eigenmat = tfToEigen(tfmat);

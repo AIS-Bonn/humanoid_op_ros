@@ -13,7 +13,7 @@
 
 #include <QtCore/QSettings>
 #include <QtCore/QMutex>
-#include <QtGui/QMenu>
+#include <QMenu>
 
 #include <plotter/plots/jointstateplot.h>
 

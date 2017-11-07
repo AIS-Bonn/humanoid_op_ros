@@ -62,41 +62,45 @@ void MappedMotion::initPlayer()
 	}
 }
 
+const std::string MotionPlayer::RESOURCE_PATH = "motion_player/";
+const std::string MotionPlayer::CONFIG_PARAM_PATH = "/motion_player/";
 const std::string MotionPlayer::m_fallingStatePrefix = "falling|play_";
 
-MotionPlayer::MotionPlayer() :
-		m_torqueAct("/robotcontrol/fade_torque"), m_isRelaxed(false), m_isInitialized(
-				false), isPlaying(false), PM(PM_COUNT, "/MotionPlayer")
+MotionPlayer::MotionPlayer() : m_nh("~"), m_torqueAct(m_nh, "fade_torque"), m_isRelaxed(false), m_isInitialized(false), isPlaying(false), PM(PM_COUNT, RESOURCE_PATH)
 {
-	ros::NodeHandle nh("~");
+	ros::NodeHandle nhs;
 
-	m_srv_play = nh.advertiseService("/motion_player/play",
+	m_srv_play = nhs.advertiseService(RESOURCE_PATH + "play",
 			&MotionPlayer::handlePlay, this);
-	m_srv_update = nh.advertiseService("/motion_player/update",
+	m_srv_update = nhs.advertiseService(RESOURCE_PATH + "update",
 			&MotionPlayer::handleUpdateMotion, this);
-	m_srv_reload = nh.advertiseService("/motion_player/reload",
+	m_srv_reload = nhs.advertiseService(RESOURCE_PATH + "reload",
 			&MotionPlayer::handleReloadMotion, this);
-	m_srv_dump_motions = nh.advertiseService("/motion_player/dump_motions",
+	m_srv_dump_motions = nhs.advertiseService(RESOURCE_PATH + "dump_motions",
 			&MotionPlayer::handleDumpMotions, this);
 
-	nh.param<std::string>("/robot_name", m_robot_name, std::string());
-	nh.param<std::string>("/robot_type", m_robot_type, std::string());
+	nhs.param<std::string>("robot_name", m_robot_name, std::string());
+	nhs.param<std::string>("robot_type", m_robot_type, std::string());
+	if(m_robot_name.empty())
+		ROS_ERROR("Robot name is empty or unconfigured!");
+	if(m_robot_type.empty())
+		ROS_ERROR("Robot type is empty or unconfigured!");
 	ROS_INFO("Robot name: '%s'",
 			(m_robot_name.empty() ? "<none>" : m_robot_name.c_str()));
 	ROS_INFO("Robot type: '%s'",
 			(m_robot_type.empty() ? "<none>" : m_robot_type.c_str()));
 
-	nh.param<std::string>("InitPoseMotion", m_init_pose_name, "init_pose");
-	nh.param<std::string>("InitMotion", m_init_name, "init");
-	nh.param<std::string>("GetupProneMotion", m_getup_prone_name,
+	m_nh.param<std::string>("InitPoseMotion", m_init_pose_name, "init_pose");
+	m_nh.param<std::string>("InitMotion", m_init_name, "init");
+	m_nh.param<std::string>("GetupProneMotion", m_getup_prone_name,
 			"getup_prone");
-	nh.param<std::string>("GetupSupineMotion", m_getup_supine_name,
+	m_nh.param<std::string>("GetupSupineMotion", m_getup_supine_name,
 			"getup_supine");
 
 	// State publisher
-	statePublisher = nh.advertise<motion_player::MotionPlayerState>(
-			"/motion_player/state", 1);
-	timer = nh.createTimer(ros::Duration(0.2), &MotionPlayer::publishState,
+	statePublisher = nhs.advertise<motion_player::MotionPlayerState>(
+			RESOURCE_PATH + "state", 1);
+	timer = m_nh.createTimer(ros::Duration(0.2), &MotionPlayer::publishState,
 			this);
 	PM.setName(PM_FRAME_INDEX, "FrameIndex");
 	PM.setName(PM_ROLL, "Roll");
@@ -191,26 +195,15 @@ bool MotionPlayer::init(robotcontrol::RobotModel* model)
 // Register rule parameter for each motion
 void MotionPlayer::initRuleParameters()
 {
-	m_limit_inverse_space.reset(new config_server::Parameter<bool>("/motion_player/rule/limit_inverse/enable", 0));
-	m_epsion.reset(new config_server::Parameter<float>("/motion_player/rule/limit_inverse/epsilon", 0, 0.005, 1, 0.005));
+	m_limit_inverse_space.reset(new config_server::Parameter<bool>(CONFIG_PARAM_PATH + "rule/limit_inverse/enable", 0));
+	m_epsilon.reset(new config_server::Parameter<float>(CONFIG_PARAM_PATH + "rule/limit_inverse/epsilon", 0, 0.005, 1, 0.005));
 	
 	std::map<std::string, MappedMotion>::iterator motionIt;
 	for (motionIt = m_motionNames.begin(); motionIt != m_motionNames.end(); ++motionIt)
 	{
-		std::string rootName = std::string("/motion_player/rule/");
-		rootName.append(motionIt->first + "/");
+		std::string rootName = CONFIG_PARAM_PATH + "rule/" + motionIt->first + "/";
 		
 		std::vector<FloatParamPtr> parameters;
-		
-		for(size_t i = 0; i < motionIt->second.rules.size(); i++)
-		{
-			FloatParamPtr ruleParam;
-			std::string paramName = rootName;
-			rootName.append(motionIt->second.rules[i].name);
-			
-			ruleParam.reset(new config_server::Parameter<float>(paramName, -1, 0.01, 1, 0));
-			parameters.push_back(ruleParam);
-		}
 		
 		if(motionIt->first == "trajectory_editor_motion") // Always 2 params for trajectory editor motions
 		{
@@ -221,6 +214,15 @@ void MotionPlayer::initRuleParameters()
 			FloatParamPtr param2;
 			param2.reset(new config_server::Parameter<float>(rootName + "Lateral", -1, 0.01, 1, 0));
 			parameters.push_back(param2);
+		}
+		else
+		{
+			for(size_t i = 0; i < motionIt->second.rules.size(); i++)
+			{
+				FloatParamPtr ruleParam;
+				ruleParam.reset(new config_server::Parameter<float>(rootName + motionIt->second.rules[i].name, -1, 0.01, 1, 0));
+				parameters.push_back(ruleParam);
+			}
 		}
 		
 		std::pair<std::string, std::vector<FloatParamPtr> > entry(motionIt->first, parameters);
@@ -509,7 +511,7 @@ void MotionPlayer::play(const std::string& motion)
 		if (m_playingMotion.frames[i]->name.find(DISABLEMAGSTR) == 0)
 		{
 
-			ROS_INFO("* %s", m_playingMotion.frames[i]->name.c_str());
+			//ROS_INFO("* %s", m_playingMotion.frames[i]->name.c_str());
 			m_playingMotion.frames.erase(m_playingMotion.frames.begin() + i);
 			for (unsigned j = 0; j < m_playingMotion.player.size(); j++)
 			{
@@ -521,7 +523,7 @@ void MotionPlayer::play(const std::string& motion)
 		}
 		else if (findPos != std::string::npos)
 		{
-			ROS_INFO("** %s", m_playingMotion.frames[i]->name.c_str());
+			//ROS_INFO("** %s", m_playingMotion.frames[i]->name.c_str());
 			//Note: In case of strange differences between blending keyframes(like PID gainSelect), the first one will be used.
 			std::stringstream tmpSS(
 					m_playingMotion.frames[i]->name.substr(
@@ -700,7 +702,12 @@ void MotionPlayer::play(const std::string& motion)
 				}
 			}
 		}
+		else
+		{
+			//ROS_INFO("*** %s", m_playingMotion.frames[i]->name.c_str());
+		}
 	}
+	//ROS_INFO("after = %d", (int )m_playingMotion.frames.size());
 	
 	// Try to apply rules
 	bool apply = false;
@@ -711,7 +718,7 @@ void MotionPlayer::play(const std::string& motion)
 		
 		// Check if we can apply every rule
 		bool limit_inverse = m_limit_inverse_space->get();
-		float epsilon = m_epsion->get();
+		float epsilon = m_epsilon->get();
 		
 		for(size_t i = 0; i < parameters.size(); i++)
 		{
@@ -743,7 +750,7 @@ void MotionPlayer::play(const std::string& motion)
 			ROS_INFO("Successfully applied all rules!");
 		}
 		else
-			ROS_ERROR("Rules was NOT applied");
+			ROS_ERROR("Rules were NOT applied");
 	}
 	
 	// Update motion
@@ -860,7 +867,7 @@ bool MotionPlayer::reloadMotionFiles(const fs::path& dir)
 	MappedMotion newMotion;
 	int count = 0, bad = 0;
 
-	ROS_INFO("ReLoading motions: %s", dir.c_str());
+	ROS_INFO("Reloading motions: %s", dir.c_str());
 	for (; file != end; ++file)
 	{
 		if (fs::is_directory(*file))
@@ -910,7 +917,7 @@ bool MotionPlayer::handleUpdateMotion(motion_player::StreamMotionRequest& req,
 	if (isPlaying)
 	{
 		ROS_ERROR(
-				"Tried to update motion. Not possible because I still play the other motion!");
+				"Tried to update motion. Not possible because I am still playing a motion!");
 		return false;
 	}
 
@@ -966,7 +973,7 @@ bool MotionPlayer::handleReloadMotion(std_srvs::Empty::Request& req,
 	if (isPlaying)
 	{
 		ROS_ERROR(
-				"Tried to reload motion. Not possible because I still play the other motion!");
+				"Tried to reload motion. Not possible because I am still playing a motion!");
 		return false;
 	}
 

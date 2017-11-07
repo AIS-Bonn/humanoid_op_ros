@@ -138,6 +138,7 @@ cap_gait:
           virtualSlopeOffset: 0
       cmd:
         allowCLStepSizeX: 0
+        allowCLStepSizeY: 0
         useCLStepSize: 0
         useCLTiming: 0
         useNonZeroZMP: 0
@@ -425,101 +426,121 @@ nimbro_op_interface:
   DXLJoint:
     joints:
       head_pitch:
+        enabled: 1
         id: 20
         invert: 1
         readFeedback: 1
         type: MX-106
       left_ankle_pitch:
+        enabled: 1
         id: 16
         invert: 1
         readFeedback: 1
         type: MX-106
       left_ankle_roll:
+        enabled: 1
         id: 18
         invert: 1
         readFeedback: 1
         type: MX-106
       left_elbow_pitch:
+        enabled: 1
         id: 6
         invert: 1
         readFeedback: 1
         type: MX-106
       left_hip_pitch:
+        enabled: 1
         id: 12
         invert: 0
         readFeedback: 1
         type: MX-106
       left_hip_roll:
+        enabled: 1
         id: 10
         invert: 0
         readFeedback: 1
         type: MX-106
       left_hip_yaw:
+        enabled: 1
         id: 8
         invert: 1
         readFeedback: 1
         type: MX-106
       left_knee_pitch:
+        enabled: 1
         id: 14
         invert: 0
         readFeedback: 1
         type: MX-106
       left_shoulder_pitch:
+        enabled: 1
         id: 2
         invert: 0
         readFeedback: 1
         type: MX-106
       left_shoulder_roll:
+        enabled: 1
         id: 4
         invert: 1
         readFeedback: 1
         type: MX-106
       neck_yaw:
+        enabled: 1
         id: 19
         invert: 0
         readFeedback: 1
         type: MX-106
       right_ankle_pitch:
+        enabled: 1
         id: 15
         invert: 0
         readFeedback: 1
         type: MX-106
       right_ankle_roll:
+        enabled: 1
         id: 17
         invert: 1
         readFeedback: 1
         type: MX-106
       right_elbow_pitch:
+        enabled: 1
         id: 5
         invert: 0
         readFeedback: 1
         type: MX-106
       right_hip_pitch:
+        enabled: 1
         id: 11
         invert: 1
         readFeedback: 1
         type: MX-106
       right_hip_roll:
+        enabled: 1
         id: 9
         invert: 0
         readFeedback: 1
         type: MX-106
       right_hip_yaw:
+        enabled: 1
         id: 7
         invert: 1
         readFeedback: 1
         type: MX-106
       right_knee_pitch:
+        enabled: 1
         id: 13
         invert: 1
         readFeedback: 1
         type: MX-106
       right_shoulder_pitch:
+        enabled: 1
         id: 101
         invert: 1
         readFeedback: 1
         type: MX-106
       right_shoulder_roll:
+        enabled: 1
         id: 3
         invert: 1
         readFeedback: 1
@@ -667,8 +688,11 @@ nimbro_op_interface:
   models:
     MX-106:
       km: 0.17
+      maxTickValue: 4095
+      minTickValue: 0
       stribeckOne: -0.0023
       stribeckTwo: 0.0250731405677264
+      ticksPerRev: 4096
       viscuous: 0.553952330165401
   plotData: 0
   rawStateSlopeLimit: 0.02
@@ -718,6 +742,47 @@ robotcontrol:
   fadeInMaxDelta: 0.005
   jointAccLimit: 0.5
   jointVelLimit: 0.5
+  joints:
+    head_pitch:
+      velocityMode: 0
+    left_ankle_pitch:
+      velocityMode: 0
+    left_ankle_roll:
+      velocityMode: 0
+    left_elbow_pitch:
+      velocityMode: 0
+    left_hip_pitch:
+      velocityMode: 0
+    left_hip_roll:
+      velocityMode: 0
+    left_hip_yaw:
+      velocityMode: 0
+    left_knee_pitch:
+      velocityMode: 0
+    left_shoulder_pitch:
+      velocityMode: 0
+    left_shoulder_roll:
+      velocityMode: 0
+    neck_yaw:
+      velocityMode: 0
+    right_ankle_pitch:
+      velocityMode: 0
+    right_ankle_roll:
+      velocityMode: 0
+    right_elbow_pitch:
+      velocityMode: 0
+    right_hip_pitch:
+      velocityMode: 0
+    right_hip_roll:
+      velocityMode: 0
+    right_hip_yaw:
+      velocityMode: 0
+    right_knee_pitch:
+      velocityMode: 0
+    right_shoulder_pitch:
+      velocityMode: 0
+    right_shoulder_roll:
+      velocityMode: 0
   pause: 0
   plotRobotControlData: 0
   publishCommand: 0

@@ -36,6 +36,8 @@ namespace gait
 		 , haltJointCmd()
 		 , haltJointEffort()
 		 , haltUseRawJointCmds(false)
+		 , haltSupportCoeffLeftLeg(0.5)
+		 , haltSupportCoeffRightLeg(0.5)
 		 , m_gait(NULL)
 		 , m_posX(0.0)
 		 , m_posY(0.0)
@@ -48,7 +50,7 @@ namespace gait
 		}
 
 		//! Default destructor
-		virtual ~GaitEngine() {}
+		virtual ~GaitEngine() = default;
 
 		/**
 		* @brief Reset the gait engine.
@@ -59,21 +61,6 @@ namespace gait
 		* state it is currently in.
 		**/
 		virtual void reset() {}
-
-		/**
-		* @brief Update the halt pose desired by the gait engine.
-		*
-		* This function should update the halt pose of the gait engine if/as required. The halt pose is
-		* stored in three variables, namely #haltJointCmd, #haltJointEffort and #haltUseRawJointCmds.
-		* This should be the robot pose from which the gait engine is nominally intended to be started
-		* and stopped from. The halt pose should normally be relatively constant during execution, but
-		* may for example depend on configuration parameters, and so is allowed to dynamically change.
-		*
-		* This function is intended for use by the gait engine itself as well, such as for example at
-		* the beginning of the derived `step()` function override. Make no assumptions about when this
-		* function is called externally.
-		**/
-		virtual void updateHaltPose();
 
 		/**
 		* @brief Main step function of the gait engine.
@@ -88,6 +75,23 @@ namespace gait
 		* the `step()` function is called for the first time.
 		**/
 		virtual void step();
+
+		/**
+		* @brief Update the halt pose desired by the gait engine.
+		*
+		* This function should update the halt pose of the gait engine if/as required. The halt pose is
+		* stored in five variables, namely #haltJointCmd, #haltJointEffort, #haltUseRawJointCmds,
+		* #haltSupportCoeffLeftLeg and #haltSupportCoeffRightLeg.
+		* 
+		* This should be the robot pose from which the gait engine is nominally intended to be started
+		* and stopped from. The halt pose should normally be relatively constant during execution, but
+		* may for example depend on configuration parameters, and so is allowed to dynamically change.
+		*
+		* This function is intended for use by the gait engine itself as well, such as for example at
+		* the beginning of the derived `step()` function override. Make no assumptions about when this
+		* function is called externally.
+		**/
+		virtual void updateHaltPose();
 
 		/**
 		* @brief Set the CoM odometry to a particular 2D position and orientation.
@@ -154,6 +158,8 @@ namespace gait
 		double haltJointCmd[NUM_JOINTS];    //!< Commanded halt position for each joint (indexed by the `JointID` enum, in `rad`).
 		double haltJointEffort[NUM_JOINTS]; //!< Commanded halt joint effort (indexed by the `JointID` enum, in the range `[0,1]`).
 		bool   haltUseRawJointCmds;         //!< Apply the joint commands directly to the hardware in the halt pose, without using compensation or actuator controller(s) in-between.
+		double haltSupportCoeffLeftLeg;     //!< Commanded support coefficient for the left leg (in the range `[0,1]`).
+		double haltSupportCoeffRightLeg;    //!< Commanded support coefficient for the right leg (in the range `[0,1]`).
 		
 		// Pointer to the owning gait class
 		const Gait* m_gait;

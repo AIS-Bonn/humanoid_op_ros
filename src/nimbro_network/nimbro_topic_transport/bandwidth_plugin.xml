@@ -5,10 +5,11 @@
 		</description>
 		<qtgui>
 			<group>
-				<label>nimbro_network</label>
+				<label>NimbRo Network</label>
+				<icon type="theme">folder</icon>
 			</group>
-
 			<label>Topic Bandwidth</label>
+			<icon type="theme">network-wireless</icon>
 			<statustip>Diagnostic information</statustip>
 		</qtgui>
 	</class>

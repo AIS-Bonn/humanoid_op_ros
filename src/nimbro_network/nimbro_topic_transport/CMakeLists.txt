@@ -7,6 +7,8 @@ find_package(catkin REQUIRED COMPONENTS
 	topic_tools
 	rostest
 	message_generation
+	rqt_gui
+	rqt_gui_cpp
 )
 
 add_message_files(FILES
@@ -126,27 +128,49 @@ target_link_libraries(action_proxy
 )
 
 # GUI
-find_package(Qt4 REQUIRED)
-include(${QT_USE_FILE})
 
-qt4_wrap_cpp(MOC_SRCS
+# Decide on a Qt version
+if("${qt_gui_cpp_USE_QT_MAJOR_VERSION} " STREQUAL "5 ")
+	set(USE_QT5 true)
+else()
+	set(USE_QT5 false)
+endif()
+
+# Find Qt
+if(USE_QT5)
+	find_package(Qt5Widgets REQUIRED)
+	find_package(Qt5PrintSupport REQUIRED)
+	set(QT_LIBRARIES ${Qt5Widgets_LIBRARIES} ${Qt5PrintSupport_LIBRARIES})
+else()
+	find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)
+	include(${QT_USE_FILE})
+endif()
+
+set(H_FILES
 	src/gui/topic_gui.h
 	src/gui/dot_widget.h
 )
-
-qt4_wrap_cpp(BAND_MOC_SRCS
+set(H_FILES_BAND
 	src/gui/bandwidth_gui.h
 	src/gui/contrib/qcustomplot/qcustomplot.h
 )
 
+if(USE_QT5)
+	qt5_wrap_cpp(MOC_FILES ${H_FILES})
+	qt5_wrap_cpp(MOC_FILES_BAND ${H_FILES_BAND})
+else()
+	qt4_wrap_cpp(MOC_FILES ${H_FILES})
+	qt4_wrap_cpp(MOC_FILES_BAND ${H_FILES_BAND})
+endif()
+
 add_library(topic_gui
-	${MOC_SRCS}
+	${MOC_FILES}
 	src/gui/topic_gui.cpp
 	src/gui/dot_widget.cpp
 )
 
 add_library(bandwidth_gui
-	${BAND_MOC_SRCS}
+	${MOC_FILES_BAND}
 	src/gui/bandwidth_gui.cpp
 	src/gui/contrib/qcustomplot/qcustomplot.cpp
 )

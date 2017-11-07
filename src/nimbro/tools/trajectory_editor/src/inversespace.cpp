@@ -65,6 +65,8 @@ InverseSpace::~InverseSpace()
 void InverseSpace::handlePerspectiveUpdate(const joint_perspective::JointPerspective& perspective)
 {
 	setEnabled(perspective.m_inverse_space_allowed);
+	m_inverse_pose->setLinkLengths(perspective.m_link_length, perspective.m_link_length);
+	m_temp_inverse_pose->setLinkLengths(perspective.m_link_length, perspective.m_link_length);
 }
 
 void InverseSpace::getInverseLimits(bool& limit, double& epsilon)

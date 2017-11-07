@@ -6,9 +6,15 @@ project(rc_utils)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS tf cmake_modules)
 
-# Find and include Eigen
-find_package(Eigen REQUIRED)
-include_directories(${Eigen_INCLUDE_DIRS})
+# Find Eigen
+find_package(Eigen3)
+if(EIGEN3_FOUND)
+	set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
+else()
+	find_package(Eigen REQUIRED)
+	set(EIGEN3_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
+endif()
+include_directories(${EIGEN3_INCLUDE_DIRS})
 
 ###################################################
 ## Declare things to be passed to other projects ##
@@ -19,10 +25,10 @@ include_directories(${Eigen_INCLUDE_DIRS})
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-	INCLUDE_DIRS include
+	INCLUDE_DIRS include ${EIGEN3_INCLUDE_DIRS}
 	LIBRARIES rc_utils
 #	CATKIN_DEPENDS
-	DEPENDS Eigen
+# 	DEPENDS
 )
 
 ###########

@@ -15,7 +15,7 @@ PlotModel::PlotModel(QObject* parent)
  : QAbstractItemModel(parent)
  , m_topLevelPlot("topLevel")
 {
-	connect(&m_topLevelPlot, SIGNAL(hierarchyChanged()), SLOT(doReset()));
+	connect(&m_topLevelPlot, SIGNAL(hierarchyChanged(bool)), SLOT(doReset(bool)));
 	connect(&m_topLevelPlot, SIGNAL(changed(Plot*)), SLOT(doChange(Plot*)));
 	connect(&m_topLevelPlot, SIGNAL(beginAddChild(Plot*,int)), SLOT(doBeginAddChild(Plot*,int)));
 	connect(&m_topLevelPlot, SIGNAL(childAdded(Plot*)), SLOT(doEndAddChild(Plot*)));
@@ -46,9 +46,12 @@ QVariant PlotModel::headerData(int section, Qt::Orientation orientation, int rol
 	return QVariant();
 }
 
-void PlotModel::doReset()
+void PlotModel::doReset(bool end)
 {
-	reset();
+	if(end)
+		endResetModel();
+	else
+		beginResetModel();
 }
 
 void PlotModel::addPlot(Plot* plot)
@@ -164,7 +167,7 @@ QVariant PlotModel::data(const QModelIndex& index, int role) const
 			{
 				val = plot->value(m_currentTime);
 
-				if(isnan(val))
+				if(std::isnan(val))
 					return "---";
 			}
 			else

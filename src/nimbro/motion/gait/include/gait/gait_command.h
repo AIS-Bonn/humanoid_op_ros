@@ -34,7 +34,7 @@ namespace gait
 		//! Check whether the gait command is finite
 		bool isFinite() const { return (std::isfinite(linVelX) && std::isfinite(linVelY) && std::isfinite(angVelZ)); }
 
-		// Gait command velocity vector
+		// Gait command vector
 		float linVelX;         //!< Commanded linear x-velocity
 		float linVelY;         //!< Commanded linear y-velocity
 		float angVelZ;         //!< Commanded angular z-velocity

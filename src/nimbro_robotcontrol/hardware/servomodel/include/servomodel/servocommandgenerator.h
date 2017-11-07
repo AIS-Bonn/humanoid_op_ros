@@ -44,13 +44,22 @@ public:
 	//! @return true on success
 	bool deserializeCoefficients(const std::string& coeff);
 
+	void setKM(double val);
+	void setViscousFriction(double val);
 	void setStribeckOne(double val);
 	void setStribeckTwo(double val);
-	void setViscousFriction(double val);
-	void setKM(double val);
+	void setTicksPerRev(double val);
+	void setMinTickValue(int val);
+	void setMaxTickValue(int val);
+	void setPValue(int pValue);
 	void setLatency(double val);
 	void setVoltage(double volt);
-	void setPValue(int pValue);
+
+	inline double km() const
+	{ return m_coeff(0); }
+
+	inline double viscousFriction() const
+	{ return m_coeff(1); }
 
 	inline double stribeckOne() const
 	{ return m_coeff(2); }
@@ -58,24 +67,35 @@ public:
 	inline double stribeckTwo() const
 	{ return m_coeff(3); }
 
-	inline double viscousFriction() const
-	{ return m_coeff(1); }
+	inline double ticksPerRev() const
+	{ return m_ticksPerRev; }
+	inline double ticksPerRad() const
+	{ return m_ticksPerRev * 0.5 * M_1_PI; }
 
-	inline double km() const
-	{ return m_coeff(0); }
+	inline int minTickValue() const
+	{ return m_minTickValue; }
+	inline int maxTickValue() const
+	{ return m_maxTickValue; }
+
+	inline double pValue() const
+	{ return m_pValue; }
 
 	inline double latency() const
 	{ return m_latency; }
 
 	inline double voltage() const
 	{ return m_voltage; }
-	
-	inline double pValue() const
-	{ return m_pValue; }
+
+	static const int DefaultTicksPerRev;
+
 protected:
 	virtual void update();
+
 private:
 	Eigen::VectorXd m_coeff;
+	double m_ticksPerRev;
+	int m_minTickValue;
+	int m_maxTickValue;
 	double m_pValue;
 	double m_latency;
 	double m_voltage;

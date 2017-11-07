@@ -33,11 +33,16 @@ private:
 	// Find joint jointName in jointList and create view for it. Put it on layout
 	// If jointName was not found, put warning on layout
 	void findAndPutView(std::string jointName, std::string label, int row, BasicSmallView::Alignment alignment, BasicSmallView::Type type, bool shiftMirrored);
+	PosVelEffView* findView(const std::string &jointName);
+	void dynapedTransform(bool flag);
+	void adultTransform();
+	void setMotionFromView(PosVelEffView* view);
 	void createHeaderLabels(BasicSmallView::Alignment alignment, int row);
 	
 private:
 	std::vector<PosVelEffView*> jointViews;
 	QGridLayout *jointsLayout;
+	std::string m_perspective_name;
 };
 
 

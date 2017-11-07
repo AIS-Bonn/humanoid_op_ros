@@ -13,8 +13,6 @@ using namespace std;
 
 void runMegapacket(double freq, struct timespec seconds)
 {
-//	boost::date_time::
-
 }
 
 int main(int argc, char** argv)
@@ -22,7 +20,7 @@ int main(int argc, char** argv)
 	ros::init(argc, argv, "cm740test");
 	ros::NodeHandle n;
 	int connectError;
-	CM740mp* board = new CM740mp();
+	CM740mp* board = new CM740mp("nimbro_op_interface/", "/nimbro_op_interface/");
 
 	cout << "Testing behaviour of CM740 Megapacket mode" << endl << endl;
 	cout << "Connect to CM740" << endl;

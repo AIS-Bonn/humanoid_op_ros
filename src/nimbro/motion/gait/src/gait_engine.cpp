@@ -31,12 +31,12 @@ void GaitEngine::step()
 	}
 	out.useRawJointCmds = haltUseRawJointCmds;
 
+	// Set the support coefficients
+	out.supportCoeffLeftLeg = haltSupportCoeffLeftLeg;
+	out.supportCoeffRightLeg = haltSupportCoeffRightLeg;
+
 	// Set the status flags
 	out.walking = in.gaitCmd.walk;
-
-	// Set the support coefficients
-	out.supportCoeffLeftLeg = 0.5;
-	out.supportCoeffRightLeg = 0.5;
 
 	// Update the odometry
 	updateOdometry();
@@ -57,6 +57,8 @@ void GaitEngine::updateHaltPose()
 		haltJointEffort[i] = DEFAULT_HALT_EFFORT_LEGS;
 	}
 	haltUseRawJointCmds = false;
+	haltSupportCoeffLeftLeg = 0.5;
+	haltSupportCoeffRightLeg = 0.5;
 }
 
 // Set the robot's odometry

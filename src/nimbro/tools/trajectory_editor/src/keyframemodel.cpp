@@ -499,9 +499,29 @@ void KeyframeModel::updateRobotDisplay()
 		return;
 	
 	std::vector<double> positions;
+	positions.resize(m_current_frame->joints.size());
 	
 	for(unsigned i = 0; i < m_current_frame->joints.size(); i++)
-		positions.push_back(m_current_frame->joints[i].position);
+		positions.at(i) = m_current_frame->joints[i].position;
+	
+	// HACK for dynaped   TODO: implement nicely
+	if(m_perspective_manager->getCurrentPerspective().m_name == "dynaped_perspective")
+	{
+		int r_shank = motionfile::Motion::nameToIndex(m_motion.jointList, "right_shank_pitch");
+		int r_thigh = motionfile::Motion::nameToIndex(m_motion.jointList, "right_thigh_pitch");
+		int r_knee =  motionfile::Motion::nameToIndex(m_motion.jointList, "right_knee_pitch");
+		int r_hip =   motionfile::Motion::nameToIndex(m_motion.jointList, "right_hip_pitch");
+		
+		int l_shank = motionfile::Motion::nameToIndex(m_motion.jointList, "left_shank_pitch");
+		int l_thigh = motionfile::Motion::nameToIndex(m_motion.jointList, "left_thigh_pitch");
+		int l_knee =  motionfile::Motion::nameToIndex(m_motion.jointList, "left_knee_pitch");
+		int l_hip =   motionfile::Motion::nameToIndex(m_motion.jointList, "left_hip_pitch");
+		
+		positions.at(r_shank) = positions.at(r_knee);
+		positions.at(r_thigh) = positions.at(r_hip);
+		positions.at(l_shank) = positions.at(l_knee);
+		positions.at(l_thigh) = positions.at(l_hip);
+	}
 	
 	updateRobot(m_motion.jointList, positions);
 }
@@ -522,10 +542,59 @@ void KeyframeModel::applyRule(double delta, int rule_id)
 	}
 }
 
+void KeyframeModel::estimateVelocity()
+{
+	if(!m_current_frame)
+		return;
+	
+	// Find previous frame
+	int prev_id = -1;
+	
+	for(size_t i = 0; i < m_motion.frames.size(); i++)
+		if(m_motion.frames.at(i)->id == m_current_frame->id && i > 0)
+			prev_id = i - 1;
+		
+	if(prev_id == -1)
+		return;
+	
+	// Estimate velocity
+	// HACK: hardcoded joints to estimate velocity for
+	std::vector<std::string> joints;
+	joints.push_back("right_hip_pitch");
+	joints.push_back("right_knee_pitch");
+	joints.push_back("right_ankle_pitch");
+	
+	double v1 = 0; // Velocity at the end of previous frame
+	double v2 = 0; // To be estimated
+	double p1 = 0; // Position at the end of previous frame
+	double p2 = 0; // Position at the end of current  frame
+	double s  = 0; // Distance
+// 	double t  = m_current_frame->duration; // Duration of the movemnt
+	double a  = 0.64; // Acceleration used during the movement
+	
+	for(size_t i = 0; i < joints.size(); i++)
+	{
+		int joint_id = m_motion.findJoint(joints.at(i));
+		
+		if(joint_id == -1)
+			continue;
+		
+		v1 = m_motion.frames.at(prev_id)->joints.at(joint_id).velocity;
+		p1 = m_motion.frames.at(prev_id)->joints.at(joint_id).position;
+		p2 = m_current_frame->joints.at(joint_id).position;
+		s = fabs(p2-p1);
+		
+		v2 = sqrt(v1*v1 + 2*a*s);
+		m_current_frame->joints.at(joint_id).velocity = v2;
+	}
+	
+	handleUpdateFrame();
+}
+
 void KeyframeModel::setMotion(motionfile::Motion motion)
 {
 	bool ok = false;
-	bool new_perspective = m_perspective_manager->isNewPerspective(motion.jointList, ok);
+	bool new_perspective = m_perspective_manager->isNewPerspective(motion.perspective, ok);
 	
 	if(!ok)
 	{
@@ -533,9 +602,9 @@ void KeyframeModel::setMotion(motionfile::Motion motion)
 		return;
 	}
 	
-	m_motion = motion;
-	reset();
+	beginResetModel();
 	
+	m_motion = motion;
 	jointListChanged(m_motion.jointList);
 	
 	if(new_perspective)
@@ -559,11 +628,12 @@ void KeyframeModel::setMotion(motionfile::Motion motion)
 	data.pre_state   = m_motion.preState;
 	data.play_state  = m_motion.playState;
 	data.post_state  = m_motion.postState;
-	
 	data.pid_enabled = m_motion.pidEnabled;
 	
 	headerDataChanged(data);
 	updateCurrentFileLabel(QString::fromStdString(m_motion.motionName).append(".yaml"));
+	
+	endResetModel();
 }
 
 motionfile::Motion& KeyframeModel::getMotion()

@@ -5,7 +5,7 @@
 #define PLOTMODEL_H
 
 #include <QtCore/QAbstractItemModel>
-#include <QtGui/QFont>
+#include <QFont>
 
 #include "plotter/plot.h"
 
@@ -59,7 +59,7 @@ public:
 public slots:
 	void setCurrentTime(const ros::Time& time);
 private slots:
-	void doReset();
+	void doReset(bool end);
 	void doChange(Plot* source);
 	void doBeginAddChild(Plot* parent, int idx);
 	void doEndAddChild(Plot* parent);

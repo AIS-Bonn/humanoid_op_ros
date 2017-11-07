@@ -209,7 +209,7 @@ void BandwidthGui::updateGroupInfo()
 bool BandwidthGui::groupFromYaml(const std::string& yaml, GroupMap* groupMap)
 {
 	YAML::Node grpInfo = YAML::Load(yaml);
-	if (grpInfo.IsNull())
+	if (!grpInfo)
 	{
 		return true;
 	}

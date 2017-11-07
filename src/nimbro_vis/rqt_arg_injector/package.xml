@@ -1,0 +1,11 @@
+<package format="2">
+	<name>rqt_arg_injector</name>
+	<description>Injects ROS arguments into ros::init() (e.g. for remappings)</description>
+	<version>0.0.1</version>
+
+	<license>BSD</license>
+	<maintainer email="max.schwarz@uni-bonn.de">Max Schwarz</maintainer>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<depend>roscpp</depend>
+</package>

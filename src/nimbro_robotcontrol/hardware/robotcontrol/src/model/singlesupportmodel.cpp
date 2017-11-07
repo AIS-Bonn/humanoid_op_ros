@@ -107,7 +107,7 @@ void SingleSupportModel::updateRBDLJointPos(DataSource source)
 			pos = joint.feedback.pos;
 		else
 			pos = joint.cmd.pos;
-		if(isnan(pos))
+		if(std::isnan(pos))
 		{
 			ROS_ERROR("Joint position used for RBDL computation is NaN for joint '%s'!", joint.name.c_str());
 			pos = 0.0;
@@ -171,8 +171,8 @@ double SingleSupportModel::doInverseDynamics(DataSource source, bool useCoeff, b
 		{
 			if(!m_joints[i]) continue;
 			const Joint& joint = *m_joints[i];
-			m_qdot[i] = (isnan(joint.cmd.vel) ? 0.0 : joint.cmd.vel);
-			m_qdotdot[i] = (isnan(joint.cmd.acc) ? 0.0 : joint.cmd.acc);
+			m_qdot[i] = (std::isnan(joint.cmd.vel) ? 0.0 : joint.cmd.vel);
+			m_qdotdot[i] = (std::isnan(joint.cmd.acc) ? 0.0 : joint.cmd.acc);
 		}
 	}
 	else

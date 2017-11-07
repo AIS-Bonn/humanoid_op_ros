@@ -71,7 +71,7 @@ private:
 	bool load(const std::string& filename = std::string());
 
 	bool handleLoad(LoadRequest& req, LoadResponse& resp);
-	bool handleSave(SaveRequest& req, SaveResponse& resp);
+	bool handleSave(SaveRequest& req, SaveResponse& resp, bool show);
 
 	bool handleSetParameter(SetParameterRequest& req, SetParameterResponse& resp);
 	bool handleGetParameter(GetParameterRequest& req, GetParameterResponse& resp);

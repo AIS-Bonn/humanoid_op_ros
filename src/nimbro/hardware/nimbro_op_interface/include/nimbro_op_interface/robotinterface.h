@@ -82,10 +82,17 @@ public:
 	virtual bool init(robotcontrol::RobotModel* model);
 	virtual void deinit();
 	virtual boost::shared_ptr<robotcontrol::Joint> createJoint(const std::string& name);
+	virtual void processJointCommands();
+	virtual void processJointTorques();
+	virtual void processJointFeedback();
 	virtual bool sendJointTargets();
 	virtual bool readJointStates();
 	virtual bool setStiffness(float torque);
 	virtual void getDiagnostics(robotcontrol::DiagnosticsPtr ptr);
+
+	// Constants
+	static const std::string RESOURCE_PATH;
+	static const std::string CONFIG_PARAM_PATH;
 
 protected:
 	// Virtual functions for hardware abstraction
@@ -95,15 +102,17 @@ protected:
 	virtual bool syncWriteTorqueEnable(size_t numDevices, const uint8_t* data);
 	virtual bool syncWriteTorqueLimit(size_t numDevices, const uint8_t* data);
 	virtual bool useModel() const { return m_useModel(); }
-	
+
 	// Scaling constants
-	static const double TICKS_PER_RAD = 2048.0 / M_PI; // From the fact that a complete revolution is 4096 ticks
-	static const double FULL_TORQUE = 1023.0; // The torque limit value that corresponds to full torque
-	static const double FULL_EFFORT = 32.0; // The P gain value that an effort of 1.0 corresponds to
-	static const double INT_TO_VOLTS = 0.1; // Multiply a voltage value read from the CM730 by this to convert it into volts (see 'cm730/firmware/CM730_HW/src/adc.c')
-	static const double GYRO_SCALE = (M_PI / 180) * (2 * 250) / 65536; // From control register CTRL_REG4 in "cm730/firmware/CM730_HW/src/gyro_acc.c": +-250dps is 65536 LSb
-	static const double ACC_SCALE = (2 * (4 * 9.81)) / 65536; // From control register CTRL_REG4 in "cm730/firmware/CM730_HW/src/gyro_acc.c": +-4g is 65536 LSb
-	static const double MAG_SCALE = 1 / 820.0; // From Config Register B in "cm730/firmware/CM730_APP/src/compass.c": 820 LSb/gauss
+	static const double FULL_TORQUE;
+	static const double FULL_EFFORT;
+	static const double INT_TO_VOLTS;
+	static const double GYRO_SCALE;
+	static const double ACC_SCALE;
+	static const double MAG_SCALE;
+
+	//! Node handle
+	ros::NodeHandle m_nh;
 
 	//! The robot model
 	robotcontrol::RobotModel* m_model;
@@ -186,25 +195,18 @@ protected:
 		uint8_t temperature; //!< P_PRESENT_TEMPERATURE
 	} __attribute__((packed));
 
-private:
-	// Constants
-	const std::string CONFIG_PARAM_PATH;
-
-	// Flag whether the real hardware is present (assumes no unless otherwise told)
-	bool m_haveHardware;
-	
 	/**
 	 * @brief Joint class with hardware information
 	 **/
 	struct DXLJoint : public robotcontrol::Joint
 	{
-		DXLJoint(const std::string& name);
+		explicit DXLJoint(const std::string& name);
 
 		//! Servo command generator appropiate for the servo type
 		robotcontrol::CommandGeneratorPtr commandGenerator;
 
 		// Constants
-		const std::string CONFIG_PARAM_PATH;
+		static const std::string CONFIG_PARAM_PATH;
 
 		//! @name config_server joint parameters
 		//@{
@@ -212,7 +214,8 @@ private:
 		config_server::Parameter<int> id;            //!< Actuator address
 		config_server::Parameter<int> tickOffset;    //!< Joint offset in ticks
 		config_server::Parameter<bool> invert;       //!< Invert the joint direction
-		config_server::Parameter<bool> readFeedback; //!< Read enabled?
+		config_server::Parameter<bool> readFeedback; //!< Flag whether reading of feedback is enabled
+		config_server::Parameter<bool> enabled;      //!< Flag whether joint is globally enabled
 		//@}
 
 		//! @name Statistics
@@ -231,12 +234,93 @@ private:
 		robotcontrol::ServoDiag diag;
 	};
 
+	/**
+	 * @brief Get the DXLJoint for an index
+	 *
+	 * @param idx Index in the RobotModel joint struct array (not servo ID)
+	 */
+	inline DXLJoint* dxlJoint(size_t idx) const { return (DXLJoint*) m_model->joint(idx).get(); }
+	DXLJoint* dxlJointForID(int id) const;
+	DXLJoint* dxlJointForName(const std::string& name) const;
+
+	// Joint alias type struct
+	struct JointAliasType
+	{
+		JointAliasType(DXLJoint* alias, const DXLJoint* source, double multiplier = 1.0, double offset = 0.0) : alias(alias), source(source), multiplier(multiplier), offset(offset) {}
+		DXLJoint* alias;
+		const DXLJoint* source;
+		double multiplier;
+		double offset;
+	};
+
+	// Joint aliases
+	void clearJointAliases() { m_jointAliases.clear(); }
+	void addJointAlias(const JointAliasType& JA) { m_jointAliases.push_back(JA); }
+	void addJointAlias(DXLJoint* alias, const DXLJoint* source, double multiplier = 1.0, double offset = 0.0) { m_jointAliases.emplace_back(alias, source, multiplier, offset); }
+
+	// Joint command dependencies
+	void clearJointCommandDependencies() { m_jointCommandDependencies.clear(); }
+	void addJointCommandDependency(const boost::function<void (DXLJoint::Command*, const DXLJoint::Command*)>& func, DXLJoint::Command* cmd, const DXLJoint::Command* cmdA) { m_jointCommandDependencies.push_back(boost::bind(func, cmd, cmdA)); }
+	void addJointCommandDependency(const boost::function<void (DXLJoint::Command*, const DXLJoint::Command*, const DXLJoint::Command*)>& func, DXLJoint::Command* cmd, const DXLJoint::Command* cmdA, const DXLJoint::Command* cmdB) { m_jointCommandDependencies.push_back(boost::bind(func, cmd, cmdA, cmdB)); }
+	void addJointCommandDependency(const boost::function<void (DXLJoint::Command*, const DXLJoint::Command*, const DXLJoint::Command*, const DXLJoint::Command*)>& func, DXLJoint::Command* cmd, const DXLJoint::Command* cmdA, const DXLJoint::Command* cmdB, const DXLJoint::Command* cmdC) { m_jointCommandDependencies.push_back(boost::bind(func, cmd, cmdA, cmdB, cmdC)); }
+
+	// Joint torque dependencies
+	void clearJointTorqueDependencies() { m_jointTorqueDependencies.clear(); }
+	void addJointTorqueDependency(const boost::function<void (double*, const double*)>& func, double* torque, const double* torqueA) { m_jointTorqueDependencies.push_back(boost::bind(func, torque, torqueA)); }
+	void addJointTorqueDependency(const boost::function<void (double*, const double*, const double*)>& func, double* torque, const double* torqueA, const double* torqueB) { m_jointTorqueDependencies.push_back(boost::bind(func, torque, torqueA, torqueB)); }
+	void addJointTorqueDependency(const boost::function<void (double*, const double*, const double*, const double*)>& func, double* torque, const double* torqueA, const double* torqueB, const double* torqueC) { m_jointTorqueDependencies.push_back(boost::bind(func, torque, torqueA, torqueB, torqueC)); }
+
+	// Joint feedback dependencies
+	void clearJointFeedbackDependencies() { m_jointFeedbackDependencies.clear(); }
+	void addJointFeedbackDependency(const boost::function<void (DXLJoint::Feedback*, const DXLJoint::Feedback*)>& func, DXLJoint::Feedback* feed, const DXLJoint::Feedback* feedA) { m_jointFeedbackDependencies.push_back(boost::bind(func, feed, feedA)); }
+	void addJointFeedbackDependency(const boost::function<void (DXLJoint::Feedback*, const DXLJoint::Feedback*, const DXLJoint::Feedback*)>& func, DXLJoint::Feedback* feed, const DXLJoint::Feedback* feedA, const DXLJoint::Feedback* feedB) { m_jointFeedbackDependencies.push_back(boost::bind(func, feed, feedA, feedB)); }
+	void addJointFeedbackDependency(const boost::function<void (DXLJoint::Feedback*, const DXLJoint::Feedback*, const DXLJoint::Feedback*, const DXLJoint::Feedback*)>& func, DXLJoint::Feedback* feed, const DXLJoint::Feedback* feedA, const DXLJoint::Feedback* feedB, const DXLJoint::Feedback* feedC) { m_jointFeedbackDependencies.push_back(boost::bind(func, feed, feedA, feedB, feedC)); }
+
+	// Joint command dependency functions
+	static void jointCmdEqual(DXLJoint::Command* cmd, const DXLJoint::Command* cmdA);
+	static void jointCmdNegate(DXLJoint::Command* cmd, const DXLJoint::Command* cmdA);
+	static void jointCmdSum(DXLJoint::Command* cmd, const DXLJoint::Command* cmdA, const DXLJoint::Command* cmdB);
+	static void jointCmdDiff(DXLJoint::Command* cmd, const DXLJoint::Command* cmdA, const DXLJoint::Command* cmdB);
+
+	// Joint torque dependency functions
+	static void jointTorqueEqual(double* torque, const double* torqueA);
+	static void jointTorqueNegate(double* torque, const double* torqueA);
+	static void jointTorqueSum(double* torque, const double* torqueA, const double* torqueB);
+	static void jointTorqueDiff(double* torque, const double* torqueA, const double* torqueB);
+
+	// Joint feedback dependency functions
+	static void jointFeedEqual(DXLJoint::Feedback* feed, const DXLJoint::Feedback* feedA);
+	static void jointFeedNegate(DXLJoint::Feedback* feed, const DXLJoint::Feedback* feedA);
+	static void jointFeedSum(DXLJoint::Feedback* feed, const DXLJoint::Feedback* feedA, const DXLJoint::Feedback* feedB);
+	static void jointFeedDiff(DXLJoint::Feedback* feed, const DXLJoint::Feedback* feedA, const DXLJoint::Feedback* feedB);
+
+	//! Add mimic joint dependencies
+	bool addMimicJointDependencies();
+
+	//! Configure joint dependencies
+	void clearJointDependencies() { clearJointAliases(); clearJointCommandDependencies(); clearJointTorqueDependencies(); clearJointFeedbackDependencies(); }
+	virtual bool initJointDependencies() { return addMimicJointDependencies(); } // Overriders should use addJointAlias(), addJointCommandDependency(), addJointTorqueDependency(), addJointFeedbackDependency() and addMimicJointDependencies() as required
+
+private:
+	// Flag whether the real hardware is present (assumes no unless otherwise told)
+	bool m_haveHardware;
+
+	//! Joint alias and dependency variables
+	std::vector<JointAliasType> m_jointAliases;
+	std::vector<boost::function<void ()>> m_jointCommandDependencies;
+	std::vector<boost::function<void ()>> m_jointTorqueDependencies;
+	std::vector<boost::function<void ()>> m_jointFeedbackDependencies;
+
 	//! Process changed joint settings
 	void updateJointSettings(DXLJoint* joint);
 	void setJointFeedbackTime(const ros::Time stamp);
 
 	//! Get an appropiate command generator for a servo type
 	robotcontrol::CommandGeneratorPtr commandGenerator(const std::string& type);
+
+	//! Service to list all joints and their configurations
+	ros::ServiceServer m_srv_listJoints;
+	bool handleListJoints(std_srvs::EmptyRequest& req, std_srvs::EmptyResponse& resp);
 
 	// Topic handlers
 	void handleStatistics(const ros::TimerEvent&);
@@ -248,18 +332,9 @@ private:
 	config_server::Parameter<bool> m_buttonPress1;
 	config_server::Parameter<bool> m_buttonPress2;
 
-	/**
-	 * @brief Get the DXLJoint for an index
-	 *
-	 * @param idx Index in the RobotModel joint struct array (not servo ID)
-	 */
-	inline DXLJoint* dxlJoint(size_t idx) { return (DXLJoint*) m_model->joint(idx).get(); }
-
 	void sendCM730LedCommand();
 
 	void waitForRelaxedServos();
-
-	DXLJoint* dxlJointForID(int id);
 
 	//! Our hardware driver
 	boost::shared_ptr<cm730::CM730> m_board;
@@ -534,9 +609,6 @@ private:
 	//! Publish LED state
 	ros::Publisher m_pub_led_state;
 
-	//! Action client for the torque fading
-	actionlib::SimpleActionClient<robotcontrol::FadeTorqueAction> m_act_fadeTorque;
-
 	// Button variables
 	enum ButtonPressState
 	{
@@ -611,5 +683,4 @@ private:
 }
 
 #endif
-
 // EOF

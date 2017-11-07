@@ -279,7 +279,7 @@ void RobotModel::update(const Pose& pose, double fusedX, double fusedY)
 
 	// Calculate the lower of the two feet
 	double footHeightDiff = rFootFloorPoint.position().z - lFootFloorPoint.position().z; // Positive if the right foot is higher than the left
-	int lowestFoot = (footHeightDiff > 0 ? LEFT_LEG : RIGHT_LEG);
+	int lowestFoot = (footHeightDiff > 0.0 ? LEFT_LEG : RIGHT_LEG);
 
 	// Allow a support exchange if the vertical foot separation has exceeded a configured threshold
 	if(supportExchangeLock && (fabs(footHeightDiff) >= config->footHeightHysteresis()))

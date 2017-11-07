@@ -2,7 +2,7 @@
 // File:    CM730.h
 // Authors: Philipp Allgeuer <pallgeuer@ais.uni-bonn.de>
 //          Sebastian Schueller <schuell1@cs.uni-bonn.de>
-// Comment: This file is suitable for CM730 firmware versions of 0x82 and above (NimbRo-OP specific).
+// Comment: This file is suitable for CM730 firmware versions of 0x8C and above (NimbRo-OP specific).
 
 // Ensure header is included only once
 #ifndef CM730_H
@@ -99,7 +99,7 @@ namespace cm730
 		};
 
 		// Constructor/destructor
-		CM730();
+		CM730(const std::string& resourcePath, const std::string& configParamPath);
 		virtual ~CM730();
 
 		// Connection functions

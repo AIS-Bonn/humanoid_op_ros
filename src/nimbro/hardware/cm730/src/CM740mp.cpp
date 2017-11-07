@@ -179,11 +179,11 @@ int CM740mp::parseServoData(MPData& Servo, unsigned char* data)
 	Servo.status      = data[2];
 	Servo.health      = data[3];
 	Servo.position    = makeWord(data+4);
-	Servo.speed       = makeWord(data+6);
+// 	Servo.speed       = makeWord(data+6);
 //	Servo.torque      = makeWord(data+8);
-	Servo.torque      = (uint16_t)(((int) (data[9]&0x03) << 8) | data[8]);
-	Servo.voltage     = data[10];
-	Servo.temperature = data[11];
+// 	Servo.torque      = (uint16_t)(((int) (data[9]&0x03) << 8) | data[8]);
+// 	Servo.voltage     = data[10];
+// 	Servo.temperature = data[11];
 	return packetsReceived(Servo.healthPrevious, Servo.health);
 }
 

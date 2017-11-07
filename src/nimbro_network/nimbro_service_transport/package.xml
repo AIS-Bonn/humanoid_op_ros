@@ -14,6 +14,7 @@
 	<build_depend>message_generation</build_depend>
 
 	<depend>rqt_gui</depend>
+	<depend>rqt_gui_cpp</depend>
 
 	<!-- soft dependency for unit tests -->
 	<depend>catch_ros</depend>

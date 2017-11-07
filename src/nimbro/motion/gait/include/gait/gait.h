@@ -70,13 +70,17 @@ namespace gait
 		// Publish transforms function
 		virtual void publishTransforms();
 
+		// Constants
+		static const std::string RESOURCE_PATH;
+		static const std::string CONFIG_PARAM_PATH;
+
 	protected:
 		// Get function for gait name
 		const std::string& gaitName() const { return m_gaitName; } //!< Retrieve the name of the gait (e.g. if the parameter string is `cpg_gait::CPGGait` then the gait name is everything past the first double colon, i.e. `CPGGait`)
 
 	private:
-		// Constants
-		const std::string CONFIG_PARAM_PATH;
+		// Node handle
+		ros::NodeHandle m_nhs;
 
 		// Configuration parameters
 		boost::shared_ptr<config_server::Parameter<bool> > m_enableGait; // Flag whether to enable this gait motion module. The config parameter name is specific to the gait engine name.
@@ -200,6 +204,7 @@ namespace gait
 		};
 		GaitState m_gaitState;
 		void resetGait();
+		void resetGaitEngine();
 		void plotGaitStateEvent();
 
 		// Plot manager
@@ -219,9 +224,9 @@ namespace gait
 			PM_JOINTEFFORT_FIRST,
 			PM_JOINTEFFORT_LAST = PM_JOINTEFFORT_FIRST + NUM_JOINTS - 1,
 			PM_USE_RAW_JOINT_CMDS,
-			PM_WALKING,
 			PM_LEFT_SUPPORT_COEFF,
 			PM_RIGHT_SUPPORT_COEFF,
+			PM_WALKING,
 			PM_GAITCMDRAW_LIN_VEL_X,
 			PM_GAITCMDRAW_LIN_VEL_Y,
 			PM_GAITCMDRAW_ANG_VEL_Z,

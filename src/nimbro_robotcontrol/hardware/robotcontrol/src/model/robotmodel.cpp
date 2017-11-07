@@ -49,16 +49,20 @@ inline void rbdlToTF(const Math::SpatialTransform& X, tf::Transform* t)
 	));
 }
 
+// Constants
+const std::string RobotModel::RESOURCE_PATH = "robotmodel/";
+const std::string RobotModel::CONFIG_PARAM_PATH = "/robotcontrol/robotModel/";
+
 // RobotModel contructor
 RobotModel::RobotModel(RobotControl* robotControl)
- : CONFIG_PARAM_PATH("robotModel/")
- , m_robotControl(robotControl)
+ : m_robotControl(robotControl)
  , m_warnZeroTotalSuppCoeff(CONFIG_PARAM_PATH + "warnZeroTotalSuppCoeff", true)
  , m_useSupportInformation(CONFIG_PARAM_PATH + "useSupportInfo", true)
  , m_useFeedbackPos(CONFIG_PARAM_PATH + "useFeedbackPos", false)
- , m_plotRobotModelData(CONFIG_PARAM_PATH + "plotData", false)
  , m_egoRotIncludesHeading(CONFIG_PARAM_PATH + "egoRotIncludesHeading", false)
  , m_headingIsFusedYaw(CONFIG_PARAM_PATH + "headingIsFusedYaw", true)
+ , m_PM(PM_COUNT, RESOURCE_PATH) // Note: This is the first call to advertise for /plot for this node, and so the queue length passed here is the one that counts, so make it big enough for simultaneous plotting from all motion modules, robotcontrol and robotmodel!
+ , m_plotRobotModelData(CONFIG_PARAM_PATH + "plotData", false)
  , m_currentState(0)
  , m_relaxed(false)
  , m_relaxedWasSet(false)
@@ -66,13 +70,15 @@ RobotModel::RobotModel(RobotControl* robotControl)
 {
 	// Retrieve a node handle
 	ros::NodeHandle nh("~");
+	ros::NodeHandle nhs;
+
+	// Retrieve whether to publish the ego_rot frame
 	nh.param("publish_ego_rot", m_publishEgoRot, true);
 
 	// Advertise topics to publish on
-	m_pub_plot = nh.advertise<plot_msgs::Plot>("/plot", 20); // Note: This is the first call to advertise for /plot for this node, and so the queue length passed here is the one that counts, so make it big enough for simultaneous plotting from all motion modules, robotcontrol and robotmodel!
-	m_pub_state = nh.advertise<robotcontrol::State>("/robotcontrol/state", 1, true);
-	m_pub_robotState = nh.advertise<robotcontrol::RobotState>("/robotmodel/robot_state", 1);
-	m_pub_robotHeading = nh.advertise<robotcontrol::RobotHeading>("/robotmodel/robot_heading", 1);
+	m_pub_state = nh.advertise<robotcontrol::State>("state", 1, true);
+	m_pub_robotState = nhs.advertise<robotcontrol::RobotState>(RESOURCE_PATH + "robot_state", 1);
+	m_pub_robotHeading = nhs.advertise<robotcontrol::RobotHeading>(RESOURCE_PATH + "robot_heading", 1);
 
 	// Initialise the robot state
 	setRobotOrientation(Eigen::Quaterniond::Identity());     // Note: This internally also initialises the remaining orientation-based robot state variables (i.e. the internal Euler and fused angle representations)
@@ -83,43 +89,8 @@ RobotModel::RobotModel(RobotControl* robotControl)
 	setVoltage(16.0);                                        // Note: The approximate value of a slightly discharged 4-cell LiPo battery
 	processReadData();
 
-	// Initialise the plotter variable names
-	m_plot.points.resize(PM_SUPPORT); // Big enough for now...
-	m_plot.points[PM_ANGVEL_X       ].name = "/RobotModel/AngVel/x";
-	m_plot.points[PM_ANGVEL_Y       ].name = "/RobotModel/AngVel/y";
-	m_plot.points[PM_ANGVEL_Z       ].name = "/RobotModel/AngVel/z";
-	m_plot.points[PM_ANGVEL_N       ].name = "/RobotModel/AngVel/norm";
-	m_plot.points[PM_ACCVEC_X       ].name = "/RobotModel/AccVec/x";
-	m_plot.points[PM_ACCVEC_Y       ].name = "/RobotModel/AccVec/y";
-	m_plot.points[PM_ACCVEC_Z       ].name = "/RobotModel/AccVec/z";
-	m_plot.points[PM_ACCVEC_N       ].name = "/RobotModel/AccVec/norm";
-	m_plot.points[PM_MAGVEC_X       ].name = "/RobotModel/MagVec/x";
-	m_plot.points[PM_MAGVEC_Y       ].name = "/RobotModel/MagVec/y";
-	m_plot.points[PM_MAGVEC_Z       ].name = "/RobotModel/MagVec/z";
-	m_plot.points[PM_MAGVEC_N       ].name = "/RobotModel/MagVec/norm";
-	m_plot.points[PM_EULER_YAW      ].name = "/RobotModel/Euler/Yaw";
-	m_plot.points[PM_EULER_PITCH    ].name = "/RobotModel/Euler/Pitch";
-	m_plot.points[PM_EULER_ROLL     ].name = "/RobotModel/Euler/Roll";
-	m_plot.points[PM_FUSED_YAW      ].name = "/RobotModel/Fused/Yaw";
-	m_plot.points[PM_FUSED_PITCH    ].name = "/RobotModel/Fused/Pitch";
-	m_plot.points[PM_FUSED_ROLL     ].name = "/RobotModel/Fused/Roll";
-	m_plot.points[PM_FUSED_HEMI     ].name = "/RobotModel/Fused/Hemi";
-	m_plot.points[PM_FUSED_DYAW     ].name = "/RobotModel/Fused/DYaw";
-	m_plot.points[PM_FUSED_DPITCH   ].name = "/RobotModel/Fused/DPitch";
-	m_plot.points[PM_FUSED_DROLL    ].name = "/RobotModel/Fused/DRoll";
-	m_plot.points[PM_HEADING        ].name = "/RobotModel/Heading";
-	m_plot.points[PM_FUSED_YAW_PR   ].name = "/RobotModel/FusedPR/Yaw";
-	m_plot.points[PM_FUSED_PITCH_PR ].name = "/RobotModel/FusedPR/Pitch";
-	m_plot.points[PM_FUSED_ROLL_PR  ].name = "/RobotModel/FusedPR/Roll";
-	m_plot.points[PM_FUSED_HEMI_PR  ].name = "/RobotModel/FusedPR/Hemi";
-	m_plot.points[PM_FUSED_DYAW_PR  ].name = "/RobotModel/FusedPR/DYaw";
-	m_plot.points[PM_FUSED_DPITCH_PR].name = "/RobotModel/FusedPR/DPitch";
-	m_plot.points[PM_FUSED_DROLL_PR ].name = "/RobotModel/FusedPR/DRoll";
-	m_plot.points[PM_TEMPERATURE    ].name = "/RobotModel/Temperature";
-	m_plot.points[PM_VOLTAGE        ].name = "/RobotModel/Voltage";
-	m_plot.points[PM_RELAXEDMODEL   ].name = "/RobotModel/RelaxedModel";
-	m_plot.points[PM_RELAXEDWRITTEN ].name = "/RobotModel/RelaxedWritten";
-	m_plot.points[PM_ROBOT_STATE    ].name = "/RobotModel/RobotState";
+	// Configure the plot manager
+	configurePlotManager();
 
 	// Register an initial state and set it as the current state
 	setState(registerState("unknown")); // Note: This should get overwritten in RobotControl::RobotControl()
@@ -144,16 +115,23 @@ void RobotModel::initTrees()
 {
 	// Retrieve the root URDF link
 	boost::shared_ptr<const urdf::Link> root = m_model->getRoot();
-	
+
 	// Create single support models for all tip links and the root link (Note: The root link will always be the first model in the list)
 	m_models.clear();
 	if(root->child_links.size() != 0)
 		createSupportModelFromURDFLink(root); // Explicitly add a single support model for the root link if it isn't a tip link (usually the case)
 	doInit(root);
-	
+
 	// Create a reference to the root link support model
 	if(m_models.empty()) ROS_ERROR("No single support model was created for the root link, this shouldn't happen!");
 	m_rootSupportModel = m_models.at(0); // Note: If m_models is empty (should never happen) then this should throw a std::out_of_range exception
+
+	// Create plots for the tip link support coefficients
+	m_PM.setSize(PM_COUNT + m_models.size());
+	for(size_t i = 0; i < m_models.size(); i++)
+		m_PM.setName(PM_SUPPORT + i, "SupportCoeff/" + m_models[i]->link()->name);
+	if(!m_PM.checkNames())
+		ROS_ERROR("Please review any warnings above that are related to the naming of plotter variables!");
 
 	// Calculate the total mass of the model
 	m_mass = 0.0;
@@ -595,61 +573,55 @@ void RobotModel::visualizeData(RCMarkerMan* markers)
 	markers->MagVec2D.update(projmag.x(), projmag.y(), projmag.z());
 
 	// Publish plotter data
-	if(m_plotRobotModelData() || !m_plot.events.empty())
+	if(m_plotRobotModelData() || m_PM.haveEvents())
 	{
-		// Set plot message header data
-		m_plot.header.stamp = now;
-		m_plot.points.resize(PM_SUPPORT + m_models.size());
+		// Set the plotting time stamp
+		m_PM.setTimestamp(now);
 
-		// Plot robot state (the name fields are populated as a once-off in the RobotModel constructor)
-		m_plot.points[PM_ANGVEL_X       ].value = m_robotAngularVelocity.x();
-		m_plot.points[PM_ANGVEL_Y       ].value = m_robotAngularVelocity.y();
-		m_plot.points[PM_ANGVEL_Z       ].value = m_robotAngularVelocity.z();
-		m_plot.points[PM_ANGVEL_N       ].value = m_robotAngularVelocity.norm();
-		m_plot.points[PM_ACCVEC_X       ].value = m_accelerationVector.x();
-		m_plot.points[PM_ACCVEC_Y       ].value = m_accelerationVector.y();
-		m_plot.points[PM_ACCVEC_Z       ].value = m_accelerationVector.z();
-		m_plot.points[PM_ACCVEC_N       ].value = m_accelerationVector.norm();
-		m_plot.points[PM_MAGVEC_X       ].value = m_magneticFieldVector.x();
-		m_plot.points[PM_MAGVEC_Y       ].value = m_magneticFieldVector.y();
-		m_plot.points[PM_MAGVEC_Z       ].value = m_magneticFieldVector.z();
-		m_plot.points[PM_MAGVEC_N       ].value = m_magneticFieldVector.norm();
-		m_plot.points[PM_EULER_YAW      ].value = m_robotEYaw;
-		m_plot.points[PM_EULER_PITCH    ].value = m_robotEPitch;
-		m_plot.points[PM_EULER_ROLL     ].value = m_robotERoll;
-		m_plot.points[PM_FUSED_YAW      ].value = m_robotFYaw;
-		m_plot.points[PM_FUSED_PITCH    ].value = m_robotFPitch;
-		m_plot.points[PM_FUSED_ROLL     ].value = m_robotFRoll;
-		m_plot.points[PM_FUSED_HEMI     ].value = (m_robotFHemi ? 1.0 : -1.0);
-		m_plot.points[PM_FUSED_DYAW     ].value = m_robotDFYaw;
-		m_plot.points[PM_FUSED_DPITCH   ].value = m_robotDFPitch;
-		m_plot.points[PM_FUSED_DROLL    ].value = m_robotDFRoll;
-		m_plot.points[PM_HEADING        ].value = m_robotHeading;
-		m_plot.points[PM_FUSED_YAW_PR   ].value = m_robotFYawPR;
-		m_plot.points[PM_FUSED_PITCH_PR ].value = m_robotFPitchPR;
-		m_plot.points[PM_FUSED_ROLL_PR  ].value = m_robotFRollPR;
-		m_plot.points[PM_FUSED_HEMI_PR  ].value = (m_robotFHemiPR ? 1.0 : -1.0);
-		m_plot.points[PM_FUSED_DYAW_PR  ].value = m_robotDFYawPR;
-		m_plot.points[PM_FUSED_DPITCH_PR].value = m_robotDFPitchPR;
-		m_plot.points[PM_FUSED_DROLL_PR ].value = m_robotDFRollPR;
-		m_plot.points[PM_TEMPERATURE    ].value = m_temperature;
-		m_plot.points[PM_VOLTAGE        ].value = m_voltage;
-		m_plot.points[PM_RELAXEDMODEL   ].value = m_relaxed;
-		m_plot.points[PM_RELAXEDWRITTEN ].value = m_relaxedWasSet;
-		m_plot.points[PM_ROBOT_STATE    ].value = m_currentState.index() * 0.1;
+		// Plot the robot model state
+		m_PM.plotScalar(m_robotAngularVelocity.x(), PM_ANGVEL_X);
+		m_PM.plotScalar(m_robotAngularVelocity.y(), PM_ANGVEL_Y);
+		m_PM.plotScalar(m_robotAngularVelocity.z(), PM_ANGVEL_Z);
+		m_PM.plotScalar(m_robotAngularVelocity.norm(), PM_ANGVEL_N);
+		m_PM.plotScalar(m_accelerationVector.x(), PM_ACCVEC_X);
+		m_PM.plotScalar(m_accelerationVector.y(), PM_ACCVEC_Y);
+		m_PM.plotScalar(m_accelerationVector.z(), PM_ACCVEC_Z);
+		m_PM.plotScalar(m_accelerationVector.norm(), PM_ACCVEC_N);
+		m_PM.plotScalar(m_magneticFieldVector.x(), PM_MAGVEC_X);
+		m_PM.plotScalar(m_magneticFieldVector.y(), PM_MAGVEC_Y);
+		m_PM.plotScalar(m_magneticFieldVector.z(), PM_MAGVEC_Z);
+		m_PM.plotScalar(m_magneticFieldVector.norm(), PM_MAGVEC_N);
+		m_PM.plotScalar(m_robotEYaw, PM_EULER_YAW);
+		m_PM.plotScalar(m_robotEPitch, PM_EULER_PITCH);
+		m_PM.plotScalar(m_robotERoll, PM_EULER_ROLL);
+		m_PM.plotScalar(m_robotFYaw, PM_FUSED_YAW);
+		m_PM.plotScalar(m_robotFPitch, PM_FUSED_PITCH);
+		m_PM.plotScalar(m_robotFRoll, PM_FUSED_ROLL);
+		m_PM.plotScalar((m_robotFHemi ? 1.0 : -1.0), PM_FUSED_HEMI);
+		m_PM.plotScalar(m_robotDFYaw, PM_FUSED_DYAW);
+		m_PM.plotScalar(m_robotDFPitch, PM_FUSED_DPITCH);
+		m_PM.plotScalar(m_robotDFRoll, PM_FUSED_DROLL);
+		m_PM.plotScalar(m_robotHeading, PM_HEADING);
+		m_PM.plotScalar(m_robotFYawPR, PM_FUSED_YAW_PR);
+		m_PM.plotScalar(m_robotFPitchPR, PM_FUSED_PITCH_PR);
+		m_PM.plotScalar(m_robotFRollPR, PM_FUSED_ROLL_PR);
+		m_PM.plotScalar((m_robotFHemiPR ? 1.0 : -1.0), PM_FUSED_HEMI_PR);
+		m_PM.plotScalar(m_robotDFYawPR, PM_FUSED_DYAW_PR);
+		m_PM.plotScalar(m_robotDFPitchPR, PM_FUSED_DPITCH_PR);
+		m_PM.plotScalar(m_robotDFRollPR, PM_FUSED_DROLL_PR);
+		m_PM.plotScalar(m_temperature, PM_TEMPERATURE);
+		m_PM.plotScalar(m_voltage, PM_VOLTAGE);
+		m_PM.plotScalar(m_relaxed, PM_RELAXEDMODEL);
+		m_PM.plotScalar(m_relaxedWasSet, PM_RELAXEDWRITTEN);
+		m_PM.plotScalar(m_currentState.index() * 0.1, PM_ROBOT_STATE);
 
 		// Plot support coefficients
 		for(size_t i = 0; i < m_models.size(); i++)
-		{
-			m_plot.points[PM_SUPPORT+i].name = "RobotModel/SupportCoeff/" + m_models[i]->link()->name;
-			m_plot.points[PM_SUPPORT+i].value = m_models[i]->coeff();
-		}
+			m_PM.plotScalar(m_models[i]->coeff(), PM_SUPPORT + i);
 
-		// Publish the plot data
-		m_pub_plot.publish(m_plot);
-
-		// Clear the sent events out of the plot data
-		m_plot.events.clear();
+		// Publish and clear the plot data
+		m_PM.publish();
+		m_PM.clear(now);
 	}
 }
 
@@ -783,7 +755,7 @@ void RobotModel::setState(RobotModel::State state)
 
 		m_pub_state.publish(msg);
 
-		m_plot.events.push_back("/RobotModel/events/" + msg.label);
+		m_PM.plotEvent(msg.label);
 	}
 
 	m_currentState = state;
@@ -824,6 +796,50 @@ void RobotModel::processReadData()
 	m_robotDFYawPR = m_golayDFYawPR.value() / m_timerDuration;
 	m_robotDFPitchPR = m_golayDFPitchPR.value() / m_timerDuration;
 	m_robotDFRollPR = m_golayDFRollPR.value() / m_timerDuration;
+}
+
+void RobotModel::configurePlotManager()
+{
+	// Configure the plot manager variable names
+	m_PM.setName(PM_ANGVEL_X,        "AngVel/x");
+	m_PM.setName(PM_ANGVEL_Y,        "AngVel/y");
+	m_PM.setName(PM_ANGVEL_Z,        "AngVel/z");
+	m_PM.setName(PM_ANGVEL_N,        "AngVel/norm");
+	m_PM.setName(PM_ACCVEC_X,        "AccVec/x");
+	m_PM.setName(PM_ACCVEC_Y,        "AccVec/y");
+	m_PM.setName(PM_ACCVEC_Z,        "AccVec/z");
+	m_PM.setName(PM_ACCVEC_N,        "AccVec/norm");
+	m_PM.setName(PM_MAGVEC_X,        "MagVec/x");
+	m_PM.setName(PM_MAGVEC_Y,        "MagVec/y");
+	m_PM.setName(PM_MAGVEC_Z,        "MagVec/z");
+	m_PM.setName(PM_MAGVEC_N,        "MagVec/norm");
+	m_PM.setName(PM_EULER_YAW,       "Euler/Yaw");
+	m_PM.setName(PM_EULER_PITCH,     "Euler/Pitch");
+	m_PM.setName(PM_EULER_ROLL,      "Euler/Roll");
+	m_PM.setName(PM_FUSED_YAW,       "Fused/Yaw");
+	m_PM.setName(PM_FUSED_PITCH,     "Fused/Pitch");
+	m_PM.setName(PM_FUSED_ROLL,      "Fused/Roll");
+	m_PM.setName(PM_FUSED_HEMI,      "Fused/Hemi");
+	m_PM.setName(PM_FUSED_DYAW,      "Fused/DYaw");
+	m_PM.setName(PM_FUSED_DPITCH,    "Fused/DPitch");
+	m_PM.setName(PM_FUSED_DROLL,     "Fused/DRoll");
+	m_PM.setName(PM_HEADING,         "Heading");
+	m_PM.setName(PM_FUSED_YAW_PR,    "FusedPR/Yaw");
+	m_PM.setName(PM_FUSED_PITCH_PR,  "FusedPR/Pitch");
+	m_PM.setName(PM_FUSED_ROLL_PR,   "FusedPR/Roll");
+	m_PM.setName(PM_FUSED_HEMI_PR,   "FusedPR/Hemi");
+	m_PM.setName(PM_FUSED_DYAW_PR,   "FusedPR/DYaw");
+	m_PM.setName(PM_FUSED_DPITCH_PR, "FusedPR/DPitch");
+	m_PM.setName(PM_FUSED_DROLL_PR,  "FusedPR/DRoll");
+	m_PM.setName(PM_TEMPERATURE,     "Temperature");
+	m_PM.setName(PM_VOLTAGE,         "Voltage");
+	m_PM.setName(PM_RELAXEDMODEL,    "RelaxedModel");
+	m_PM.setName(PM_RELAXEDWRITTEN,  "RelaxedWritten");
+	m_PM.setName(PM_ROBOT_STATE,     "RobotState");
+
+	// Check that we have been thorough
+	if(!m_PM.checkNames())
+		ROS_ERROR("Please review any warnings above that are related to the naming of plotter variables!");
 }
 
 }

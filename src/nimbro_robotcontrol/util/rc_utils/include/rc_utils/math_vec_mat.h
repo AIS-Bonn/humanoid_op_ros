@@ -125,20 +125,20 @@ namespace rc_utils
 		return Eigen::Matrix<Scalar, 2, 1>(length * cos(angle), length * sin(angle));
 	}
 
-	//! @brief Rotate a 2D vector @p vec clockwise in place by an angle @p angle in radians
+	//! @brief Rotate a 2D vector @p vec clockwise in-place by an angle @p angle in radians
 	template<typename Scalar> inline void eigenRotateCW(Eigen::Matrix<Scalar, 2, 1>& vec, double angle)
 	{
-		// Rotate the given vector in place by the required angle
+		// Rotate the given vector in-place by the required angle
 		double s = sin(angle), c = cos(angle);
 		Scalar newX = c*vec.x() + s*vec.y();
 		vec.y() = c*vec.y() - s*vec.x();
 		vec.x() = newX;
 	}
 
-	//! @brief Rotate a 2D vector @p vec counterclockwise in place by an angle @p angle in radians
+	//! @brief Rotate a 2D vector @p vec counterclockwise in-place by an angle @p angle in radians
 	template<typename Scalar> inline void eigenRotateCCW(Eigen::Matrix<Scalar, 2, 1>& vec, double angle)
 	{
-		// Rotate the given vector in place by the required angle
+		// Rotate the given vector in-place by the required angle
 		double s = sin(angle), c = cos(angle);
 		Scalar newX = c*vec.x() - s*vec.y();
 		vec.y() = s*vec.x() + c*vec.y();
@@ -161,19 +161,19 @@ namespace rc_utils
 		return Eigen::Matrix<Scalar, 2, 1>(c*vec.x() - s*vec.y(), s*vec.x() + c*vec.y());
 	}
 
-	//! @brief Rotate a 2D vector @p vec clockwise in place by 90 degrees
+	//! @brief Rotate a 2D vector @p vec clockwise in-place by 90 degrees
 	template<typename Scalar> inline void eigenRotateCW90(Eigen::Matrix<Scalar, 2, 1>& vec)
 	{
-		// Rotate the given vector in place by 90 degrees
+		// Rotate the given vector in-place by 90 degrees
 		Scalar newX = vec.y();
 		vec.y() = -vec.x();
 		vec.x() = newX;
 	}
 
-	//! @brief Rotate a 2D vector @p vec counterclockwise in place by 90 degrees
+	//! @brief Rotate a 2D vector @p vec counterclockwise in-place by 90 degrees
 	template<typename Scalar> inline void eigenRotateCCW90(Eigen::Matrix<Scalar, 2, 1>& vec)
 	{
-		// Rotate the given vector in place by 90 degrees
+		// Rotate the given vector in-place by 90 degrees
 		Scalar newX = -vec.y();
 		vec.y() = vec.x();
 		vec.x() = newX;

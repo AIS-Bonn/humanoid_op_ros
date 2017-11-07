@@ -64,11 +64,20 @@ public:
 	 * provided so that any required processing action for the joint commands
 	 * can be performed between when they are computed and when they are first
 	 * used (i.e. between the motion modules and the inverse dynamics). The
-	 * default implementation just returns true.
-	 *
-	 * @return true on success
+	 * default implementation performs no action.
 	 **/
-	virtual bool processJointCommands() { return true; }
+	virtual void processJointCommands() {}
+
+	/**
+	 * @brief Process joint torques
+	 *
+	 * Will often not require any action from the hardware interface, but is
+	 * provided so that any required processing action for the joint torques
+	 * can be performed between when they are computed and when they are first
+	 * used (i.e. between the inverse dynamics and sending joint targets). The
+	 * default implementation performs no action.
+	 **/
+	virtual void processJointTorques() {}
 
 	/**
 	 * @brief Send position feedback

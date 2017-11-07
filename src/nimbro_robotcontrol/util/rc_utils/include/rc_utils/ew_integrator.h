@@ -32,31 +32,35 @@ namespace rc_utils
 		EWIntegrator() { resetAll(); }
 		
 		// Reset functions
-		void resetAll() // Reset everything, including alpha
+		void resetAll() // Reset everything, including dT and alpha
 		{
+			m_dT = 1.0;
 			m_alpha = 1.0;
 			m_integral = 0.0;
 		}
-		void reset() // Resets the integrated value to zero (doesn't modify alpha)
+		void reset() // Resets the integrated value to zero (doesn't modify dT or alpha)
 		{
 			m_integral = 0.0;
 		}
 		
 		// Set functions
+		void setdT(double dT) { m_dT = coerceMin(dT, 0.0); } // Note: If you change dT then you should consider updating the half life cycles as well to keep a consistent half life time!
+		void setAlpha(double alpha) { m_alpha = coerce(alpha, 0.0, 1.0); }
+		void setHalfLife(double cycles) { m_alpha = (cycles <= 1e-6 ? 0.0 : std::pow(0.5, 1.0/cycles)); } // Half life cycles = Half life time / dT
 		void setIntegral(double value) { m_integral = value; }
 		void resetIntegral() { m_integral = 0.0; }
-		void setAlpha(double alpha) { m_alpha = coerce(alpha, 0.0, 1.0); }
-		void setHalfLife(double cycles) { m_alpha = (cycles <= 1e-6 ? 0.0 : std::pow(0.5, 1.0/cycles)); }
 		
 		// Get functions
+		double dT() const { return m_dT; }
 		double alpha() const { return m_alpha; }
 		double integral() const { return m_integral; }
 		
 		// Update the integral with a new value
-		void integrate(double value) { m_integral = value + m_alpha*m_integral; }
+		double integrate(double value) { m_integral = m_dT*value + m_alpha*m_integral; return m_integral; }
 		
 	private:
 		// Data members
+		double m_dT;       // Time step
 		double m_alpha;    // Alpha factor that governs the exponential decay of the data point weighting
 		double m_integral; // Current integrated value
 	};

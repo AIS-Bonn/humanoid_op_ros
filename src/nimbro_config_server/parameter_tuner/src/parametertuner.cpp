@@ -76,12 +76,9 @@ void Parametertuner::initPlugin(qt_gui_cpp::PluginContext& context)
 	m_updateTimer = m_nh.createWallTimer(ros::WallDuration(0.6), boost::bind(&Parametertuner::handleUpdateTimer, this), true, false);
 
 	// Init custom command button
-	std::string button_name;
-	
-	if(!m_nh.getParam("/vis/button_name", button_name))
-		ROS_ERROR("Failed to get param '/vis/button_name'");
-	else
-		m_ui.custom_command_button->setText(QString::fromStdString(button_name));
+	std::string button_name, defaultButtonName = "Custom";
+	m_nh.param("/vis/button_name", button_name, defaultButtonName);
+	m_ui.custom_command_button->setText(QString::fromStdString(button_name));
 	
 	parseCustomCommand();
 	
@@ -92,11 +89,8 @@ void Parametertuner::parseCustomCommand()
 {
 	std::string command_raw;
 	
-	if(!m_nh.getParam("/vis/custom_command", command_raw))
-	{
-		ROS_ERROR("Failed to get param '/vis/custom_command'");
-		return;
-	}
+	std::string defaultCommand = "xterm -hold -e bash -i -c 'echo \"Custom command not assigned!\nUse the ROS parameter '\"'\"'/vis/custom_command'\"'\"' to assign an action to this button.\"'";
+	m_nh.param("/vis/custom_command", command_raw, defaultCommand);
 	
 	// Parse parameters
 	const std::string start_symbol = "^^";
@@ -572,7 +566,7 @@ void Parametertuner::handleResetRightClick()
 	
 	if(strcmp(ros_master_uri, "http://localhost:11311") != 0)
 	{
-		ROS_WARN("Env var ROS_MASTER_URI != 'http://localhost:11311'. Can't load config");
+		ROS_WARN("Env var ROS_MASTER_URI != 'http://localhost:11311'. Loading alternative config not permitted.");
 		return;
 	}
 	
@@ -828,7 +822,7 @@ int execute_command(const std::string command)
 void Parametertuner::customButtonClicked()
 {
 	parseCustomCommand();
-	ROS_INFO("Will execute: %s", m_custom_command.c_str());
+	ROS_INFO("Executing: %s", m_custom_command.c_str());
 	boost::thread(execute_command, m_custom_command);
 }
 

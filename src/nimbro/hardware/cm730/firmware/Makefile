@@ -23,7 +23,7 @@ AS = $(TCHAIN_PREFIX)gcc
 ASFLAGS = $(COMPILE_OPTS) -c 
 
 LD = $(TCHAIN_PREFIX)gcc
-LDFLAGS = $(M3_OPTS) -Wl,--gc-sections,-Map=$@.map,-cref,-u,Reset_Handler $(INCLUDE_DIRS) $(LIBRARY_DIRS) -T stm32.ld 
+LDFLAGS = $(M3_OPTS) -nostdlib -Wl,--gc-sections,-Map=$@.map,-cref,-u,Reset_Handler $(INCLUDE_DIRS) $(LIBRARY_DIRS) -T stm32.ld 
 
 OBJCP = $(TCHAIN_PREFIX)objcopy
 OBJCPFLAGS_HEX = -O ihex

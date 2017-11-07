@@ -9,6 +9,9 @@
 #include <QWidget>
 #include <QObject>
 
+#include <config_server/parameter.h>
+#include <head_control/HeadControlStatus.h>
+
 struct HeaderData
 {
 	std::string motion_name;
@@ -65,12 +68,23 @@ public Q_SLOTS:
 private Q_SLOTS:
 	void checkValues();
 	void handleFieldChanged();
+	void switchHeadControl();
+	void switchFallProtection();
+	
+private:
+	void updateHeadControlStatus(const head_control::HeadControlStatus &status);
+	void updateFallProtectionStatus();
 	
 private:
 	Ui::HeaderView *ui;
 
-	QString fileName; // Name of file without ".yaml"
-	QString warningString;
+	QString m_file_name; // Name of file without ".yaml"
+	QString m_warning_string;
+	
+	ros::NodeHandle m_nh;
+	ros::Subscriber m_head_control_subscriber;
+	ros::Publisher  m_head_control_publisher;
+	config_server::Parameter<bool>  m_fall_protection_param;
 };
 
 

@@ -14,17 +14,20 @@
 namespace nimbro_op_interface
 {
 	// DummyInterface class
-	class DummyInterface : public nimbro_op_interface::RobotInterface
+	class DummyInterface : public virtual RobotInterface
 	{
 	public:
 		// Constructor/destructor
 		DummyInterface();
 		virtual ~DummyInterface();
-		
+
 		// Virtual function overrides
 		virtual bool sendJointTargets();
 		virtual bool readJointStates();
-		
+
+		// Constants
+		static const std::string CONFIG_PARAM_PATH;
+
 	protected:
 		// Virtual functions to override attempts to connect to the CM730
 		virtual bool initCM730() { return true; }
@@ -33,11 +36,8 @@ namespace nimbro_op_interface
 		virtual bool syncWriteTorqueEnable(size_t numDevices, const uint8_t* data) { return true; }
 		virtual bool syncWriteTorqueLimit(size_t numDevices, const uint8_t* data) { return true; }
 		virtual bool useModel() const { return m_useModel(); }
-	
-	private:
-		// Constants
-		const std::string CONFIG_PARAM_PATH;
 
+	private:
 		// Config server parameters
 		config_server::Parameter<bool>  m_useModel;
 		config_server::Parameter<bool>  m_addDelay;
@@ -61,13 +61,13 @@ namespace nimbro_op_interface
 		config_server::Parameter<float> m_fakeAttFusedY;
 		config_server::Parameter<float> m_fakeAttFusedZ;
 		config_server::Parameter<bool>  m_fakeAttFusedHemi;
-		
+
 		// Config server callbacks
 		void updateUseModel();
-		
+
 		// Misc flags
 		bool m_calledReadFeedback;
-	
+
 		// Joint command data buffer
 		typedef std::map<uint8_t, JointCmdSyncWriteData> JointCmd;
 		boost::circular_buffer<JointCmd> m_jointCmdBuf;
@@ -75,5 +75,4 @@ namespace nimbro_op_interface
 }
 
 #endif
-
 // EOF

@@ -1,4 +1,6 @@
 <launch>
-    <remap from="/diagnostics" to="/joy/diagnostics" />
-    <node name="joy" pkg="joy" type="joy_node" />
+    <node name="joy" pkg="joy" type="joy_node">
+        <param name="~dev" value="/dev/input/js0" />
+        <remap from="/diagnostics" to="~diagnostics" />
+    </node>
 </launch>

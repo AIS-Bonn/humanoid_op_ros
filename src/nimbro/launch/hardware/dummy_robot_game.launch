@@ -1,3 +1,10 @@
 <launch>
-    <include file="$(find launch)/hardware/$(optenv NIMBRO_ROBOT_TYPE NO_TYPE_FOUND)/dummy_robot_game.$(optenv NIMBRO_ROBOT_TYPE NO_TYPE_FOUND).launch" />
+    <arg name="launch_param" default="true" />
+    <arg name="launch_joy" default="true" />
+    <arg name="robot_type" default="$(optenv NIMBRO_ROBOT_TYPE NO_TYPE_FOUND)" />
+    
+    <include file="$(find launch)/hardware/$(arg robot_type)/dummy_robot_game.$(arg robot_type).launch">
+        <arg name="launch_param" value="$(arg launch_param)" />
+        <arg name="launch_joy" value="$(arg launch_joy)" />
+    </include>
 </launch>

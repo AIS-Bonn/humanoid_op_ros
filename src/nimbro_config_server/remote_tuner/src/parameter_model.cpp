@@ -160,7 +160,7 @@ QVariant ParameterModel::data(const QModelIndex& index, int role) const
 			{
 				case COL_VALUE:
 					if(node->pending)
-						return Qt::yellow;
+						return QColor(Qt::yellow);
 					break;
 			}
 			break;

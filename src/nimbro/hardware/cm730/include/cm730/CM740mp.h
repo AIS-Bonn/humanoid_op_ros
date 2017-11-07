@@ -18,7 +18,7 @@ using namespace cm730;
 struct MPData
 {
 	// Constructor
-	MPData() { std::memset(this, 0, sizeof(MPData)); length=12; f_writePosition = false; }
+	MPData() { std::memset(this, 0, sizeof(MPData)); length=6; f_writePosition = false; }
 
 	// Megapacket read parameters
 	unsigned char length;			// subpacket length
@@ -33,10 +33,10 @@ struct MPData
 
 	// Received data
 	unsigned short position; 		// P_PRESENT_POSITION_*
-	unsigned short speed; 			// P_PRESENT_SPEED_*
-	unsigned short torque;			// P_PRESENT_TORQUE_*
-	unsigned char  voltage;			// P_PRESENT_VOLTAGE_*
-	unsigned char  temperature;		// P_PRESENT_TEMPERATURE_*
+// 	unsigned short speed; 			// P_PRESENT_SPEED_*
+// 	unsigned short torque;			// P_PRESENT_TORQUE_*
+// 	unsigned char  voltage;			// P_PRESENT_VOLTAGE_*
+// 	unsigned char  temperature;		// P_PRESENT_TEMPERATURE_*
 
 	// Sent data
 	unsigned char  torqueEnable;    //  0/1 = torque off/on
@@ -89,7 +89,7 @@ struct MPBoard
 class CM740mp : public CM730
 {
 public:
-	CM740mp() : m_inMegapacketMode(false), m_isMegapacketConfigured(false), m_writeMegapacket(false) { } ;
+	CM740mp(const std::string& resourcePath, const std::string& configParamPath) : CM730(resourcePath, configParamPath), m_inMegapacketMode(false), m_isMegapacketConfigured(false), m_writeMegapacket(false) {}
 	int  writeMegapacket(std::vector<MPData>& Servos, MPBoard& Board);
 	int  receiveMegapacket(std::vector<MPData>& Servos, MPBoard& Board);
 	int  configureMegapacket(std::vector<MPData>& Servos, MPBoard& Board);
@@ -99,7 +99,7 @@ public:
 	int  enableMegapacket(bool enable);
 	int  packetsReceived(unsigned char oldPackets, unsigned char currentPackets);
 	int  txMegapacket(unsigned char* txp);
-	int  rxMegapacket(unsigned char* txp); // this is a stub
+// 	int  rxMegapacket(unsigned char* txp);
 private:
 	bool m_inMegapacketMode;
 	bool m_isMegapacketConfigured;

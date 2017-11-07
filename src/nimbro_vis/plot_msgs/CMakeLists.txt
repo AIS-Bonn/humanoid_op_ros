@@ -19,16 +19,23 @@ generate_messages(
 	std_msgs  # Or other packages containing msgs
 )
 
-find_package(Eigen REQUIRED)
+# Find Eigen
+find_package(Eigen3)
+if(EIGEN3_FOUND)
+	set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
+else()
+	find_package(Eigen REQUIRED)
+	set(EIGEN3_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
+endif()
+include_directories(${EIGEN3_INCLUDE_DIRS})
 
 catkin_package(
-	INCLUDE_DIRS include
-	DEPENDS Eigen
+	INCLUDE_DIRS include ${EIGEN3_INCLUDE_DIRS}
+# 	DEPENDS
 )
 
 ## Specify additional locations of header files
 include_directories(include
-	${Eigen_INCLUDE_DIRS}
 	${catkin_INCLUDE_DIRS}
 )
 

@@ -1,9 +1,24 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(motion_player)
 
-find_package(catkin REQUIRED COMPONENTS roscpp std_msgs std_srvs robotcontrol genmsg gait plot_msgs message_generation)
-find_package(Qt4 REQUIRED QtCore QtXml QtOpenGL)
-include(${QT_USE_FILE})
+find_package(catkin REQUIRED COMPONENTS roscpp std_msgs std_srvs robotcontrol genmsg gait plot_msgs message_generation rqt_gui_cpp)
+
+# Decide on a Qt version
+if("${qt_gui_cpp_USE_QT_MAJOR_VERSION} " STREQUAL "5 ")
+	set(USE_QT5 true)
+else()
+	set(USE_QT5 false)
+endif()
+
+# Find Qt
+if(USE_QT5)
+	find_package(Qt5Core REQUIRED)
+	set(QT_LIBRARIES ${Qt5Core_LIBRARIES})
+	include_directories(${Qt5Core_INCLUDE_DIRS})
+else()
+	find_package(Qt4 COMPONENTS QtCore REQUIRED)
+	include(${QT_USE_FILE})
+endif()
 
 #######################################
 ## Declare ROS messages and services ##
@@ -46,7 +61,6 @@ catkin_package(
    INCLUDE_DIRS include
    LIBRARIES motion_file
    CATKIN_DEPENDS message_runtime
-#  CATKIN_DEPENDS roscpp std_msgs
 #  DEPENDS system_lib
 )
 

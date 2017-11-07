@@ -43,7 +43,7 @@ namespace stateestimation
 	{
 	public:
 		// Constructor/destructor
-		MagFilter(const std::string& paramPath, double cycleTime); //!< @brief Default constructor (nominally the @p paramPath shouldn't end in a `/`).
+		MagFilter(const std::string& resourcePath, const std::string& configParamPath, double cycleTime); //!< @brief Default constructor (the @p resourcePath and @p configParamPath arguments should end in a `/`).
 		virtual ~MagFilter() {} //!< @brief Default destructor.
 
 		// Get/set cycle time
@@ -229,7 +229,7 @@ namespace stateestimation
 		class MarkerMan : public vis_utils::MarkerManager
 		{
 		public:
-			MarkerMan(const std::string& topicName, int publishInterval, bool enabled, const std::string& refFrame, const std::string& paramPath);
+			MarkerMan(const std::string& topicName, int publishInterval, bool enabled, const std::string& refFrame, const std::string& markerNs);
 			void reset() { clearRawDataPoints(); clearAutoDataPoints(); clearFixedDataPoints(); hideAll(); }
 			void addRawDataPoint(const Eigen::Vector3d& point) { addDataPoint(&RawData, point.x(), point.y(), point.z()); }
 			void addRawDataPoint(double x, double y, double z) { addDataPoint(&RawData, x, y, z); }

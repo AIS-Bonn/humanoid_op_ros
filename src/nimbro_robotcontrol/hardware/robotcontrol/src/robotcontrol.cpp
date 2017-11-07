@@ -61,6 +61,9 @@ enum {
         IOPRIO_WHO_USER,
 };
 
+// Constants
+const std::string RobotControl::CONFIG_PARAM_PATH = "/robotcontrol/";
+
 // RobotControl constructor
 RobotControl::RobotControl()
  : m_nh("~")
@@ -71,27 +74,23 @@ RobotControl::RobotControl()
  , m_fadeTorqueServer(m_nh, "fade_torque", false)
  , m_fadeTorqueState(0)
  , m_newFadeTorqueGoal(false)
- , m_velLimit("jointVelLimit", 0, 0.05, 25.0, 0.5)
- , m_accLimit("jointAccLimit", 0, 0.05, 25.0, 0.5)
- , m_publishCommand("publishCommand", false)
- , m_plotRobotControlData("plotRobotControlData", false)
- , m_fadeInMaxDelta("fadeInMaxDelta", 0, 0.0001, 1.0, 0.005)
+ , m_velLimit(CONFIG_PARAM_PATH + "jointVelLimit", 0, 0.05, 25.0, 0.5)
+ , m_accLimit(CONFIG_PARAM_PATH + "jointAccLimit", 0, 0.05, 25.0, 0.5)
+ , m_publishCommand(CONFIG_PARAM_PATH + "publishCommand", false)
+ , m_fadeInMaxDelta(CONFIG_PARAM_PATH + "fadeInMaxDelta", 0, 0.0001, 1.0, 0.005)
+ , m_PM(PM_COUNT, "~")
+ , m_plotRobotControlData(CONFIG_PARAM_PATH + "plotRobotControlData", false)
 {
+	// Retrieve a node handle
+	ros::NodeHandle nhs;
+
 	// Advertise topics to publish on
-	m_pub_js = m_nh.advertise<sensor_msgs::JointState>("/joint_states", 10);
-	m_pub_js_cmd = m_nh.advertise<plot_msgs::JointCommand>("/joint_commands", 10);
+	m_pub_js = nhs.advertise<sensor_msgs::JointState>("joint_states", 10);
+	m_pub_js_cmd = nhs.advertise<plot_msgs::JointCommand>("joint_commands", 10);
 	m_pub_diag = m_nh.advertise<robotcontrol::Diagnostics>("diagnostics", 1);
-	m_pub_plot = m_nh.advertise<plot_msgs::Plot>("/plot", 2);
 	
 	// Advertise services
 	m_srv_printJointCommands = m_nh.advertiseService("printJointCommands", &RobotControl::handlePrintJointCommands, this);
-
-	// Initialise the plotter variable names
-	m_plot.points.resize(PM_COUNT);
-	m_plot.points[PM_TIM_PERIOD].name = "/robotcontrol/Timing/Period";
-	m_plot.points[PM_TIM_MOTION].name = "/robotcontrol/Timing/0_Motion";
-	m_plot.points[PM_TIM_TX    ].name = "/robotcontrol/Timing/1_Tx";
-	m_plot.points[PM_TIM_RX    ].name = "/robotcontrol/Timing/2_Rx";
 
 	// Retrieve the ROS param for whether to publish TF transforms
 	m_nh.param("publish_tf", m_publishTF, true);
@@ -116,6 +115,9 @@ RobotControl::RobotControl()
 	std::string initState = "unknown";
 	m_nh.param("initial_state", initState, initState); // <-- This ROS parameter should in general *not* be set, leading to retrieval failure, and use of the default "unknown" state...
 	m_robotModel.setState(m_robotModel.registerState(initState));
+
+	// Configure the plot manager
+	configurePlotManager();
 }
 
 // RobotControl destructor
@@ -150,6 +152,13 @@ bool RobotControl::initModules()
 {
 	XmlRpc::XmlRpcValue list;
 	m_nh.getParam("motion_modules", list);
+
+	if(!list.valid())
+	{
+		ROS_ERROR("No MotionModules were given. I need a motion_modules parameter!");
+		return false;
+	}
+
 	ROS_ASSERT(list.getType() == XmlRpc::XmlRpcValue::TypeArray);
 
 	std::string name, param;
@@ -179,11 +188,11 @@ bool RobotControl::initModules()
 					name = name.substr(0, endName + 1);
 				else
 					name.clear();
-				ROS_INFO("loading MotionModule '%s' with param string '%s'", name.c_str(), param.c_str());
+				ROS_INFO("Loading MotionModule '%s' with param string '%s'", name.c_str(), param.c_str());
 			}
 		}
 		if(param.empty())
-			ROS_INFO("loading MotionModule '%s'", name.c_str());
+			ROS_INFO("Loading MotionModule '%s'", name.c_str());
 
 		boost::shared_ptr<MotionModule> module;
 		try
@@ -274,6 +283,7 @@ bool RobotControl::init()
 
 		joint->modelJoint = modelJoint;
 		joint->name = modelJoint->name;
+		joint->mimic = modelJoint->mimic;
 
 		m_robotModel.addJoint(joint);
 	}
@@ -472,6 +482,9 @@ void RobotControl::step()
 	// Calculate the inverse dynamics (i.e. the needed torques) on our robot model
 	m_robotModel.doInverseDynamics();
 
+	// Allow the hardware interface to process the joint torques from the inverse dynamics
+	m_hw->processJointTorques();
+
 	// Do the hardware communication cycle => Write the calculated joint targets
 	ros::WallTime t1 = ros::WallTime::now();
 	m_dur_motion = t1 - t0;
@@ -497,7 +510,7 @@ void RobotControl::step()
 		{
 			if(m_publishCommand())
 			{
-				ROS_WARN_THROTTLE(1.0, "robotcontrol/publishCommand is active! This will send invalid transforms to other nodes!");
+				ROS_WARN_THROTTLE(1.0, "Robotcontrol publishCommand is active! This will send invalid transforms to other nodes!");
 				m_robotModel.publishTF(false);
 			}
 			else
@@ -522,26 +535,29 @@ void RobotControl::step()
 		m_pub_js_counter++;
 
 	// Publish plotter data
-	if(m_plotRobotControlData() || !m_plot.events.empty())
+	if(m_plotRobotControlData() || m_PM.haveEvents())
 	{
-		// Set plot message header data
-		m_plot.header.stamp = startTime;
+		// Set the plotting time stamp
+		m_PM.setTimestamp(startTime);
 
-		// Plot the timing data
-		m_plot.points[PM_TIM_PERIOD].value = (t0 - m_lastIterationTime).toSec();
-		m_plot.points[PM_TIM_MOTION].value = m_dur_motion.toSec();
-		m_plot.points[PM_TIM_TX    ].value = m_dur_motion.toSec() + m_dur_tx.toSec();
-		m_plot.points[PM_TIM_RX    ].value = m_dur_motion.toSec() + m_dur_tx.toSec() + m_dur_rx.toSec();
+		// Plot data
+		m_PM.plotScalar((t0 - m_lastIterationTime).toSec(), PM_TIM_PERIOD);
+		m_PM.plotScalar(m_dur_motion.toSec(), PM_TIM_MOTION);
+		m_PM.plotScalar(m_dur_motion.toSec() + m_dur_tx.toSec(), PM_TIM_TX);
+		m_PM.plotScalar(m_dur_motion.toSec() + m_dur_tx.toSec() + m_dur_rx.toSec(), PM_TIM_RX);
 
-		// Publish the plot data
-		m_pub_plot.publish(m_plot);
-		
-		// Clear the published events
-		m_plot.events.clear();
+		// Publish and clear the plot data
+		m_PM.publish();
+		m_PM.clear(startTime);
 	}
 
 	// Save the last robotcontrol iteration time
 	m_lastIterationTime = t0;
+}
+
+void RobotControl::plotEvent(const std::string& name)
+{
+	m_PM.plotEvent(name);
 }
 
 void RobotControl::publishJointStates()
@@ -624,10 +640,17 @@ void RobotControl::handleAccLimitUpdate(float value)
 	Joint::Command::accLimit = value;
 }
 
-void RobotControl::plotEvent(const std::string& event)
+void RobotControl::configurePlotManager()
 {
-	// Add the required event
-	m_plot.events.push_back("/robotcontrol/events/" + event);
+	// Configure the plot manager variable names
+	m_PM.setName(PM_TIM_PERIOD, "Timing/Period");
+	m_PM.setName(PM_TIM_MOTION, "Timing/0_Motion");
+	m_PM.setName(PM_TIM_TX,     "Timing/1_Tx");
+	m_PM.setName(PM_TIM_RX,     "Timing/2_Rx");
+
+	// Check that we have been thorough
+	if(!m_PM.checkNames())
+		ROS_ERROR("Please review any warnings above that are related to the naming of plotter variables!");
 }
 
 void RobotControl::printJointCommands()
@@ -684,7 +707,7 @@ int main(int argc, char** argv)
 	ros::init(argc, argv, "robotcontrol", ros::init_options::NoSigintHandler);
 
 	// Make sure that the timer duration is available on the config server
-	config_server::Parameter<float> duration("timerDuration", MIN_TIMER_DURATION, 0.0001, MAX_TIMER_DURATION, DEFAULT_TIMER_DURATION);
+	config_server::Parameter<float> duration(RobotControl::CONFIG_PARAM_PATH + "timerDuration", MIN_TIMER_DURATION, 0.0001, MAX_TIMER_DURATION, DEFAULT_TIMER_DURATION);
 
 	// Create an instance of the main robotcontrol class
 	robotcontrol::RobotControl ctrl;
@@ -724,7 +747,7 @@ int main(int argc, char** argv)
 	ros::Rate rate = ros::Rate(1.0 / duration());
 
 	// Initialise variables
-	config_server::Parameter<bool> pause("pause", false);
+	config_server::Parameter<bool> pause(RobotControl::CONFIG_PARAM_PATH + "pause", false);
 	bool use_sim_time = ros::Time::isSimTime();
 
 	// Timing variables

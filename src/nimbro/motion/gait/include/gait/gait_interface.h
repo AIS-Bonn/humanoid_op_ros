@@ -79,9 +79,9 @@ namespace gait
 				jointEffort[i] = 0.0;
 			}
 			useRawJointCmds = false;
-			walking = false;
 			supportCoeffLeftLeg = 0.0;
 			supportCoeffRightLeg = 0.0;
+			walking = false;
 			for(int i = 0; i < 3; i++)
 			{
 				odomPosition[i] = 0.0;
@@ -95,16 +95,16 @@ namespace gait
 		double jointEffort[NUM_JOINTS];  //!< @brief Commanded joint effort (indexed by the `JointID` enum, in the range `[0,1]`).
 		bool   useRawJointCmds;          //!< @brief Apply the joint commands directly to the hardware, without using compensation or actuator controller(s) in-between.
 
-		// Status flags
-		bool walking;                    //!< @brief Flag specifying whether the gait is currently active and walking (`true`) or halted (`false`).
-
 		// Support coefficients
 		double supportCoeffLeftLeg;      //!< @brief Current support coefficient of the left leg.
 		double supportCoeffRightLeg;     //!< @brief Current support coefficient of the right leg.
 
+		// Status flags
+		bool walking;                    //!< @brief Flag specifying whether the gait is currently active and walking (`true`) or halted (`false`).
+
 		// Robot odometry transform
-		double odomPosition[3];          //!< @brief Position `(x,y,z)` of the robot's body-fixed base transform (centred at the robot's centre of mass) in global odometry coordinates.
-		double odomOrientation[4];       //!< @brief Orientation `(w,x,y,z)` of the robot's body-fixed base transform (centred at the robot's centre of mass) relative to the global odometry frame.
+		double odomPosition[3];          //!< @brief Position `(x,y,z)` of the robot's body-fixed base transform (i.e. the origin of the trunk link) in global odometry coordinates.
+		double odomOrientation[4];       //!< @brief Orientation `(w,x,y,z)` of the robot's body-fixed base transform (i.e. the origin of the trunk link) relative to the global odometry frame.
 	};
 }
 

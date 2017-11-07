@@ -2,6 +2,10 @@
 
 #include <math.h>
 
+const float PIDView::p_ColorBoundary = 0.4;
+const float PIDView::i_ColorBoundary = 0.15;
+const float PIDView::d_ColorBoundary = 0.15;
+
 PIDView::PIDView(BasicSmallView::Alignment alignment, BasicSmallView::Type type, std::string  jointName, bool shiftMirrored, QWidget *parent)
 	: BasicSmallView(alignment, type, jointName, shiftMirrored, parent)
 {

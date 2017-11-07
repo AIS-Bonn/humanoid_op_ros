@@ -55,6 +55,8 @@ protected:
 	ros::NodeHandle m_nh;
 	std::string m_prefix;
 	ros::Subscriber m_sub_js;
+	ros::Publisher m_pub_command_js;
+
 	std::map<std::string, boost::shared_ptr<ROSJoint> > m_jointMap;
 	sensor_msgs::JointStateConstPtr m_last_js;
 

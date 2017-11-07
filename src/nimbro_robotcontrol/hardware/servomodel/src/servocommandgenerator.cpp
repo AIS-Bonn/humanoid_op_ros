@@ -10,13 +10,16 @@
 
 using namespace Eigen;
 
+const int ServoCommandGenerator::DefaultTicksPerRev = 4096;
+
 ServoCommandGenerator::ServoCommandGenerator()
  : m_coeff(4)
+ , m_ticksPerRev(DefaultTicksPerRev)
  , m_pValue(2)
  , m_latency(0)
  , m_voltage(15.0)
 {
-	m_coeff << 0.00180, 0.02960, 0.27590, 0.27090;
+	m_coeff << 0.17, 0.553952330165401, -0.0023, 0.0250731405677264;
 }
 
 inline double sgn(double x)
@@ -70,6 +73,18 @@ void ServoCommandGenerator::setCoefficients(const VectorXd& coeff)
 	update();
 }
 
+void ServoCommandGenerator::setKM(double val)
+{
+	m_coeff(0) = val;
+	update();
+}
+
+void ServoCommandGenerator::setViscousFriction(double val)
+{
+	m_coeff(1) = val;
+	update();
+}
+
 void ServoCommandGenerator::setStribeckOne(double val)
 {
 	m_coeff(2) = val;
@@ -82,15 +97,21 @@ void ServoCommandGenerator::setStribeckTwo(double val)
 	update();
 }
 
-void ServoCommandGenerator::setViscousFriction(double val)
+void ServoCommandGenerator::setTicksPerRev(double val)
 {
-	m_coeff(1) = val;
+	m_ticksPerRev = val;
 	update();
 }
 
-void ServoCommandGenerator::setKM(double val)
+void ServoCommandGenerator::setMinTickValue(int val)
 {
-	m_coeff(0) = val;
+	m_minTickValue = val;
+	update();
+}
+
+void ServoCommandGenerator::setMaxTickValue(int val)
+{
+	m_maxTickValue = val;
 	update();
 }
 

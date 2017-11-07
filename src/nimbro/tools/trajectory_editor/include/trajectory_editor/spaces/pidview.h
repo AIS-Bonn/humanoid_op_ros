@@ -73,9 +73,9 @@ private:
 	HistoryKeeper *d_History;
 	
 	// Boundary for PID gains after what the value is considered as "large" and is colored accordingly
-	static const float p_ColorBoundary = 0.4;
-	static const float i_ColorBoundary = 0.15;
-	static const float d_ColorBoundary = 0.15;
+	static const float p_ColorBoundary;
+	static const float i_ColorBoundary;
+	static const float d_ColorBoundary;
 	
 	// StyleSheets which corespond to: zero value, value < boundaty, value >= boundary
 	QString zero_sheet;

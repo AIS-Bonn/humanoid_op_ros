@@ -157,10 +157,48 @@ namespace rc_utils
 			m_changed = true;
 		}
 		
+		// Set the weight of an existing data point in the circular buffer (an index of zero corresponds to the newest data point in the buffer)
+		void setW(size_t index, double w) // Note: The weight w is squared, so a negative weight is equivalent to a positive one!
+		{
+			// Modify the required data point
+			if(index < m_wBuf.size())
+			{
+				m_wBuf[index] = w*w;
+				m_changed = true;
+			}
+		}
+		
+		// Set the x and y values of an existing data point in the circular buffer (an index of zero corresponds to the newest data point in the buffer)
+		void setXY(size_t index, double x, double y)
+		{
+			// Modify the required data point
+			if(index < m_xBuf.size() && index < m_yBuf.size())
+			{
+				m_xBuf[index] = x;
+				m_yBuf[index] = y;
+				m_changed = true;
+			}
+		}
+		
+		// Set the values of an existing data point in the circular buffer (an index of zero corresponds to the newest data point in the buffer)
+		void setXYW(size_t index, double x, double y, double w = 1.0) // Note: The weight w is squared, so a negative weight is equivalent to a positive one!
+		{
+			// Modify the required data point
+			if(index < m_xBuf.size() && index < m_yBuf.size() && index < m_wBuf.size())
+			{
+				m_xBuf[index] = x;
+				m_yBuf[index] = y;
+				m_wBuf[index] = w*w;
+				m_changed = true;
+			}
+		}
+		
 		// Get functions
 		bool empty() const { return (m_xBuf.capacity() == 0); }
 		size_t size() const { return m_xBuf.capacity(); }
-		double value() { if(m_changed) calculateWLBF(); return (m_A + m_yMean) + m_B*(m_xBuf.front() - m_xMean); }
+		double valueAt(double x) { if(m_changed) calculateWLBF(); return (m_A + m_yMean) + m_B*(x - m_xMean); }
+		double value() { return valueAt(m_xBuf.front()); }
+		double centreValue() { if(m_changed) calculateWLBF(); return m_A + m_yMean; }
 		double deriv() { if(m_changed) calculateWLBF(); return m_B; }
 		double getA() const { return m_A + m_yMean - m_B*m_xMean; }
 		double getB() const { return m_B; }
@@ -170,7 +208,7 @@ namespace rc_utils
 		const Buffer& wBuf() const { return m_wBuf; } // Note: The weights are the square of whatever was fed into the buffer
 		
 	private:
-		// Calculate the parameters of the weighted line of best fit y = A + B*x
+		// Calculate the parameters of the weighted line of best fit y - yMean = m_A + m_B*(x - xMean) (i.e. externally seen as y = getA() + getB()*x)
 		void calculateWLBF()
 		{
 			// Retrieve the size and check it's not empty

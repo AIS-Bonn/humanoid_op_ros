@@ -6,19 +6,34 @@ project(cap_gait)
 #######################
 
 ## Find catkin macros and libraries
-find_package(catkin REQUIRED COMPONENTS roscpp gait config_server rc_utils vis_utils plot_msgs cmake_modules robotcontrol)
+find_package(catkin REQUIRED COMPONENTS roscpp gait config_server rc_utils vis_utils plot_msgs cmake_modules robotcontrol rqt_gui_cpp)
 find_package(Eigen REQUIRED)
 
-# Find Qt4
-find_package(Qt4 REQUIRED COMPONENTS QtCore QtXml QtOpenGL)
-include(${QT_USE_FILE})
+# Decide on a Qt version
+if("${qt_gui_cpp_USE_QT_MAJOR_VERSION} " STREQUAL "5 ")
+	set(USE_QT5 true)
+else()
+	set(USE_QT5 false)
+endif()
+
+# Find Qt
+if(USE_QT5)
+	find_package(Qt5Core REQUIRED)
+	find_package(Qt5Xml REQUIRED)
+	find_package(Qt5OpenGL REQUIRED)
+	set(QT_LIBRARIES ${Qt5Core_LIBRARIES} ${Qt5Xml_LIBRARIES} ${Qt5OpenGL_LIBRARIES})
+	include_directories(${Qt5Core_INCLUDE_DIRS} ${Qt5Xml_INCLUDE_DIRS} ${Qt5OpenGL_INCLUDE_DIRS})
+else()
+	find_package(Qt4 COMPONENTS QtCore QtXml QtOpenGL REQUIRED)
+	include(${QT_USE_FILE})
+endif()
 
 # Find QGLViewer
 find_path(QGLViewer_INCLUDE_DIR NAMES qglviewer.h PATH_SUFFIXES QGLViewer REQUIRED)
-find_library(QGLViewer_LIBRARY NAMES qglviewer-qt4 qglviewer QGLViewer QGLViewer2 REQUIRED)
+find_library(QGLViewer_LIBRARY NAMES qglviewer QGLViewer QGLViewer2 REQUIRED)
 message(STATUS "Found QGLViewer: " ${QGLViewer_LIBRARY})
 find_library(GLU_LIBRARY NAMES GLU REQUIRED)
-message(STATUS "Found GLU for QGLViewer: " ${GLU_LIBRARY})
+message(STATUS "Found GLU: " ${GLU_LIBRARY}) # For QGLViewer
 
 ###################################################
 ## Declare things to be passed to other projects ##

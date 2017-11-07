@@ -34,7 +34,7 @@ PerspectiveManager::PerspectiveManager()
 	}
 	
 	if(m_perspectives.size() < 1)
-		ROS_ERROR("0 perspectives are loaded! You can do nothing now:( Perspectives must be in ***/motions/perspectives/ folder");
+		ROS_ERROR("0 perspectives loaded! You can do nothing now:( Perspectives must be in ***/motions/perspectives/ folder");
 	else
 		ROS_INFO("Perspectives initialized successfully");
 }
@@ -62,6 +62,26 @@ bool PerspectiveManager::isNewPerspective(std::vector<std::string>& joint_list, 
 		}
 	}
 	
+	ok = false;
+	return false;
+}
+
+bool PerspectiveManager::isNewPerspective(const std::string perspective, bool &ok)
+{
+	ok = true;
+	
+	if(m_current_perspective.m_name == perspective)
+		return false;
+	
+	for(unsigned i = 0; i < m_perspectives.size(); i++)
+	{
+		if(m_perspectives.at(i).m_name == perspective)
+		{
+			m_current_perspective = m_perspectives.at(i); // Set new current perspective
+			return true;
+		}
+	}
+		
 	ok = false;
 	return false;
 }
@@ -140,13 +160,15 @@ void JointPerspective::nodeToPerspective(const YAML::Node& node)
 	YAML::Node header = node["perspective"];
 	
 	m_name  = header["name"].as<std::string>();
-	m_model = header["model"].as<std::string>();
+	m_model = header["model_path"].as<std::string>();
 	m_robot_name = header["robot_name"].as<std::string>();
 	
 	m_joint_space_allowed     = (bool)header["joint_space"].as<int>();
 	m_pid_space_allowed       = (bool)header["pid_space"].as<int>();
 	m_abstract_space_allowed  = (bool)header["abstract_space"].as<int>();
 	m_inverse_space_allowed   = (bool)header["inverse_space"].as<int>();
+	
+	m_link_length = header["link_length"].as<double>();
 	
 	// Parse joints
 	YAML::Node joints = node["joints"];

@@ -30,6 +30,8 @@ catkin_package()
 add_library(nimbro_op_interface
 	src/robotinterface.cpp
 	src/dummyinterface.cpp
+	src/robotPKinterface.cpp
+	src/dummyPKinterface.cpp
 )
 target_link_libraries(nimbro_op_interface
 	${catkin_LIBRARIES}

@@ -73,6 +73,10 @@ namespace cap_gait
 		// Handle joystick button function
 		virtual void handleJoystickButton(int button);
 
+		// Constants
+		static const std::string RESOURCE_PATH;
+		static const std::string CONFIG_PARAM_PATH;
+
 	private:
 		//
 		// Structs
@@ -178,9 +182,8 @@ namespace cap_gait
 		//
 
 		// Constants
-		const std::string CONFIG_PARAM_PATH;
-		static const double USE_HALT_POSE = 1.0;
-		static const double USE_CALC_POSE = 0.0;
+		static const double USE_HALT_POSE;
+		static const double USE_CALC_POSE;
 
 		// Gait configuration struct
 		CapConfig config;
@@ -194,8 +197,8 @@ namespace cap_gait
 		gait::AbstractPose m_abstractHaltPose; // Abstract representation of the gait halt pose
 
 		// Gait command vector variables
-		Eigen::Vector3d m_gcv;      // Gait command velocity vector (slope-limited command velocities actually followed by the gait engine)
-		Eigen::Vector3d m_gcvInput; // Gait command velocity vector input (raw velocities commanded by the gait motion module)
+		Eigen::Vector3d m_gcv;      // Gait command vector (slope-limited command velocities actually followed by the gait engine)
+		Eigen::Vector3d m_gcvInput; // Gait command vector input (raw velocities commanded by the gait motion module)
 		rc_utils::GolayDerivative<Eigen::Vector3d, 1, 5, Eigen::aligned_allocator<Eigen::Vector3d> > m_gcvDeriv; // Derivative filter for the GCV to calculate the gait acceleration
 		rc_utils::MeanFilter m_gcvAccSmoothX;
 		rc_utils::MeanFilter m_gcvAccSmoothY;

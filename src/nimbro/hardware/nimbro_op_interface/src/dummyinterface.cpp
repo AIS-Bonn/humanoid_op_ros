@@ -4,6 +4,7 @@
 // Includes
 #include <nimbro_op_interface/dummyinterface.h>
 #include <pluginlib/class_list_macros.h>
+#include <robotcontrol/hw/dynamiccommandgenerator.h>
 #include <rot_conv/rot_conv.h>
 #include <cm730/dynamixel.h>
 
@@ -15,10 +16,12 @@ using namespace cm730;
 // DummyInterface class
 //
 
+// Constants
+const std::string DummyInterface::CONFIG_PARAM_PATH = "/nimbro_op_interface_dummy/";
+
 // Default constructor
 DummyInterface::DummyInterface()
- : CONFIG_PARAM_PATH("/nimbro_op_interface_dummy/")
- , m_useModel(CONFIG_PARAM_PATH + "useModel", false)
+ : m_useModel(CONFIG_PARAM_PATH + "useModel", false)
  , m_addDelay(CONFIG_PARAM_PATH + "addDelay", true)
  , m_noiseEnable(CONFIG_PARAM_PATH + "noise/enabled", true)
  , m_noiseMagnitude(CONFIG_PARAM_PATH + "noise/magnitude", 0.0, 0.0002, 0.04, 0.002)
@@ -147,7 +150,11 @@ int DummyInterface::readFeedbackData(bool onlyTryCM730)
 			// Set the servo feedback position
 			int servoPos = it->second.goal_position;
 			if(m_noiseEnable())
-				servoPos += (int)(TICKS_PER_RAD * m_noiseMagnitude() * (drand48() - 0.5) + 0.5);
+			{
+				DXLJoint* joint = dxlJointForID(id);
+				float ticksPerRad = (joint ? joint->commandGenerator->ticksPerRev(): ServoCommandGenerator::DefaultTicksPerRev) / M_2PI;
+				servoPos += (int)(ticksPerRad * m_noiseMagnitude() * (drand48() - 0.5) + 0.5);
+			}
 			servoData.position = servoPos;
 		}
 	}

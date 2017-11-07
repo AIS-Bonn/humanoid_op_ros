@@ -1,5 +1,5 @@
 <launch>
-	<arg name="robot_name" value="$(env NIMBRO_ROBOT_NAME)" />
+	<arg name="robot_name" default="$(env NIMBRO_ROBOT_NAME)" />
 
 	<node name="config_server" pkg="config_server" type="config_server" output="screen" required="true">
 		<param name="config_path" value="$(find launch)/config" />

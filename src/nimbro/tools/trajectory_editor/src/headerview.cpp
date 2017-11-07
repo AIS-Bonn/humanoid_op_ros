@@ -6,13 +6,18 @@
 #include <QObject>
 #include <QMessageBox>
 
+#include <head_control/LookAtTarget.h>
 #include <stdio.h>
 
-HeaderView::HeaderView(QWidget *parent) : QWidget(parent)
+HeaderView::HeaderView(QWidget *parent) : QWidget(parent), 
+	m_nh("~"),
+	m_fall_protection_param("/fallProtection/fallProtectionEnabled", true)
 {
 	ui = new Ui::HeaderView;
 	ui->setupUi(this);
+	enableEdit(false);
 	
+	// Slots
 	connect(ui->nameLineEdit, SIGNAL(textChanged(QString)), this, SLOT(handleFieldChanged()));
 	connect(ui->preStateLineEdit, SIGNAL(textChanged(QString)), this, SLOT(handleFieldChanged()));
 	connect(ui->playStateLineEdit, SIGNAL(textChanged(QString)), this, SLOT(handleFieldChanged()));
@@ -20,7 +25,60 @@ HeaderView::HeaderView(QWidget *parent) : QWidget(parent)
 	
 	connect(ui->enablePIDCheckbox, SIGNAL(toggled(bool)), this, SLOT(handleFieldChanged()));
 	
-	this->enableEdit(false);
+	connect(ui->headControlButton, SIGNAL(pressed()), this, SLOT(switchHeadControl()));
+	connect(ui->fallProtectionButton, SIGNAL(pressed()), this, SLOT(switchFallProtection()));
+	
+	// Head control
+	m_head_control_subscriber = m_nh.subscribe("/headcontrol/status", 1, &HeaderView::updateHeadControlStatus, this);
+	m_head_control_publisher  = m_nh.advertise<head_control::LookAtTarget>("/headcontrol/target", 1);
+	
+	// Fall protection
+	m_fall_protection_param.setCallback(boost::bind(&HeaderView::updateFallProtectionStatus, this), true);
+	
+	// UI style
+	QString green("QCheckBox { color: green }");
+	ui->headControlCheckBox->setStyleSheet(green);
+	ui->fallProtectionCheckBox->setStyleSheet(green);
+	
+	// Switch head control off by default
+	head_control::LookAtTarget msg;
+	msg.enabled = false;
+	m_head_control_publisher.publish(msg);
+	
+	updateFallProtectionStatus();
+}
+
+void HeaderView::updateHeadControlStatus(const head_control::HeadControlStatus &status)
+{
+	ui->headControlCheckBox->setChecked((bool)status.active);
+	
+	if(ui->headControlCheckBox->isChecked())
+		ui->headControlButton->setText("Disable");
+	else
+		ui->headControlButton->setText("Enable");
+}
+
+void HeaderView::updateFallProtectionStatus()
+{
+	ui->fallProtectionCheckBox->setChecked(m_fall_protection_param.get());
+	
+	if(ui->fallProtectionCheckBox->isChecked())
+		ui->fallProtectionButton->setText("Disable");
+	else
+		ui->fallProtectionButton->setText("Enable");
+}
+
+void HeaderView::switchHeadControl()
+{
+	head_control::LookAtTarget msg;
+	msg.enabled = !(bool)ui->headControlCheckBox->isChecked();
+	
+	m_head_control_publisher.publish(msg);
+}
+
+void HeaderView::switchFallProtection()
+{
+	m_fall_protection_param.set(!ui->fallProtectionCheckBox->isChecked());
 }
 
 void HeaderView::setData(HeaderData data)
@@ -58,7 +116,7 @@ void HeaderView::setValues(std::string const name, std::string const preState
 
 void HeaderView::setFileName(QString name)
 {
-	fileName = name;
+	m_file_name = name;
 	checkValues();
 }
 
@@ -120,7 +178,7 @@ void HeaderView::checkValues()
 	QString errorSheet("QLineEdit { background: rgb(235, 150, 150); }");
 	QString okSheet("QLineEdit { background: rgb(255, 255, 255); }");
 	
-	warningString.clear();
+	m_warning_string.clear();
 	
 	/*if(ui->nameLineEdit->text() != fileName) // check if motion name is valid
 	{
@@ -133,7 +191,7 @@ void HeaderView::checkValues()
 	if(ui->preStateLineEdit->text() == "") // check if preState is valid
 	{
 		ui->preStateLineEdit->setStyleSheet(errorSheet);
-		warningString.append("PreState is not valid\n");
+		m_warning_string.append("PreState is not valid\n");
 	}
 	else
 		ui->preStateLineEdit->setStyleSheet(okSheet);
@@ -141,7 +199,7 @@ void HeaderView::checkValues()
 	if(ui->playStateLineEdit->text() == "") // check if playState is valid
 	{
 		ui->playStateLineEdit->setStyleSheet(errorSheet);
-		warningString.append("PlayState is not valid\n");
+		m_warning_string.append("PlayState is not valid\n");
 	}
 	else
 		ui->playStateLineEdit->setStyleSheet(okSheet);
@@ -149,7 +207,7 @@ void HeaderView::checkValues()
 	if(ui->postStateLineEdit->text() == "") // check if postState is valid
 	{
 		ui->postStateLineEdit->setStyleSheet(errorSheet);
-		warningString.append("PostState is not valid\n");
+		m_warning_string.append("PostState is not valid\n");
 	}
 	else
 		ui->postStateLineEdit->setStyleSheet(okSheet);
@@ -159,16 +217,16 @@ bool HeaderView::requestSave()
 {
 	checkValues();
 	
-	if(!warningString.isEmpty()) // if there are warnings - show warning massage
+	if(!m_warning_string.isEmpty()) // if there are warnings - show warning massage
 	{
-		warningString.prepend("Errors were found:\n\n");
-		warningString.append("\nSave it anyway?");
+		m_warning_string.prepend("Errors were found:\n\n");
+		m_warning_string.append("\nSave it anyway?");
 		
 		QMessageBox messageBox;
 		messageBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard);
 		messageBox.setDefaultButton(QMessageBox::Discard);
 		messageBox.setWindowTitle("Warning!");
-		messageBox.setText(warningString);
+		messageBox.setText(m_warning_string);
 		
 		int buttonPressed = messageBox.exec();
 		if(buttonPressed == QMessageBox::Discard) // "Dont save" pressed
@@ -180,7 +238,7 @@ bool HeaderView::requestSave()
 
 QString HeaderView::getWarningString()
 {
-	return warningString;
+	return m_warning_string;
 }
 
 void HeaderView::enableEdit(bool flag)
@@ -223,7 +281,7 @@ std::string HeaderView::getPostState()
 
 QString HeaderView::getFileName()
 {
-	return fileName;
+	return m_file_name;
 }
 
 HeaderView::~HeaderView()

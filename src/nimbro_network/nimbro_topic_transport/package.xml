@@ -23,6 +23,7 @@
 	<depend>catch_ros</depend>
 
 	<depend>rqt_gui</depend>
+	<depend>rqt_gui_cpp</depend>
 
 	<export>
 		<rqt_gui plugin="${prefix}/rqt_plugin.xml" />

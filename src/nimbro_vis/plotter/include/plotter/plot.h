@@ -6,7 +6,7 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QLinkedList>
-#include <QtGui/QColor>
+#include <QColor>
 #include <ros/time.h>
 
 #include <boost/circular_buffer.hpp>
@@ -180,7 +180,7 @@ Q_SIGNALS:
 	void changed(Plot* source);
 	void beginAddChild(Plot* parent, int atIndex);
 	void childAdded(Plot* parent);
-	void hierarchyChanged();
+	void hierarchyChanged(bool end);
 protected:
 private:
 	DataBuffer m_buf;

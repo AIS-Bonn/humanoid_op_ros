@@ -22,10 +22,13 @@ public:
 	virtual ~DynamicCommandGenerator();
 
 private:
+	config_server::Parameter<float> m_param_km;
+	config_server::Parameter<float> m_param_viscuous;
 	config_server::Parameter<float> m_param_stribeckOne;
 	config_server::Parameter<float> m_param_stribeckTwo;
-	config_server::Parameter<float> m_param_viscuous;
-	config_server::Parameter<float> m_param_km;
+	config_server::Parameter<float> m_param_ticksPerRev;
+	config_server::Parameter<int> m_param_minTickValue;
+	config_server::Parameter<int> m_param_maxTickValue;
 
 	void updateParameters();
 };

@@ -286,7 +286,7 @@ void LimpModel::step()
 	// The larger the torso angle at support exchange, the less precise the limp step prediction becomes.
 	// We try to fix it a little with this hack.
 	double postStepCorrectionFactor = config->cmdUseRXFeedback()*qBound(0.0, qAbs(fusedAngleY)/config->mgPostStepStateCorrAng(), 1.0);
-	if (not config->mgPostStepStateCorrAng() > 0)
+	if(config->mgPostStepStateCorrAng() <= 0)
 		postStepCorrectionFactor = 0;
 
 	LimpState ls = getMotionState();

@@ -7,6 +7,8 @@
 
 namespace rc_utils
 {
+	
+const double KalmanFilter::DefaultTimeStep = 0.010; // Default value used for the time step => Can be overridden using setTimeStep()
 
 KalmanFilter::KalmanFilter()
  : m_smoothing(0.3)

@@ -1,0 +1,1149 @@
+<?xml version="1.0" ?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+	<xacro:property name="mypi" value="3.1415926535897931" />
+	<xacro:property name="deg" value="${mypi/180}" />
+	<xacro:macro name="nimbro_adult" params="display_variant collision_variant">
+
+		<!-- Materials -->
+		<material name="black">
+			<color rgba="0.1 0.1 0.1 1" />
+		</material>
+		<material name="white">
+			<color rgba="0.8 0.8 0.8 1" />
+		</material>
+		<material name="clear">
+			<color rgba="1.0 1.0 1.0 0.0" />
+		</material>
+		<material name="orange">
+			<color rgba="${255/255} ${108/255} ${10/255} 1.0" />
+		</material>
+
+		<!-- Joints and links -->
+		<link name="trunk_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="4.12039246" />
+				<inertia ixx="0.13605988" ixy="-0.00001508" ixz="0.00413600"
+				iyy="0.11386769" iyz="-0.00106904" izz="0.03977722" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0 " />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/trunk_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/trunk_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<link name="right_hip_yaw_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.34713951" />
+				<inertia ixx="0.00142820" ixy="0.00000000" ixz="0.00000000"
+				iyy="0.00218432" iyz="-0.00000004" izz="0.00149995" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/hip_yaw_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/hip_yaw_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="right_hip_yaw" type="continuous">
+			<origin xyz="-0.0025 -0.08 0.0085" rpy="0 0 0" />
+			<parent link="trunk_link" />
+			<child link="right_hip_yaw_link" />
+			<axis xyz="0 0 1" />
+		</joint>
+		<link name="right_hip_roll_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.64528558" />
+				<inertia ixx="0.00177238" ixy="0.00001992" ixz="0.00002523"
+				iyy="0.00256931" iyz="-0.00001279" izz="0.00187105" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/right_hip_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/right_hip_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="right_hip_roll" type="continuous">
+			<origin xyz="0 0 -0.069" rpy="0 0 0" />
+			<parent link="right_hip_yaw_link" />
+			<child link="right_hip_roll_link" />
+			<axis xyz="1 0 0" />
+		</joint>
+		<link name="right_thigh_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.52245362" />
+				<inertia ixx="0.01358977" ixy="-0.00000135" ixz="0.00048965"
+				iyy="0.01369732" iyz="0.00000405" izz="0.00207088" />
+			</inertial>
+			<!-- Use parallel link visuals<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/right_thigh_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>-->
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/right_thigh_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="right_hip_pitch" type="continuous">
+			<origin xyz="0 0 -0.03283" rpy="0 0 0" />
+			<parent link="right_hip_roll_link" />
+			<child link="right_thigh_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="right_shank_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="1.98620913" />
+				<inertia ixx="0.02146407" ixy="0.00000136" ixz="0.00010582"
+				iyy="0.02178885" iyz="-0.00000844" izz="0.00561061" />
+			</inertial>
+			<!-- Use parallel link visuals<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/right_shank_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>-->
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/right_shank_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="right_knee_pitch" type="continuous">
+			<origin xyz="0 0 -0.30275" rpy="0 0 0" />
+			<parent link="right_thigh_link" />
+			<child link="right_shank_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="right_ankle_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.64528558" />
+				<inertia ixx="0.00088090" ixy="-0.00002003" ixz="-0.00001593"
+				iyy="0.00167793" iyz="-0.00000308" izz="0.00187094" />
+			</inertial>
+			<!-- Use parallel link visuals<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/right_ankle_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>-->
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/right_ankle_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="right_ankle_pitch" type="continuous">
+			<origin xyz="0 0 -0.30275" rpy="0 0 0" />
+			<parent link="right_shank_link" />
+			<child link="right_ankle_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="right_foot_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.57192765" />
+				<inertia ixx="0.00174802" ixy="-0.00008605" ixz="-0.00068823"
+				iyy="0.00582201" iyz="0.00004718" izz="0.00639304" />
+			</inertial>
+			<!-- Use parallel link visuals<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/right_foot_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>-->
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/right_foot_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="right_ankle_roll" type="continuous">
+			<origin xyz="0 0 -0.03283" rpy="0 0 0" />
+			<parent link="right_ankle_link" />
+			<child link="right_foot_link" />
+			<axis xyz="1 0 0" />
+		</joint>
+		<link name="right_foot_plane_link">
+		</link>
+		<joint name="right_foot_plane_joint" type="fixed">
+			<origin xyz="0.04602 -0.0046 -0.055" rpy="0 0 0" />
+			<parent link="right_foot_link" />
+			<child link="right_foot_plane_link" />
+		</joint>
+
+		<link name="left_hip_yaw_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.34713951" />
+				<inertia ixx="0.00142820" ixy="0.00000000" ixz="0.00000000"
+				iyy="0.00218432" iyz="-0.00000004" izz="0.00149995" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/hip_yaw_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/hip_yaw_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="left_hip_yaw" type="continuous">
+			<origin xyz="-0.0025 0.08 0.0085" rpy="0 0 0" />
+			<parent link="trunk_link" />
+			<child link="left_hip_yaw_link" />
+			<axis xyz="0 0 1" />
+		</joint>
+		<link name="left_hip_roll_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.64528559" />
+				<inertia ixx="0.00177238" ixy="0.00001992" ixz="0.00002531"
+				iyy="0.00256931" iyz="0.00009098" izz="0.00187105" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/left_hip_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/left_hip_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="left_hip_roll" type="continuous">
+			<origin xyz="0 0 -0.069" rpy="0 0 0" />
+			<parent link="left_hip_yaw_link" />
+			<child link="left_hip_roll_link" />
+			<axis xyz="1 0 0" />
+		</joint>
+		<link name="left_thigh_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.52245362" />
+				<inertia ixx="0.01358977" ixy="-0.00000135" ixz="0.00048965"
+				iyy="0.01369732" iyz="0.00000405" izz="0.00207088" />
+			</inertial>
+			<!-- Use parallel link visuals<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/left_thigh_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>-->
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/left_thigh_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="left_hip_pitch" type="continuous">
+			<origin xyz="0 0 -0.03283" rpy="0 0 0" />
+			<parent link="left_hip_roll_link" />
+			<child link="left_thigh_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="left_shank_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="1.98620913" />
+				<inertia ixx="0.02146407" ixy="0.00000136" ixz="0.00010582"
+				iyy="0.02178885" iyz="-0.00000844" izz="0.00561061" />
+			</inertial>
+			<!-- Use parallel link visuals<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/left_shank_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>-->
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/left_shank_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="left_knee_pitch" type="continuous">
+			<origin xyz="0 0 -0.30275" rpy="0 0 0" />
+			<parent link="left_thigh_link" />
+			<child link="left_shank_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="left_ankle_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.64528559" />
+				<inertia ixx="0.00088100" ixy="-0.00001992" ixz="-0.00001601"
+				iyy="0.00167793" iyz="0.00003037" izz="0.00187105" />
+			</inertial>
+			<!-- Use parallel link visuals<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/left_ankle_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>-->
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/left_ankle_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="left_ankle_pitch" type="continuous">
+			<origin xyz="0 0 -0.30275" rpy="0 0 0" />
+			<parent link="left_shank_link" />
+			<child link="left_ankle_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="left_foot_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.57192773" />
+				<inertia ixx="0.00174913" ixy="0.00009476" ixz="-0.00068823"
+				iyy="0.00582252" iyz="-0.00005228" izz="0.00639465" />
+			</inertial>
+			<!-- Use parallel link visuals<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/left_foot_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>-->
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/left_foot_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="left_ankle_roll" type="continuous">
+			<origin xyz="0 0 -0.03283" rpy="0 0 0" />
+			<parent link="left_ankle_link" />
+			<child link="left_foot_link" />
+			<axis xyz="1 0 0" />
+		</joint>
+		<link name="left_foot_plane_link">
+		</link>
+		<joint name="left_foot_plane_joint" type="fixed">
+			<origin xyz="0.04602 0.0046 -0.055" rpy="0 0 0" />
+			<parent link="left_foot_link" />
+			<child link="left_foot_plane_link" />
+		</joint>
+
+		<link name="right_shoulder_pitch_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.15983195" />
+				<inertia ixx="0.00030250" ixy="-0.00000412" ixz="-0.00000034"
+				iyy="0.00024092" iyz="-0.00003234" izz="0.00035569" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/right_shoulder_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/right_shoulder_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="right_shoulder_pitch" type="continuous">
+			<origin xyz="-0.001 -0.15 0.236" rpy="0 0 0" />
+			<parent link="trunk_link" />
+			<child link="right_shoulder_pitch_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="right_upper_arm_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.53143003" />
+				<inertia ixx="0.00863132" ixy="-0.00000233" ixz="-0.00038296"
+				iyy="0.00860094" iyz="0.00002142" izz="0.00061941" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/right_upper_arm_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/right_upper_arm_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="right_shoulder_roll" type="continuous">
+			<origin xyz="0 -0.05575 -0.015" rpy="0 0 0" />
+			<parent link="right_shoulder_pitch_link" />
+			<child link="right_upper_arm_link" />
+			<axis xyz="1 0 0" />
+		</joint>
+		<link name="right_lower_arm_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.49012349" />
+				<inertia ixx="0.00907366" ixy="0.00000000" ixz="0.00000000"
+				iyy="0.00905169" iyz="0.00016689" izz="0.00045086" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/right_lower_arm_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/right_lower_arm_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="right_elbow_pitch" type="continuous">
+			<origin xyz="0.04033 0 -0.24891" rpy="0 0 0" />
+			<parent link="right_upper_arm_link" />
+			<child link="right_lower_arm_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="left_shoulder_pitch_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.15983195" />
+				<inertia ixx="0.00029316" ixy="0.00000402" ixz="-0.00000034"
+				iyy="0.00024092" iyz="0.00003169" izz="0.00034636" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/left_shoulder_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/left_shoulder_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="left_shoulder_pitch" type="continuous">
+			<origin xyz="-0.001 0.15 0.236" rpy="0 0 0" />
+			<parent link="trunk_link" />
+			<child link="left_shoulder_pitch_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="left_upper_arm_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.53142827" />
+				<inertia ixx="0.00863132" ixy="0.00000234" ixz="-0.00038228"
+				iyy="0.00860093" iyz="-0.00002144" izz="0.00061941" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/left_upper_arm_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/left_upper_arm_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="left_shoulder_roll" type="continuous">
+			<origin xyz="0 0.05575 -0.015" rpy="0 0 0" />
+			<parent link="left_shoulder_pitch_link" />
+			<child link="left_upper_arm_link" />
+			<axis xyz="1 0 0" />
+		</joint>
+		<link name="left_lower_arm_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.49012349" />
+				<inertia ixx="0.00907366" ixy="0.00000000" ixz="0.00000000"
+				iyy="0.00905169" iyz="-0.00016689" izz="0.00045086" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/left_lower_arm_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/left_lower_arm_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="left_elbow_pitch" type="continuous">
+			<origin xyz="0.04033 0 -0.24891" rpy="0 0 0" />
+			<parent link="left_upper_arm_link" />
+			<child link="left_lower_arm_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="neck_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.17086145" />
+				<inertia ixx="0.00028339" ixy="0.00000000" ixz="8e-008"
+				iyy="0.00026572" iyz="-1.91e-006" izz="4.626e-005" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/neck_link.STL" />
+				</geometry>
+				<material name="black" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/neck_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="neck_yaw" type="continuous">
+			<origin xyz="0.025 0 0.310" rpy="0 0 0" />
+			<parent link="trunk_link" />
+			<child link="neck_link" />
+			<axis xyz="0 0 1" />
+		</joint>
+		<link name="head_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="0.43559472" />
+				<inertia ixx="0.00481806" ixy="-7.48e-006" ixz="-0.00017067"
+				iyy="0.0053348" iyz="-1.265e-005" izz="0.00249406" />
+			</inertial>
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/head_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+			<collision>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${collision_variant}/head_link.STL" />
+				</geometry>
+			</collision>
+		</link>
+		<joint name="head_pitch" type="continuous">
+			<origin xyz="0 0 0.051" rpy="0 0 0" />
+			<parent link="neck_link" />
+			<child link="head_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="camera_optical">
+		</link>
+		<joint name="camera_joint" type="fixed">
+			<origin xyz="0.04599 -0.0375 0.0778289441" rpy="${-100*deg} 0 ${-90*deg}" />
+			<parent link="head_link" />
+			<child link="camera_optical" />
+			<axis xyz="0 0 0" />
+		</joint>
+
+
+
+		<!-- Parallel Kinematics visuals only, begin in hip rolls-->
+		<!-- Right Leg-->
+
+
+
+
+		<joint name="parallel_right_thigh_pitch" type="continuous">
+			<origin xyz="0.03275 0 -0.01879" rpy="0 0 0" />
+			<parent link="right_hip_roll_link" />
+			<child link="parallel_right_thigh_front_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="parallel_right_thigh_front_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/thigh_front_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+		<joint name="parallel_right_thigh_pitch_mimic1" type="continuous">
+			<origin xyz="0 0 -0.26" rpy="0 0 0" />
+			<parent link="parallel_right_thigh_front_link" />
+			<child link="parallel_right_knee_front_link" />
+			<axis xyz="0 1 0" />
+			<mimic joint="parallel_right_thigh_pitch" multiplier="-1" offset="0" />
+		</joint>
+		<link name="parallel_right_knee_front_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/knee_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+
+		<joint name="parallel_right_shank_pitch" type="continuous">
+			<origin xyz="0 0 -0.1136" rpy="0 0 0" />
+			<parent link="parallel_right_knee_front_link" />
+			<child link="parallel_right_shank_front_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="parallel_right_shank_front_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/shank_front_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+		<joint name="parallel_right_shank_pitch_mimic1" type="continuous">
+			<origin xyz="0 0 -0.26" rpy="0 0 0" />
+			<parent link="parallel_right_shank_front_link" />
+			<child link="parallel_right_ankle_link" />
+			<axis xyz="0 1 0" />
+			<mimic joint="parallel_right_shank_pitch" multiplier="-1" offset="0" />
+		</joint>
+		<link name="parallel_right_ankle_link">
+			<visual>
+				<origin xyz="-0.03275 0 0.01405" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/right_ankle_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+		<joint name="parallel_right_ankle_roll" type="continuous">
+			<origin xyz="-0.03275 0 -0.01879" rpy="0 0 0" />
+			<parent link="parallel_right_ankle_link" />
+			<child link="parallel_right_foot_link" />
+			<axis xyz="1 0 0" />
+		</joint>
+		<link name="parallel_right_foot_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/right_foot_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+		<joint name="parallel_right_foot_plane_joint" type="fixed">
+			<origin xyz="0.04602 -0.0046 -0.055" rpy="0 0 0" />
+			<parent link="parallel_right_foot_link" />
+			<child link="parallel_right_foot_plane_link" />
+		</joint>
+		<link name="parallel_right_foot_plane_link">
+		</link>
+
+		<!-- back chain-->
+
+		<joint name="parallel_right_thigh_pitch_mimic2" type="continuous">
+			<origin xyz="-0.03835 0 -0.04929" rpy="0 0 0" />
+			<parent link="right_hip_roll_link" />
+			<child link="parallel_right_thigh_back_link" />
+			<axis xyz="0 1 0" />
+			<mimic joint="parallel_right_thigh_pitch" multiplier="1" offset="0" />
+		</joint>
+		<link name="parallel_right_thigh_back_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/thigh_back_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+		<joint name="parallel_right_thigh_pitch_mimic3" type="continuous">
+			<origin xyz="0 0 -0.26" rpy="0 0 0" />
+			<parent link="parallel_right_thigh_back_link" />
+			<child link="parallel_right_knee_back_link" />
+			<axis xyz="0 1 0" />
+			<mimic joint="parallel_right_thigh_pitch" multiplier="-1" offset="0" />
+		</joint>
+		<link name="parallel_right_knee_back_link">
+		</link>
+
+		<joint name="parallel_right_shank_pitch_mimic2" type="continuous">
+			<origin xyz="0 0 -0.0526" rpy="0 0 0" />
+			<parent link="parallel_right_knee_back_link" />
+			<child link="parallel_right_shank_back_link" />
+			<axis xyz="0 1 0" />
+			<mimic joint="parallel_right_shank_pitch" multiplier="1" offset="0" />
+		</joint>
+		<link name="parallel_right_shank_back_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/shank_back_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+
+		<!-- Left Leg-->
+
+
+
+		<joint name="parallel_left_thigh_pitch" type="continuous">
+			<origin xyz="0.03275 0 -0.01879" rpy="0 0 0" />
+			<parent link="left_hip_roll_link" />
+			<child link="parallel_left_thigh_front_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="parallel_left_thigh_front_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/thigh_front_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+		<joint name="parallel_left_thigh_pitch_mimic1" type="continuous">
+			<origin xyz="0 0 -0.26" rpy="0 0 0" />
+			<parent link="parallel_left_thigh_front_link" />
+			<child link="parallel_left_knee_front_link" />
+			<axis xyz="0 1 0" />
+			<mimic joint="parallel_left_thigh_pitch" multiplier="-1" offset="0" />
+		</joint>
+		<link name="parallel_left_knee_front_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/knee_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+
+		<joint name="parallel_left_shank_pitch" type="continuous">
+			<origin xyz="0 0 -0.1136" rpy="0 0 0" />
+			<parent link="parallel_left_knee_front_link" />
+			<child link="parallel_left_shank_front_link" />
+			<axis xyz="0 1 0" />
+		</joint>
+		<link name="parallel_left_shank_front_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/shank_front_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+		<joint name="parallel_left_shank_pitch_mimic1" type="continuous">
+			<origin xyz="0 0 -0.26" rpy="0 0 0" />
+			<parent link="parallel_left_shank_front_link" />
+			<child link="parallel_left_ankle_link" />
+			<axis xyz="0 1 0" />
+			<mimic joint="parallel_left_shank_pitch" multiplier="-1" offset="0" />
+		</joint>
+		<link name="parallel_left_ankle_link">
+			<visual>
+				<origin xyz="-0.03275 0 0.01405" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/left_ankle_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+		<joint name="parallel_left_ankle_roll" type="continuous">
+			<origin xyz="-0.03275 0 -0.01879" rpy="0 0 0" />
+			<parent link="parallel_left_ankle_link" />
+			<child link="parallel_left_foot_link" />
+			<axis xyz="1 0 0" />
+		</joint>
+		<link name="parallel_left_foot_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/left_foot_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+		<joint name="parallel_left_foot_plane_joint" type="fixed">
+			<origin xyz="0.04602 -0.0046 -0.055" rpy="0 0 0" />
+			<parent link="parallel_left_foot_link" />
+			<child link="parallel_left_foot_plane_link" />
+		</joint>
+		<link name="parallel_left_foot_plane_link">
+		</link>
+
+		<!-- back chain-->
+
+		<joint name="parallel_left_thigh_pitch_mimic2" type="continuous">
+			<origin xyz="-0.03835 0 -0.04929" rpy="0 0 0" />
+			<parent link="left_hip_roll_link" />
+			<child link="parallel_left_thigh_back_link" />
+			<axis xyz="0 1 0" />
+			<mimic joint="parallel_left_thigh_pitch" multiplier="1" offset="0" />
+		</joint>
+		<link name="parallel_left_thigh_back_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/thigh_back_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+		<joint name="parallel_left_thigh_pitch_mimic3" type="continuous">
+			<origin xyz="0 0 -0.26" rpy="0 0 0" />
+			<parent link="parallel_left_thigh_back_link" />
+			<child link="parallel_left_knee_back_link" />
+			<axis xyz="0 1 0" />
+			<mimic joint="parallel_left_thigh_pitch" multiplier="-1" offset="0" />
+		</joint>
+		<link name="parallel_left_knee_back_link">
+		</link>
+
+		<joint name="parallel_left_shank_pitch_mimic2" type="continuous">
+			<origin xyz="0 0 -0.0526" rpy="0 0 0" />
+			<parent link="parallel_left_knee_back_link" />
+			<child link="parallel_left_shank_back_link" />
+			<axis xyz="0 1 0" />
+			<mimic joint="parallel_left_shank_pitch" multiplier="1" offset="0" />
+		</joint>
+		<link name="parallel_left_shank_back_link">
+			<visual>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<geometry>
+					<mesh filename="package://nimbro_op_model/mesh/${display_variant}/shank_back_link.STL" />
+				</geometry>
+				<material name="white" />
+			</visual>
+		</link>
+
+		<!-- Transmissions -->
+		<transmission name="right_hip_yaw_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+			<joint name="right_hip_yaw" >
+                <hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="right_hip_yaw">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="right_hip_roll_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="right_hip_roll" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="right_hip_roll">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="right_hip_pitch_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="right_hip_pitch" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="right_hip_pitch">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="right_knee_pitch_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="right_knee_pitch" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="right_knee_pitch">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="right_ankle_pitch_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="right_ankle_pitch" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="right_ankle_pitch">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="right_ankle_roll_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="right_ankle_roll" >
+                <hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="right_ankle_roll">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="left_hip_yaw_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="left_hip_yaw" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="left_hip_yaw">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="left_hip_roll_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="left_hip_roll" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="left_hip_roll">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="left_hip_pitch_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="left_hip_pitch" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="left_hip_pitch">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="left_knee_pitch_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="left_knee_pitch" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="left_knee_pitch">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="left_ankle_pitch_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="left_ankle_pitch" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="left_ankle_pitch">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="left_ankle_roll_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="left_ankle_roll" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="left_ankle_roll">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="right_shoulder_pitch_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="right_shoulder_pitch" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="right_shoulder_pitch">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="right_shoulder_roll_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="right_shoulder_roll" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="right_shoulder_roll">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="right_elbow_pitch_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="right_elbow_pitch" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="right_elbow_pitch">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="left_shoulder_pitch_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="left_shoulder_pitch" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="left_shoulder_pitch">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="left_shoulder_roll_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="left_shoulder_roll" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="left_shoulder_roll">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="left_elbow_pitch_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="left_elbow_pitch" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="left_elbow_pitch">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="neck_yaw_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="neck_yaw" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="neck_yaw">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+		<transmission name="head_pitch_transmission">
+			<type>transmission_interface/SimpleTransmission</type>
+            <joint name="head_pitch" >
+				<hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+			<actuator name="head_pitch">
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+		</transmission>
+
+
+		<!-- Gazebo configuration -->
+
+		<gazebo>
+			<plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+				<robotNamespace>/nimbro_op</robotNamespace>
+			</plugin>
+		</gazebo>
+
+		<!-- Gazebo links -->
+		<gazebo reference="trunk_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="left_hip_yaw_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="left_hip_roll_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="left_thigh_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="left_shank_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="left_ankle_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="left_foot_link">
+			<material>Gazebo/White</material>
+			<kp>1000000.0</kp>
+			<kd>100.0</kd>
+			<mu1>1.0</mu1>
+			<mu2>1.0</mu2>
+			<fdir1>1 0 0</fdir1>
+			<maxVel>1.0</maxVel>
+			<minDepth>0.00</minDepth>
+		</gazebo>
+		<gazebo reference="left_shoulder_pitch_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="left_upper_arm_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="left_lower_arm_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="right_hip_yaw_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="right_hip_roll_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="right_thigh_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="right_shank_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="right_ankle_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="right_foot_link">
+			<material>Gazebo/White</material>
+			<kp>1000000.0</kp>
+			<kd>100.0</kd>
+			<mu1>1.0</mu1>
+			<mu2>1.0</mu2>
+			<fdir1>1 0 0</fdir1>
+			<maxVel>1.0</maxVel>
+			<minDepth>0.00</minDepth>
+		</gazebo>
+		<gazebo reference="right_shoulder_pitch_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="right_upper_arm_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="right_lower_arm_link">
+			<material>Gazebo/White</material>
+		</gazebo>
+		<gazebo reference="neck_link">
+			<material>Gazebo/Black</material>
+		</gazebo>
+	</xacro:macro>
+</robot>

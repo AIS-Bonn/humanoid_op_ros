@@ -1,12 +1,13 @@
 perspective:
-  name:  default_perspective
-  model: P1
+  name:  P1
+  model_path: /robots/urdf/igus_op.urdf
   robot_name: P1
 
   joint_space:    1
   pid_space:      1
   abstract_space: 1
   inverse_space:  1
+  link_length:    0.2
 
 joints:
 

@@ -67,6 +67,7 @@ public:
 		postState(_in.postState) ,
 		pidEnabled(_in.pidEnabled) ,
 		jointList(_in.jointList) ,
+		perspective(_in.perspective) ,
 		filePath(_in.filePath)
 	{
 		frames.clear();
@@ -97,6 +98,7 @@ public:
 			postState=(_in.postState);
 			pidEnabled=(_in.pidEnabled);
 			jointList=(_in.jointList);
+			perspective=(_in.perspective);
 			filePath=(_in.filePath);
 			
 			frames.clear();
@@ -131,6 +133,7 @@ public:
 	bool applyRule(int index, double delta, bool limit_inverse, double epsilon);
 	
 	static int nameToIndex(const std::vector<std::string>& jointList, const std::string& name);
+	static int nameToIndexPrintError(const std::vector<std::string>& jointList, const std::string& name);
 	
 	// Returns true if motions are exactly the same
 	static bool isIdentical(motionfile::Motion& motion_1, motionfile::Motion& motion_2);
@@ -150,6 +153,7 @@ public:
 	std::vector<std::string> jointList;
 	std::vector<Rule> rules;
 	
+	std::string perspective; // perspective for trajectory editor
 	std::string filePath; // Path to file from which the motion was loaded
 
 //keyframes

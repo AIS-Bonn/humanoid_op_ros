@@ -13,6 +13,12 @@
 // Gait namespace
 namespace gait
 {
+	//! Config parameter path for the gait motion module
+	const std::string GAIT_CONFIG_PARAM_PATH = "/gait/";
+
+	//! Name of the tf frame that is used for publishing the gait odometry
+	const std::string gaitOdomFrame = "/odom_gait";
+
 	//! ID list of joints used by the gait motion module
 	enum JointID
 	{
@@ -77,9 +83,6 @@ namespace gait
 		"right_ankle_pitch",    //          ...
 		"right_ankle_roll"      // <-- RIGHT_LEG_END
 	};
-
-	//! Name of the tf frame that is used for publishing the gait odometry
-	const std::string gaitOdomFrame = "/odom_gait";
 
 	//! Enumeration of motion IDs that can be used in the GaitCommand::motion field to trigger motions through the gait
 	enum MotionID

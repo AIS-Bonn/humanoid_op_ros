@@ -17,8 +17,9 @@ namespace robotcontrol
  *
  * Contains command values and feedback information for a single joint.
  **/
-struct Joint
+class Joint
 {
+public:
 	//! Joint-level command
 	class Command
 	{
@@ -108,8 +109,9 @@ struct Joint
 	};
 
 	//! Joint-level feedback
-	struct Feedback
+	class Feedback
 	{
+	public:
 		// Constructor
 		Feedback();
 
@@ -120,6 +122,9 @@ struct Joint
 		double torque;      //!< Estimated torque from position displacement (Nm)
 	};
 
+	//! Constructor
+	Joint() = default;
+
 	//! Smart pointer type (use this!)
 	typedef boost::shared_ptr<Joint> Ptr;
 
@@ -128,6 +133,9 @@ struct Joint
 
 	//! URDF joint
 	boost::shared_ptr<urdf::Joint> modelJoint;
+
+	//! Mimic joint information
+	boost::shared_ptr<urdf::JointMimic> mimic;
 
 	//! Joint command (written by the MotionModule)
 	Command cmd;

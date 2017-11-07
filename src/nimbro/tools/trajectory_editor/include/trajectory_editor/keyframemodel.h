@@ -80,6 +80,8 @@ public Q_SLOTS:
 	
 	void applyRule(double delta, int rule_id);
 	
+	void estimateVelocity();
+	
 private:
 	int findNextID(); // Find valid ID which is not used yet
 	int idToPosition(int id); // Find frame's position in vector by its ID

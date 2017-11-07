@@ -4,6 +4,7 @@
 // Includes
 #include <head_control/headcontrol.h>
 #include <pluginlib/class_list_macros.h>
+#include <rc_utils/math_funcs.h>
 #include <Eigen/Core>
 #include <cmath>
 
@@ -17,19 +18,23 @@ using namespace headcontrol;
 // HeadControl class
 //
 
+// Constants
+const std::string HeadControl::RESOURCE_PATH = "headcontrol/";
+const std::string HeadControl::CONFIG_PARAM_PATH = "/headcontrol/";
+
 // Constructor
 HeadControl::HeadControl()
- : m_nh("~")
+ : m_nhs()
  , m_lastActive(false)
- , m_headControlEnabled("/headcontrol/headControlEnabled", true)
- , m_yawRelax("/headcontrol/yaw/relax", false)
- , m_yawMaxVel("/headcontrol/yaw/maxVel", 0.5, 0.25, 15.0, 3.0) // Units: rad/s
- , m_yawMaxAcc("/headcontrol/yaw/maxAcc", 0.5, 0.25, 50.0, 10.0) // Units: rad/s^2
- , m_yawDefaultEffort("/headcontrol/yaw/defaultEffort", 0.0, 0.01, 1.0, 0.25)
- , m_pitchRelax("/headcontrol/pitch/relax", false)
- , m_pitchMaxVel("/headcontrol/pitch/maxVel", 0.5, 0.25, 15.0, 3.0) // Units: rad/s
- , m_pitchMaxAcc("/headcontrol/pitch/maxAcc", 0.5, 0.25, 50.0, 10.0) // Units: rad/s^2
- , m_pitchDefaultEffort("/headcontrol/pitch/defaultEffort", 0.0, 0.01, 1.0, 0.25)
+ , m_headControlEnabled(CONFIG_PARAM_PATH + "headControlEnabled", true)
+ , m_yawRelax(CONFIG_PARAM_PATH + "yaw/relax", false)
+ , m_yawMaxVel(CONFIG_PARAM_PATH + "yaw/maxVel", 0.5, 0.25, 15.0, 3.0) // Units: rad/s
+ , m_yawMaxAcc(CONFIG_PARAM_PATH + "yaw/maxAcc", 0.5, 0.25, 50.0, 10.0) // Units: rad/s^2
+ , m_yawDefaultEffort(CONFIG_PARAM_PATH + "yaw/defaultEffort", 0.0, 0.01, 1.0, 0.25)
+ , m_pitchRelax(CONFIG_PARAM_PATH + "pitch/relax", false)
+ , m_pitchMaxVel(CONFIG_PARAM_PATH + "pitch/maxVel", 0.5, 0.25, 15.0, 3.0) // Units: rad/s
+ , m_pitchMaxAcc(CONFIG_PARAM_PATH + "pitch/maxAcc", 0.5, 0.25, 50.0, 10.0) // Units: rad/s^2
+ , m_pitchDefaultEffort(CONFIG_PARAM_PATH + "pitch/defaultEffort", 0.0, 0.01, 1.0, 0.25)
  , m_yawTarget(0.0)
  , m_yawCurX(0.0)
  , m_yawCurV(0.0)
@@ -40,17 +45,17 @@ HeadControl::HeadControl()
  , m_pitchCurV(0.0)
  , m_pitchCurEffort(0.0)
  , m_pitchEffortTarget(0.0)
- , m_enableJoystick("/headcontrol/enableJoystick", true)
+ , m_enableJoystick(CONFIG_PARAM_PATH + "enableJoystick", true)
  , m_joystickButton9Pressed(false)
  , m_joystickSaysEnabled(false)
  , m_haveTarget(false)
  , m_recording(false)
  , m_calibrating(false)
- , m_calibSafetyMargin("/headcontrol/calib/safetyMargin", 0.0, 0.005, 0.4, 0.05)
- , m_calibParamString("/headcontrol/calib/paramString", "")
- , m_plotCalibData("/headcontrol/calib/plotCalibData", false)
- , m_plotData("/headcontrol/plotData", false)
- , m_PM(PM_COUNT, "/headcontrol")
+ , m_calibSafetyMargin(CONFIG_PARAM_PATH + "calib/safetyMargin", 0.0, 0.005, 0.4, 0.05)
+ , m_calibParamString(CONFIG_PARAM_PATH + "calib/paramString", "")
+ , m_plotCalibData(CONFIG_PARAM_PATH + "calib/plotCalibData", false)
+ , m_plotData(CONFIG_PARAM_PATH + "plotData", false)
+ , m_PM(PM_COUNT, RESOURCE_PATH)
 {
 	// Initialise calibration feature
 	initCalibration();
@@ -59,11 +64,11 @@ HeadControl::HeadControl()
 	configurePlotManager();
 
 	// Subscribe to ROS topics
-	m_sub_lookAtTarget = m_nh.subscribe("headcontrol/target", 1, &HeadControl::handleLookAtTarget, this);
-	m_sub_joystickData = m_nh.subscribe("/joy", 1, &HeadControl::handleJoystickData, this);
+	m_sub_lookAtTarget = m_nhs.subscribe(RESOURCE_PATH + "target", 1, &HeadControl::handleLookAtTarget, this);
+	m_sub_joystickData = m_nhs.subscribe("joy", 1, &HeadControl::handleJoystickData, this);
 
 	// Advertise ROS topics
-	m_pub_headControlStatus = m_nh.advertise<head_control::HeadControlStatus>("headcontrol/status", 1, true);
+	m_pub_headControlStatus = m_nhs.advertise<head_control::HeadControlStatus>(RESOURCE_PATH + "status", 1, true);
 	updateHeadControlStatus();
 
 	// Configuration parameter callbacks
@@ -86,7 +91,7 @@ bool HeadControl::init(robotcontrol::RobotModel* model)
 {
 	// Save pointer to RobotModel
 	m_model = model;
-	
+
 	// Initialise the motion module
 	MotionModule::init(m_model);
   
@@ -94,13 +99,9 @@ bool HeadControl::init(robotcontrol::RobotModel* model)
 	m_headYawJoint = m_model->getJoint("neck_yaw");
 	m_headPitchJoint = m_model->getJoint("head_pitch");
 
-	// Robotcontrol states
-	m_state_kicking = model->registerState("kicking");
-	m_state_standingUp = model->registerState("standing_up");
-	
 	// Reset the head control target
 	resetTarget();
-	
+
 	// Return successful initialisation
 	return true;
 }
@@ -110,33 +111,33 @@ bool HeadControl::isTriggered()
 {
 	// Clear the plot manager for a new cycle
 	m_PM.clear();
-	
+
 	// Determine whether head control should execute
 	bool shouldTrigger = active();
-	
+
 	// Print messages for the enabling and disabling of head control
 	if(shouldTrigger != m_lastActive)
 		ROS_INFO("Headcontrol has been %s", (shouldTrigger ? "enabled" : "disabled"));
-	
+
 	// Handle case if we don't wish to trigger
 	if(!shouldTrigger)
 	{
 		resetTarget();
-		m_yawCurX = m_headYawJoint->feedback.pos;
+		m_yawCurX = m_headYawJoint->lastCmd.pos;
 		m_yawCurV = 0.0;
 		m_yawCurEffort = m_headYawJoint->lastCmd.effort;
-		m_pitchCurX = m_headPitchJoint->feedback.pos;
+		m_pitchCurX = m_headPitchJoint->lastCmd.pos;
 		m_pitchCurV = 0.0;
 		m_pitchCurEffort = m_headPitchJoint->lastCmd.effort;
 		if(m_lastActive)
 			updateHeadControlStatus();
 	}
 	m_lastActive = shouldTrigger;
-	
+
 	// Record data if we are currently required to do so
 	if(m_recording)
 		recordPoint();
-	
+
 	// Plotting
 	if(m_PM.getEnabled())
 	{
@@ -157,7 +158,7 @@ bool HeadControl::isTriggered()
 			m_PM.publish();
 		}
 	}
-	
+
 	// Return whether head control should trigger
 	return shouldTrigger;
 }
@@ -167,7 +168,21 @@ void HeadControl::step()
 {
 	// Retrieve the current simulation loop time
 	const double dT = m_model->timerDuration();
-	
+
+	// If another motion module is overwriting head control, then adapt the current head control state as appropriate
+	if(m_yawCurX != m_headYawJoint->lastCmd.pos)
+	{
+		m_yawCurX = m_headYawJoint->lastCmd.pos;
+		m_yawCurV = m_headYawJoint->lastCmd.vel;
+	}
+	m_yawCurEffort = m_headYawJoint->lastCmd.effort;
+	if(m_pitchCurX != m_headPitchJoint->lastCmd.pos)
+	{
+		m_pitchCurX = m_headPitchJoint->lastCmd.pos;
+		m_pitchCurV = m_headPitchJoint->lastCmd.vel;
+	}
+	m_pitchCurEffort = m_headPitchJoint->lastCmd.effort;
+
 	// Initialise variables
 	double yawCmdX = m_yawCurX;
 	double yawCmdV = m_yawCurV;
@@ -175,7 +190,7 @@ void HeadControl::step()
 	double pitchCmdX = m_pitchCurX;
 	double pitchCmdV = m_pitchCurV;
 	double pitchEffort = m_pitchCurEffort;
-	
+
 	// Update the yaw and pitch commands based on a spline approach
 	m_yawSpline.setParams(m_yawCurX, m_yawCurV, m_yawTarget, 0.0, m_yawMaxVel(), m_yawMaxAcc());
 	m_pitchSpline.setParams(m_pitchCurX, m_pitchCurV, m_pitchTarget, 0.0, m_pitchMaxVel(), m_pitchMaxAcc());
@@ -215,7 +230,7 @@ void HeadControl::step()
 			pitchCmdV = m_pitchSpline.v(dT);
 		}
 	}
-	
+
 	// Apply yaw velocity limiting
 	double yawMaxInc = fabs(dT * m_yawMaxVel());
 	if(fabs(yawCmdX - m_yawCurX) > yawMaxInc)
@@ -231,7 +246,7 @@ void HeadControl::step()
 			yawCmdV = m_yawMaxVel();
 		}
 	}
-	
+
 	// Apply pitch velocity limiting
 	double pitchMaxInc = fabs(dT * m_pitchMaxVel());
 	if(fabs(pitchCmdX - m_pitchCurX) > pitchMaxInc)
@@ -247,10 +262,10 @@ void HeadControl::step()
 			pitchCmdV = m_pitchMaxVel();
 		}
 	}
-	
+
 	// Apply head position limiting
 	m_posLimiter.applyLimit(yawCmdX, pitchCmdX);
-	
+
 	// Update the yaw effort based on a spline approach
 	double yawEffortTarget = m_yawEffortTarget;
 	if(yawEffortTarget == 0.0) yawEffortTarget = m_yawDefaultEffort();
@@ -264,7 +279,7 @@ void HeadControl::step()
 		yawEffort = m_yawEffortSpline.x(dT);
 	}
 	if(m_yawRelax()) yawEffort = 0.0;
-	
+
 	// Update the pitch effort based on a spline approach
 	double pitchEffortTarget = m_pitchEffortTarget;
 	if(pitchEffortTarget == 0.0) pitchEffortTarget = m_pitchDefaultEffort();
@@ -278,7 +293,7 @@ void HeadControl::step()
 		pitchEffort = m_pitchEffortSpline.x(dT);
 	}
 	if(m_pitchRelax()) pitchEffort = 0.0;
-	
+
 	// Command the required new head joint positions
 	m_headYawJoint->cmd.setFromPos(yawCmdX);
 	m_headPitchJoint->cmd.setFromPos(pitchCmdX);
@@ -286,7 +301,7 @@ void HeadControl::step()
 	m_headPitchJoint->cmd.effort = pitchEffort;
 	m_headYawJoint->cmd.raw = (yawEffort <= 0.0);
 	m_headPitchJoint->cmd.raw = (pitchEffort <= 0.0);
-	
+
 	// Update the last sent commands
 	m_yawCurX = yawCmdX;
 	m_yawCurV = yawCmdV;
@@ -294,7 +309,7 @@ void HeadControl::step()
 	m_pitchCurX = pitchCmdX;
 	m_pitchCurV = pitchCmdV;
 	m_pitchCurEffort = pitchEffort;
-	
+
 	// Plotting
 	if(m_PM.getEnabled())
 	{
@@ -361,14 +376,14 @@ void HeadControl::handleLookAtTarget(const head_control::LookAtTargetConstPtr& m
 		m_yawTarget   = atan2(-msg->vec.x, msg->vec.z);
 		m_pitchTarget = atan2( msg->vec.y, msg->vec.z);
 	}
-	
+
 	// Transcribe the requested efforts
 	m_yawEffortTarget = msg->yawEffort;
 	m_pitchEffortTarget = msg->pitchEffort;
-	
+
 	// Apply position limits to the target
 	m_posLimiter.applyLimit(m_yawTarget, m_pitchTarget);
-	
+
 	// Update the head control status
 	updateHeadControlStatus();
 }
@@ -382,7 +397,7 @@ void HeadControl::updateHeadControlStatus()
 	m_msgStatus.yawTargetEffort = m_yawEffortTarget;
 	m_msgStatus.pitchTarget = m_pitchTarget;
 	m_msgStatus.pitchTargetEffort = m_pitchEffortTarget;
-	
+
 	// Publish the required data
 	m_pub_headControlStatus.publish(m_msgStatus);
 }
@@ -392,12 +407,12 @@ void HeadControl::handleJoystickData(const sensor_msgs::JoyConstPtr& msg)
 {
 	// Ignore this message if the joystick isn't enabled or doesn't have enough axes
 	if(!m_enableJoystick() || msg->axes.size() < 4) return;
-	
+
 	// Toggle joystick head control on falling edges of button 9
 	if(m_joystickButton9Pressed && !msg->buttons[9])
 		m_joystickSaysEnabled = !m_joystickSaysEnabled;
 	m_joystickButton9Pressed = msg->buttons[9];
-	
+
 	// If head control is active then accept the joystick position as a new target
 	head_control::LookAtTargetPtr lookMsg = boost::make_shared<head_control::LookAtTarget>();
 	lookMsg->enabled = m_joystickSaysEnabled;
@@ -415,14 +430,15 @@ void HeadControl::handleJoystickData(const sensor_msgs::JoyConstPtr& msg)
 void HeadControl::initCalibration()
 {
 	// Advertise ROS services
-	m_srv_startRecording = m_nh.advertiseService("headcontrol/startRecording", &HeadControl::startRecording, this);
-	m_srv_stopRecording = m_nh.advertiseService("headcontrol/stopRecording", &HeadControl::stopRecording, this);
-	m_srv_startCalibration = m_nh.advertiseService("headcontrol/startCalibration", &HeadControl::startCalibration, this);
-	m_srv_stopCalibration = m_nh.advertiseService("headcontrol/stopCalibration", &HeadControl::stopCalibration, this);
-	m_srv_showHeadLimits = m_nh.advertiseService("headcontrol/showHeadLimits", &HeadControl::showHeadLimits, this);
-	
+	m_srv_startRecording = m_nhs.advertiseService(RESOURCE_PATH + "startRecording", &HeadControl::startRecording, this);
+	m_srv_stopRecording = m_nhs.advertiseService(RESOURCE_PATH + "stopRecording", &HeadControl::stopRecording, this);
+	m_srv_startCalibration = m_nhs.advertiseService(RESOURCE_PATH + "startCalibration", &HeadControl::startCalibration, this);
+	m_srv_stopCalibration = m_nhs.advertiseService(RESOURCE_PATH + "stopCalibration", &HeadControl::stopCalibration, this);
+	m_srv_showHeadLimits = m_nhs.advertiseService(RESOURCE_PATH + "showHeadLimits", &HeadControl::showHeadLimits, this);
+	m_srv_testHeadLimits = m_nhs.advertiseService(RESOURCE_PATH + "testHeadLimits", &HeadControl::testHeadLimits, this);
+
 	// Set up the plotting of the recorded data points
-	m_pub_dataMarker = m_nh.advertise<visualization_msgs::Marker>("head_recorded_marker", 1);
+	m_pub_dataMarker = m_nhs.advertise<visualization_msgs::Marker>(RESOURCE_PATH + "head_recorded_marker", 1);
 	m_dataMarker.header.frame_id = "/ego_rot";
 	m_dataMarker.header.stamp = ros::Time::now();
 	m_dataMarker.ns = "headcontrol";
@@ -439,9 +455,9 @@ void HeadControl::initCalibration()
 	m_dataMarker.color.g = 0.0;
 	m_dataMarker.color.b = 1.0;
 	m_dataMarker.lifetime = ros::Duration(0, 0);
-	
+
 	// Set up the plotting of the recorded data points
-	m_pub_calibMarker = m_nh.advertise<visualization_msgs::Marker>("head_calib_marker", 1);
+	m_pub_calibMarker = m_nhs.advertise<visualization_msgs::Marker>(RESOURCE_PATH + "head_calib_marker", 1);
 	m_calibMarker.header.frame_id = "/ego_rot";
 	m_calibMarker.header.stamp = ros::Time::now();
 	m_calibMarker.ns = "headcontrol";
@@ -458,7 +474,7 @@ void HeadControl::initCalibration()
 	m_calibMarker.color.g = 0.5;
 	m_calibMarker.color.b = 1.0;
 	m_calibMarker.lifetime = ros::Duration(0, 0);
-	
+
 	// Set up the calibration parameter string config server callback
 	m_calibParamString.setCallback(boost::bind(&HeadControl::handleCalibParamString, this));
 	handleCalibParamString();
@@ -472,7 +488,7 @@ void HeadControl::initCalibration()
 void HeadControl::recordPoint()
 {
 	// Add the current measured feedback position
-	Point data = std::make_pair<double, double>(m_headYawJoint->feedback.pos, m_headPitchJoint->feedback.pos);
+	Point data = std::make_pair(m_headYawJoint->feedback.pos, m_headPitchJoint->feedback.pos);
 	m_recordedData.push_back(data);
 	geometry_msgs::Point p;
 	p.x = HEAD_PLOT_SCALE * data.first;
@@ -487,15 +503,15 @@ void HeadControl::handleClickedPoint(const geometry_msgs::PointStampedConstPtr& 
 {
 	// Don't do anything if we're not calibrating
 	if(!m_calibrating) return;
-	
+
 	// Add the point to our list
-	Point data = std::make_pair<double, double>(msg->point.x / HEAD_PLOT_SCALE, msg->point.y / HEAD_PLOT_SCALE);
+	Point data = std::make_pair(msg->point.x / HEAD_PLOT_SCALE, msg->point.y / HEAD_PLOT_SCALE);
 	m_calibData.push_back(data);
-	
+
 	// Calculate and plot the calibration parameters
 	calcCalibParams(false);
 	plotCalibParams();
-	
+
 	// Inform the user that a point was clicked
 	ROS_INFO("Clicked boundary point #%u: (%.3f, %.3f)", (unsigned int) m_calibData.size(), data.first, data.second);
 }
@@ -512,7 +528,7 @@ BoundarySegment HeadControl::fitLine(const Point& p1, const Point& p2)
 {
 	// Declare variables
 	BoundarySegment B;
-	
+
 	// Solve a set of linear equations for the required coefficients
 	Eigen::Matrix2d A;
 	A << p1.first, p1.second, p2.first, p2.second;
@@ -520,13 +536,13 @@ BoundarySegment HeadControl::fitLine(const Point& p1, const Point& p2)
 	Eigen::Vector2d x = A.colPivHouseholderQr().solve(b);
 	double relativeError = (A*x - b).norm() / b.norm();
 	if(relativeError > 1e-8 || (fabs(x[0]) < 1e-6 && fabs(x[1]) < 1e-6)) return B; // Returns invalid B
-	
+
 	// Transcribe the coefficients into the boundary segment object
 	B.a = x[0];
 	B.b = x[1];
 	B.c = 1.0;
 	B.d = 0.0;
-	
+
 	// Set up the boundary segment parameterisation to be the least numerically sensitive
 	if(fabs(B.a) < fabs(B.b))
 	{
@@ -540,7 +556,7 @@ BoundarySegment HeadControl::fitLine(const Point& p1, const Point& p2)
 		B.tStart = std::min(p1.second, p2.second);
 		B.tEnd   = std::max(p1.second, p2.second);
 	}
-	
+
 	// Return the constructed boundary segment object
 	return B;
 }
@@ -550,7 +566,7 @@ BoundarySegment HeadControl::fitParabola(const Point& p1, const Point& p2, const
 {
 	// Declare variables
 	BoundarySegment B;
-	
+
 	// Solve a set of linear equations for the required coefficients
 	Eigen::Matrix3d A;
 	A << p1.first, p1.second, p1.first*p1.first, p2.first, p2.second, p2.first*p2.first, p3.first, p3.second, p3.first*p3.first;
@@ -558,7 +574,7 @@ BoundarySegment HeadControl::fitParabola(const Point& p1, const Point& p2, const
 	Eigen::Vector3d x = A.colPivHouseholderQr().solve(b);
 	double relativeError = (A*x - b).norm() / b.norm();
 	if(relativeError > 1e-8 || (fabs(x[0]) < 1e-6 && fabs(x[1]) < 1e-6 && fabs(x[2]) < 1e-6)) return B; // Returns invalid B
-	
+
 	// Transcribe the coefficients into the boundary segment object
 	B.a = x[0];
 	B.b = x[1];
@@ -567,7 +583,7 @@ BoundarySegment HeadControl::fitParabola(const Point& p1, const Point& p2, const
 	B.useX = true;
 	B.tStart = std::min(std::min(p1.first, p2.first), p3.first);
 	B.tEnd   = std::max(std::max(p1.first, p2.first), p3.first);
-	
+
 	// Return the constructed boundary segment object
 	return B;
 }
@@ -619,7 +635,7 @@ bool HeadControl::startCalibration()
 	// Stop recording automatically if this service is called
 	if(m_recording)
 		stopRecording();
-	
+
 	// Inform the user that the head control calibration has started
 	ROS_INFO("Starting calibration of the allowable head workspace...");
 	ROS_INFO("I expect points to be clicked/published in RViz, where the first five points are joined by two parabolas, and the remaining points are joined by lines.");
@@ -634,7 +650,7 @@ bool HeadControl::startCalibration()
 
 	// Publish the cleared marker
 	updatePlotCalibData();
-	
+
 	// Start monitoring for clicked points in RViz
 	subscribeClickedPoint();
 
@@ -654,13 +670,13 @@ bool HeadControl::stopCalibration()
 
 	// Indicate to the user that this service call has been received
 	ROS_INFO("Stopped head control calibration");
-	
+
 	// Stop monitoring for clicked points in RViz
 	unsubscribeClickedPoint();
 
 	// Unset the internal calibrating flag
 	m_calibrating = false;
-	
+
 	// Make sure we have enough points
 	if(m_calibData.size() < 3)
 	{
@@ -669,22 +685,22 @@ bool HeadControl::stopCalibration()
 		m_calibMarker.points.clear();
 		return true;
 	}
-	
+
 	// Calculate and plot the calibration parameters
 	calcCalibParams(true);
 	plotCalibParams();
-	
+
 	// Serialise the calibration parameters
 	std::string paramString = BoundarySegment::serialiseArray(m_calibParams);
-	
+
 	// Set the parameter string on the config server
 	m_calibParamString.set(paramString);
 	m_curCalibParams.assign(m_calibParams.begin(), m_calibParams.end());
-	
+
 	// Print the required parameters just in case
 	ROS_INFO("Head limit calibration finished with new parameter string:\nparamString: \"%s\"", paramString.c_str());
 	ROS_INFO("This parameter string has been set on the config server");
-	
+
 	// Return that the service call was successfully handled
 	return true;
 }
@@ -698,14 +714,52 @@ bool HeadControl::showHeadLimits()
 		ROS_INFO("Show head limits: Not modifying anything as calibration is currently active");
 		return true;
 	}
-	
+
 	// Copy the current calibration parameters into the working array
 	m_calibParams.assign(m_curCalibParams.begin(), m_curCalibParams.end());
-	
+
 	// Plot the required head limits
 	plotCalibParams();
-	
+
 	// Return that the service was handled
+	return true;
+}
+
+// Test the head limits
+bool HeadControl::testHeadLimits()
+{
+	// Plot the calibration data
+	if(!showHeadLimits()) return false;
+
+	// We hijack the recorded points marker
+	m_dataMarker.points.clear();
+
+	// Declare variables
+	geometry_msgs::Point p, q;
+	p.z = 0.0;
+	q.z = 0.02;
+
+	// Push test data into the points
+	static const int N = 3600;
+	double radius = 0.5 + 2.0*drand48();
+	for(int n = 0; n < N; n++)
+	{
+		double angle = n * (M_2PI / N);
+		p.x = q.x = radius * cos(angle);
+		p.y = q.y = radius * sin(angle);
+		m_posLimiter.applyLimit(q.x, q.y);
+		p.x *= HEAD_PLOT_SCALE;
+		p.y *= HEAD_PLOT_SCALE;
+		q.x *= HEAD_PLOT_SCALE;
+		q.y *= HEAD_PLOT_SCALE;
+		m_dataMarker.points.push_back(p);
+		m_dataMarker.points.push_back(q);
+	}
+
+	// Update the plotted information
+	updatePlotCalibData();
+
+	// Return success
 	return true;
 }
 
@@ -725,7 +779,7 @@ void HeadControl::calcCalibParams(bool shrink)
 		m_calibParams.push_back(fitLine(m_calibData[i-1], m_calibData[i]));
 	if(numPts >= 3) m_calibParams.push_back(fitLine(m_calibData.back(), m_calibData.front()));
 	m_calibParams.erase(std::remove_if(m_calibParams.begin(), m_calibParams.end(), BoundarySegment::isInvalid), m_calibParams.end());
-	
+
 	// Shrink the boundary by a configured safety margin
 	if(shrink)
 	{
@@ -764,7 +818,7 @@ void HeadControl::plotCalibParams()
 			m_calibMarker.points.push_back(p);
 		}
 	}
-	
+
 	// Add in all the original clicked calibration points just in case
 	for(size_t i = 0; i < m_calibData.size(); i++)
 	{
@@ -772,7 +826,7 @@ void HeadControl::plotCalibParams()
 		p.y = HEAD_PLOT_SCALE * m_calibData[i].second;
 		m_calibMarker.points.push_back(p);
 	}
-	
+
 	// Update the plotted information
 	updatePlotCalibData();
 }
@@ -782,7 +836,7 @@ void HeadControl::updatePlotCalibData()
 {
 	// Get the current time
 	ros::Time now = ros::Time::now();
-	
+
 	// Update the plotting of the recorded data marker
 	if(m_plotCalibData() && !m_dataMarker.points.empty())
 		m_dataMarker.lifetime = ros::Duration(0, 0); // Set the marker to never expire
@@ -790,7 +844,7 @@ void HeadControl::updatePlotCalibData()
 		m_dataMarker.lifetime = ros::Duration(0.05); // Set the marker to expire after a short amount of time
 	m_dataMarker.header.stamp = now;
 	m_pub_dataMarker.publish(m_dataMarker);
-	
+
 	// Update the plotting of the calib data marker
 	if(m_plotCalibData() && !m_calibMarker.points.empty())
 		m_calibMarker.lifetime = ros::Duration(0, 0); // Set the marker to never expire
@@ -798,38 +852,6 @@ void HeadControl::updatePlotCalibData()
 		m_calibMarker.lifetime = ros::Duration(0.05); // Set the marker to expire after a short amount of time
 	m_calibMarker.header.stamp = now;
 	m_pub_calibMarker.publish(m_calibMarker);
-}
-
-// Function for debugging of the limiter
-void HeadControl::testLimiter()
-{
-	// We hijack the recorded points marker
-	m_dataMarker.points.clear();
-	
-	// Declare variables
-	geometry_msgs::Point p;
-	p.z = 0.0;
-	
-	// Push test data into the points
-	const double r = 0.85;
-	for(size_t i = 0; i < 50; i++)
-	{
-		p.x = r*cos(i*M_2PI/50);
-		p.y = r*sin(i*M_2PI/50);
-		m_dataMarker.points.push_back(p);
-	}
-	
-	// Apply limits to the given points
-	size_t N = m_dataMarker.points.size();
-	for(size_t i = 0; i < N; i++)
-	{
-		p = m_dataMarker.points[i];
-		m_posLimiter.applyLimit(p.x, p.y);
-		m_dataMarker.points.push_back(p);
-	}
-	
-	// Plot what we've done
-	updatePlotCalibData();
 }
 
 // Configure the plot manager
@@ -867,6 +889,25 @@ void HeadControl::callbackPlotData()
 // BoundarySegment struct
 //
 
+// Constants
+const double BoundarySegment::minC = 0.01;
+
+// Evaluate the boundary segment at a parameterised t value
+void BoundarySegment::evaluateAt(double t, double& x, double& y) const
+{
+	// Evaluate the boundary segment as required
+	if(useX)
+	{
+		x = t;
+		y = -(a*x + c + d*x*x) / b;
+	}
+	else
+	{
+		y = t;
+		x = -(b*y + c) / a; // If useX is false then d is assumed to be zero
+	}
+}
+
 // Shift a boundary by a given margin towards (0,0)
 void BoundarySegment::shiftBy(double margin)
 {
@@ -884,14 +925,14 @@ std::string BoundarySegment::serialiseArray(const std::vector<BoundarySegment>& 
 	// Initialise string stream
 	std::ostringstream ss;
 	ss << std::fixed << std::setprecision(8);
-	
+
 	// Serialise each element in the array in turn
 	for(size_t i = 0; i < array.size(); i++)
 	{
 		if(i != 0) ss << "|";
 		ss << array[i].a << " " << array[i].b << " " << array[i].c << " " << array[i].d << " " << array[i].tStart << " " << array[i].tEnd << " " << array[i].useX;
 	}
-	
+
 	// Return the serialised string
 	return ss.str();
 }
@@ -902,10 +943,10 @@ bool BoundarySegment::deserialiseArray(const std::string& str, std::vector<Bound
 	// Declare variables
 	BoundarySegment B;
 	char pipe = '|';
-	
+
 	// Initialise string stream
 	std::istringstream ss(str);
-	
+
 	// Keep reading in boundary segments until we run out
 	while(!ss.fail() && pipe == '|')
 	{
@@ -915,7 +956,7 @@ bool BoundarySegment::deserialiseArray(const std::string& str, std::vector<Bound
 		pipe = '\0';
 		ss >> pipe;
 	}
-	
+
 	// Return whether we were able to parse a single boundary segment
 	return !array.empty();
 }
@@ -924,12 +965,18 @@ bool BoundarySegment::deserialiseArray(const std::string& str, std::vector<Bound
 // SimpleLimiter class
 //
 
+// Constants
+const double SimpleLimiter::minYawCmd = -1.57;
+const double SimpleLimiter::maxYawCmd = 1.57;
+const double SimpleLimiter::minPitchCmd = -0.5;
+const double SimpleLimiter::maxPitchCmd = 0.5;
+
 // Apply simple limits to a head position
 bool SimpleLimiter::applyLimit(double& yaw, double& pitch) const
 {
 	// Save the original values
 	double origYaw = yaw, origPitch = pitch;
-	
+
 	// Apply the required independent range limits
 	if(yaw < minYawCmd)
 		yaw = minYawCmd;
@@ -939,7 +986,7 @@ bool SimpleLimiter::applyLimit(double& yaw, double& pitch) const
 		pitch = minPitchCmd;
 	else if(pitch > maxPitchCmd)
 		pitch = maxPitchCmd;
-	
+
 	// Return whether we have modified the values
 	return (yaw != origYaw || pitch != origPitch);
 }
@@ -949,49 +996,90 @@ bool SimpleLimiter::applyLimit(double& yaw, double& pitch) const
 //
 
 // Apply boundary limits to a head position
+// The following assumptions are made about the calibration:
+//  - When recording data and clicking points in RViz to set up the calibration, the fixed frame in RViz must be "ego_rot"
+//  - The origin must be inside the allowed head range and not that close to the boundary of it
+//  - Quadratic segments are only limiting in the wedge defined by their endpoints, so if it is not 1-1 in a polar sense
+//    then the result may not be exactly what was intended
+//  - Quadratic segments should not subtend more than 180 degrees at the origin as then the wedge flips
 bool BoundaryLimiter::applyLimit(double& yaw, double& pitch) const
 {
+	// Constants
+	static const double polarTol = 1e-8;
+	static const double quadTol = 1e-8;
+
 	// Save the original values
 	double origYaw = yaw, origPitch = pitch;
-	
-	// Draw a ray from (0,0) to the point and find the smallest change along this ray that leads in a point that statisfies all constraints
-	double maxLambda = -1.0;
+
+	// Draw a ray from the origin (0,0) to the point and find the smallest contraction change along this ray that leads in a point that statisfies all boundary segment constraints
+	double minLambda = 2.0; // Lambda values are measured in the range [0,1], where 0 => Origin, 1 => Input point, and outside this range means invalid/ignore.
 	for(size_t i = 0; i < m_params->size(); i++)
 	{
-		const BoundarySegment& B = m_params->at(i);
-		double lambda = -1.0;
-		double Ca = B.d*yaw*yaw;
-		double Cb = B.a*yaw + B.b*pitch;
-		double Cc = B.c;
-		if(fabs(Ca) < 1e-6) // Treat as line
+		// Get the boundary segment to limit to
+		const BoundarySegment& Bseg = m_params->at(i);
+
+		// Get the segment endpoints
+		double yawS, pitchS;
+		double yawE, pitchE;
+		Bseg.evaluateStart(yawS, pitchS);
+		Bseg.evaluateEnd(yawE, pitchE);
+
+		// Get the polar angles of the endpoints and the input point
+		double polarS = atan2(pitchS, yawS);
+		double polarE = atan2(pitchE, yawE);
+		double polarI = atan2(pitch, yaw);
+
+		// Only apply this boundary segment if the input point is in the wedge of the segment, judged by endpoints
+		double polarSE = rc_utils::picut(polarE - polarS);
+		double polarSI = rc_utils::picut(polarI - polarS);
+		if(polarSE * polarSI < 0.0 || fabs(polarSI) > fabs(polarSE) + polarTol) continue;
+
+		// Substitute the point lambda*(yaw,pitch) into a*x + b*y + c + d*x^2 = 0 to get our equation Ca*lambda^2 + Cb*lambda + Cc = 0 that defines the lambda to use to be on the boundary segment
+		double Ca = Bseg.d*yaw*yaw;
+		double Cb = Bseg.a*yaw + Bseg.b*pitch;
+		double Cc = Bseg.c;
+
+		// Solve the quadratic equation numerically safely, knowing that we can ignore all solutions for lambda outside the range [0,1]
+		double critsq = Cb*Cb - 4.0*Ca*Cc;
+		if(critsq < 0.0) continue; // No intersection means we're fine
+		double crit = sqrt(critsq);
+		int signCb = rc_utils::sign(Cb);
+		double A = 2.0*Ca;                // The solutions to the quadratic are now:
+		double B = -Cb - signCb*crit;     //   lambda1 = B/A = C/Bstar
+		double Bstar = -Cb + signCb*crit; //   lambda2 = C/B = Bstar/A
+		double C = 2.0*Cc;
+		double absA = fabs(A);            // If A = B = 0 then Ca = Cb = 0, which means that the segment is a line (from Ca = 0),
+		double absB = fabs(B);            // that is parallel to the ray from the origin to the input point (from Cb = 0 given Ca = 0).
+		double lambda1, lambda2;
+		if(absA < absB)
 		{
-			if(fabs(Cb) < 1e-6) continue; // Constraint line is parallel to ray, so it is not violated, so we can skip this constraint
-			lambda = 1 + Cc/Cb; // Lambda is the proportion of the length of the ray to move towards the origin in order to satisfy a constraint
+			if(absB < quadTol) continue; // Constraint line is parallel to ray, so it is not violated, so we can skip this constraint
+			lambda1 = 2.0;
+			lambda2 = C / B;
 		}
 		else
 		{
-			double critsq = Cb*Cb - 4.0*Ca*Cc;
-			if(critsq < 0.0) continue; // No intersection means we're fine
-			double crit = sqrt(critsq);
-			double lambda1 = 1.0 - (-Cb + crit)/(2.0*Ca);
-			double lambda2 = 1.0 - (-Cb - crit)/(2.0*Ca);
-			if(lambda1 <= 0.0 || lambda1 >= 1.0) lambda1 = -1.0;
-			if(lambda2 <= 0.0 || lambda2 >= 1.0) lambda2 = -1.0;
-			if(lambda1 <= 0.0 && lambda2 <= 0.0) continue;
-			if(lambda1 > 0.0 && lambda2 > 0.0) continue;
-			lambda = std::max(lambda1, lambda2);
+			if(absA < quadTol) continue; // Constraint line is parallel to ray, so it is not violated, so we can skip this constraint
+			lambda1 = B / A;
+			lambda2 = Bstar / A;
 		}
+		if(lambda1 <= 0.0 || lambda1 >= 1.0) lambda1 = 2.0;
+		if(lambda2 <= 0.0 || lambda2 >= 1.0) lambda2 = 2.0;
+		if(lambda1 >= 1.0 && lambda2 >= 1.0) continue;
+		double lambda = std::min(lambda1, lambda2);
 		if(lambda <= 0.0 || lambda >= 1.0) continue;
-		if(lambda > maxLambda) maxLambda = lambda;
+
+		// See if this is the most restrictive lambda we've had so far
+		if(lambda < minLambda) minLambda = lambda;
 	}
-	
+
 	// Apply the limits as necessary
-	if(maxLambda > 0.0 && maxLambda < 1.0)
+	if(minLambda > 0.0 && minLambda < 1.0)
 	{
-		yaw *= 1 - maxLambda;
-		pitch *= 1 - maxLambda;
+		yaw *= minLambda;
+		pitch *= minLambda;
 	}
-	
+
 	// Return whether we have modified the values
 	return (yaw != origYaw || pitch != origPitch);
 }

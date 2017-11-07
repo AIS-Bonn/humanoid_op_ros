@@ -1,0 +1,30 @@
+# Top level CMakeLists.txt
+cmake_minimum_required(VERSION 2.8.3)
+
+# Display heading banner
+string(ASCII 27 ESC)
+set(Cyan "${ESC}[36m")
+set(EndColor "${ESC}[m")
+message("${Cyan}####${EndColor}")
+message("${Cyan}#### Processing catkin packages${EndColor}")
+message("${Cyan}####${EndColor}")
+
+# Ensure the build type is set
+if(NOT CMAKE_BUILD_TYPE)
+	message(STATUS "Build type not set => Using RelWithDebInfo per default")
+	set(CMAKE_BUILD_TYPE "RelWithDebInfo")
+	set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel" FORCE)
+endif()
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
+# Enable C++11
+message(STATUS "Enabling C++11 for all packages")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
+# Set global CXX flags
+set(GLOBAL_CXX_FLAGS "-Wall")
+message(STATUS "Global CXX flags: ${GLOBAL_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GLOBAL_CXX_FLAGS}")
+
+# Process all catkin packages in the workspace
+include(/opt/ros/indigo/share/catkin/cmake/toplevel.cmake)

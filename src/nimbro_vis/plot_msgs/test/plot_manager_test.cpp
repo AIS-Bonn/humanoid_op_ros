@@ -25,17 +25,21 @@ TEST(PlottingTest, test_PlotManager)
 	PlotManager PM7("~");
 	PlotManager PM8("~subnode");
 	PlotManager PM9("~moresub/");
+	PlotManager PM10("~/other");
+	PlotManager PM11("///");
 
 	// Test the plot manager plot variable naming
-	EXPECT_STREQ("/plot_manager_test/", PM1.getBasename().c_str());
-	EXPECT_STREQ("/plot_manager_test/", PM2.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/", PM1.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/", PM2.getBasename().c_str());
 	EXPECT_STREQ("/", PM3.getBasename().c_str());
-	EXPECT_STREQ("/node1/", PM4.getBasename().c_str());
+	EXPECT_STREQ("/myns/node1/", PM4.getBasename().c_str());
 	EXPECT_STREQ("/node2/", PM5.getBasename().c_str());
 	EXPECT_STREQ("/node3/", PM6.getBasename().c_str());
-	EXPECT_STREQ("/plot_manager_test/", PM7.getBasename().c_str());
-	EXPECT_STREQ("/plot_manager_test/subnode/", PM8.getBasename().c_str());
-	EXPECT_STREQ("/plot_manager_test/moresub/", PM9.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/", PM7.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/subnode/", PM8.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/moresub/", PM9.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/other/", PM10.getBasename().c_str());
+	EXPECT_STREQ("/", PM11.getBasename().c_str());
 }
 
 // Test: PlotManagerFS
@@ -51,17 +55,21 @@ TEST(PlottingTest, test_PlotManagerFS)
 	PlotManagerFS PM7(5, "~");
 	PlotManagerFS PM8(5, "~subnode");
 	PlotManagerFS PM9(5, "~moresub/");
+	PlotManagerFS PM10(5, "~/other");
+	PlotManagerFS PM11(5, "///");
 
 	// Test the fixed-size plot manager plot variable naming
-	EXPECT_STREQ("/plot_manager_test/", PM1.getBasename().c_str());
-	EXPECT_STREQ("/plot_manager_test/", PM2.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/", PM1.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/", PM2.getBasename().c_str());
 	EXPECT_STREQ("/", PM3.getBasename().c_str());
-	EXPECT_STREQ("/node1/", PM4.getBasename().c_str());
+	EXPECT_STREQ("/myns/node1/", PM4.getBasename().c_str());
 	EXPECT_STREQ("/node2/", PM5.getBasename().c_str());
 	EXPECT_STREQ("/node3/", PM6.getBasename().c_str());
-	EXPECT_STREQ("/plot_manager_test/", PM7.getBasename().c_str());
-	EXPECT_STREQ("/plot_manager_test/subnode/", PM8.getBasename().c_str());
-	EXPECT_STREQ("/plot_manager_test/moresub/", PM9.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/", PM7.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/subnode/", PM8.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/moresub/", PM9.getBasename().c_str());
+	EXPECT_STREQ("/myns/plot_manager_test/other/", PM10.getBasename().c_str());
+	EXPECT_STREQ("/", PM11.getBasename().c_str());
 }
 
 //

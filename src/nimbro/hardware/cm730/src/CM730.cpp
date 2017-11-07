@@ -51,9 +51,9 @@ void dump(const char* prefix, const uint8_t* data, uint8_t len);
 //
 
 // Constructor
-CM730::CM730()
- : m_PM(0, "/CM730")
- , m_useBulkReadShortcut("/nimbro_op_interface/useBulkReadShortcut", true)
+CM730::CM730(const std::string& resourcePath, const std::string& configParamPath)
+ : m_PM(0, resourcePath) // Used to plot events only, hence zero size
+ , m_useBulkReadShortcut(configParamPath + "useBulkReadShortcut", true)
  , m_fd(-1)
  , m_lastFailedID(0)
  , m_fullBRPacket(true)

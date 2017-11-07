@@ -89,7 +89,7 @@ void LEDWidget::stateReceived(const nimbro_op_interface::LEDCommandConstPtr& sta
 			updateBlinking();
 		}
 		if(!led5->isBlinking() && led5->turn(true))
-			led5->repaint();
+			led5->update();
 	}
 }
 
@@ -97,7 +97,7 @@ void LEDWidget::updateLED(int led, bool state)
 {
 	LED* pLED = leds.at(led);
 	if(pLED->turn(state))
-		pLED->repaint();
+		pLED->update();
 }
 
 void LEDWidget::updateBlinking()
@@ -142,7 +142,7 @@ void LEDWidget::handleBlinkTimerTimeout()
 		if(led->isBlinking())
 		{
 			if(led->turn(m_blinkState))
-				led->repaint();
+				led->update();
 		}
 	}
 	m_blinkTimer.start(m_blinkState ? 100 : 75);

@@ -37,6 +37,8 @@ ROSControlInterface::ROSControlInterface()
 		&ROSControlInterface::handleJointState, this,
 		ros::TransportHints().tcpNoDelay()
 	);
+
+	m_pub_command_js = m_nh.advertise<sensor_msgs::JointState>(m_prefix + "/command_joint_states", 1);
 	
 	m_lastReconfig.fromNSec(0);
 	m_lastTorque = 0.0;
@@ -118,6 +120,8 @@ bool ROSControlInterface::readJointStates()
 
 bool ROSControlInterface::sendJointTargets()
 {
+	sensor_msgs::JointState msg_js;
+
 	for(size_t i = 0; i < m_model->numJoints(); ++i)
 	{
 		ROSJoint* joint = rosJoint(i);
@@ -128,7 +132,12 @@ bool ROSControlInterface::sendJointTargets()
 		else
 			msg.data = joint->cmd.pos;
 		joint->pub_cmd.publish(msg);
+
+		msg_js.name.push_back(joint->name);
+		msg_js.position.push_back(joint->cmd.pos);
 	}
+
+	m_pub_command_js.publish(msg_js);
 
 	return true;
 }

@@ -9,6 +9,7 @@
 #include <ros/node_handle.h>
 #include <ros/service.h>
 #include <ros/package.h>
+#include <ros/this_node.h>
 
 #include <yaml-cpp/yaml.h>
 
@@ -164,7 +165,7 @@ ConfigServer::ConfigServer()
 	m_pub_uid = m_nh.advertise<std_msgs::Time>("uid", 1, true);
 	m_pub_loadTime = m_nh.advertise<ParameterLoadTime>("load_time", 1, true);
 
-	m_srv_save = m_nh.advertiseService("save", &ConfigServer::handleSave, this);
+	m_srv_save = m_nh.advertiseService<config_server::SaveRequest, config_server::SaveResponse>("save", boost::bind(&ConfigServer::handleSave, this, _1, _2, true));
 	m_srv_load = m_nh.advertiseService("load", &ConfigServer::handleLoad, this);
 
 	m_configPath = m_nh.param<std::string>("config_path", ros::package::getPath("config_server")) + "/";
@@ -205,12 +206,22 @@ void ConfigServer::initBackups()
 	if(maxBackupUidsInt >= 1)
 		maxBackupUids = (std::size_t) maxBackupUidsInt;
 
+	std::string nodeNs = ros::names::clean(ros::this_node::getNamespace()); // Note: Can only contain [0-9a-zA-Z_/]
+	std::size_t startIndex = nodeNs.find_first_not_of('/');
+	std::size_t endIndex = nodeNs.find_last_not_of('/');
+	std::string dirSuffix;
+	if(startIndex != std::string::npos && endIndex != std::string::npos)
+	{
+		dirSuffix = "_" + nodeNs.substr(startIndex, endIndex - startIndex + 1);
+		std::replace(dirSuffix.begin(), dirSuffix.end(), '/', '_');
+	}
+
 	std::ostringstream ss;
 	if(backupDir.empty())
 		backupDir = defaultBackupDir;
 	if(*backupDir.rbegin() != '/')
 		backupDir += '/';
-	ss << backupDir << "UID_" << std::setfill('0') << std::setw(10) << m_uid.data.sec << "." << std::setw(9) << m_uid.data.nsec << "/";
+	ss << backupDir << "UID_" << std::setfill('0') << std::setw(10) << m_uid.data.sec << "." << std::setw(9) << m_uid.data.nsec << dirSuffix << "/";
 	m_backupDir = ss.str();
 
 	if(!ensureBackupDir())
@@ -230,7 +241,7 @@ void ConfigServer::initBackups()
 		const fs::directory_iterator end;
 		fs::directory_iterator file(dir);
 
-		const boost::regex dirNameRegex("^UID_[0-9]{10,}\\.[0-9]{9}$");
+		const boost::regex dirNameRegex("^UID_[0-9]{10,}\\.[0-9]{9}" + dirSuffix + "$");
 		std::vector<fs::path> uidPathList;
 		for(; file != end; ++file)
 		{
@@ -556,7 +567,7 @@ void ConfigServer::handleBackup()
 
 	Save srv;
 	srv.request.filename = ss.str();
-	if(!handleSave(srv.request, srv.response))
+	if(!handleSave(srv.request, srv.response, false))
 		ROS_ERROR("Backup of config server to '%s' failed!", srv.request.filename.c_str());
 }
 
@@ -575,7 +586,7 @@ std::string ConfigServer::defaultConfigName()
 
 typedef boost::tokenizer<boost::char_separator<char> > Tokenizer;
 
-bool ConfigServer::handleSave(SaveRequest& req, SaveResponse& resp)
+bool ConfigServer::handleSave(SaveRequest& req, SaveResponse& resp, bool show)
 {
 	std::vector<std::string> current_path;
 	YAML::Emitter em;
@@ -645,6 +656,8 @@ bool ConfigServer::handleSave(SaveRequest& req, SaveResponse& resp)
 	{
 		out << em.c_str() << "\n";
 		out.close();
+		if(show)
+			ROS_INFO("Saved config parameters to '%s'!", fname.c_str());
 	}
 	else
 	{
@@ -757,6 +770,8 @@ int main(int argc, char** argv)
 {
 	ros::init(argc, argv, "config_server");
 
+	ros::NodeHandle nh("~");
+
 	config_server::NotifyThread::instance();
 
 	pthread_t notifyThread;
@@ -764,7 +779,6 @@ int main(int argc, char** argv)
 
 	config_server::ConfigServer server;
 
-	ros::NodeHandle nh("~");
 	ros::spin();
 
 	server.finalise();

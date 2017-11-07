@@ -44,6 +44,8 @@ public:
 	bool m_abstract_space_allowed;
 	bool m_inverse_space_allowed;
 	
+	double m_link_length; // Link length for inverse space
+	
 	std::vector<Joint> m_joints;
 	
 private:
@@ -60,6 +62,7 @@ public:
 	~PerspectiveManager();
 	
 	bool isNewPerspective(std::vector<std::string> &joint_list, bool &ok);
+	bool isNewPerspective(const std::string perspective, bool &ok);
 	
 	JointPerspective& getCurrentPerspective();
 	const std::vector<JointPerspective>& getPerspectives();
