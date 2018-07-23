@@ -24,11 +24,12 @@ namespace rc_utils
 	class LimitedLowPass : public LowPassFilterT<double>
 	{
 	public:
+		// Constructor
 		explicit LimitedLowPass(double Ts = 100.0, double maxDelta = 0.0) : LowPassFilterT(Ts) { setMaxDelta(maxDelta); }
 		
 		// Reset functions
 		void resetAll(double Ts = 100.0, double maxDelta = 0.0) { LowPassFilterT::resetAll(Ts); setMaxDelta(maxDelta); }
-		void reset() { LowPassFilterT::reset(); m_maxDelta = 0.0; }
+		void reset() { LowPassFilterT::reset(); }
 		
 		// Set functions
 		void setMaxDelta(double maxDelta) { m_maxDelta = fabs(maxDelta); }
@@ -38,8 +39,18 @@ namespace rc_utils
 		double maxDelta() const { return m_maxDelta; }
 		
 		// Put functions
-		void put(double value) { if(!m_freeze) m_value += coerceAbs(m_alpha*(value - m_value), m_maxDelta); }
-		void put(double value, double maxDelta) { if(!m_freeze) m_value += coerceAbs(m_alpha*(value - m_value), maxDelta); }
+		double put(double value)
+		{
+			if(!m_freeze)
+				m_value += coerceAbs(m_alpha*(value - m_value), m_maxDelta);
+			return m_value;
+		}
+		double put(double value, double maxDelta)
+		{
+			if(!m_freeze)
+				m_value += coerceAbs(m_alpha*(value - m_value), maxDelta);
+			return m_value;
+		}
 		
 	private:
 		// Data members

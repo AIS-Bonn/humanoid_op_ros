@@ -110,6 +110,83 @@ namespace rc_utils
 		else return -1;
 	}
 
+	/**
+	* @brief Helper struct for ellipse semi-axes lengths
+	* 
+	* An example of the intended use of this class is as follows:
+	* @code
+	* // Original code (without collapsing flat ellipses)
+	* double R = ellipseRadius(configAxisA, configAxisB, theta);
+	* 
+	* // Can become...
+	* EllipseAxesd EA(configAxisA, configAxisB, true);
+	* double R = ellipseRadius(EA.a, EA.b, theta);
+	* 
+	* // Or alternatively...
+	* EllipseAxesd EA = collapseFlatEllipse(configAxisA, configAxisB);
+	* double R = ellipseRadius(EA.a, EA.b, theta);
+	* @endcode
+	**/
+	template<typename Scalar> struct EllipseAxes
+	{
+		static_assert(boost::is_floating_point<Scalar>::value, "EllipseAxes only permits floating point scalar values!");
+		EllipseAxes() = default;
+		EllipseAxes(Scalar a, Scalar b) : a(a), b(b) {}
+		EllipseAxes(Scalar a, Scalar b, bool collapse) : a(a), b(b) { if(collapse) collapseFlat(); }
+		EllipseAxes<Scalar> collapsedFlat() const { EllipseAxes<Scalar> EA(*this); EA.collapseFlat(); return EA; }
+		void collapseFlat()
+		{
+			if(a == 0.0)
+				b = 0.0;
+			else if(b == 0.0)
+				a = 0.0;
+		}
+		Scalar a;
+		Scalar b;
+	};
+	typedef EllipseAxes<float> EllipseAxesf;
+	typedef EllipseAxes<double> EllipseAxesd;
+
+	//! @brief Helper function to collapse flat ellipses down to a point, but otherwise leave every other ellipse untouched
+	template<typename Scalar> EllipseAxes<Scalar> collapseFlatEllipse(Scalar a, Scalar b) { EllipseAxes<Scalar> EA(a, b); EA.collapseFlat(); return EA; }
+
+	//! @brief Calculate the radius of an ellipse along the ray given by the polar angle \theta
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, Scalar>::type ellipseRadius(Scalar a, Scalar b, Scalar theta)
+	{
+		// Calculate the equivalent point on the unit circle
+		Scalar x = cos(theta);
+		Scalar y = sin(theta);
+
+		// Handle the case of a flat ellipse
+		if(a == 0.0)
+			return (x == 0.0 ? fabs(b) : 0.0);
+		if(b == 0.0)
+			return (y == 0.0 ? fabs(a) : 0.0);
+
+		// General non-degenerate case
+		Scalar xona = x / a;
+		Scalar yonb = y / b;
+		Scalar denom = xona*xona + yonb*yonb;
+		return (denom == 0.0 ? 0.0 : sqrt(1.0 / denom));
+	}
+
+	//! @brief Calculate the radius of an ellipse along the ray given by the vector `(x,y)`
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, Scalar>::type ellipseRadius(Scalar a, Scalar b, Scalar x, Scalar y)
+	{
+		// Handle the case of a flat ellipse
+		if(a == 0.0)
+			return (x == 0.0 ? fabs(b) : 0.0);
+		if(b == 0.0)
+			return (y == 0.0 ? fabs(a) : 0.0);
+
+		// General non-degenerate case
+		Scalar xona = x / a;
+		Scalar yonb = y / b;
+		Scalar num = x*x + y*y;
+		Scalar denom = xona*xona + yonb*yonb;
+		return (denom == 0.0 ? 0.0 : sqrt(num / denom));
+	}
+
 	//! @brief Coerce the value @p x to be in the range `[min,max]` (the mean of the two bounds is returned if min > max)
 	template<typename Scalar> typename boost::enable_if<boost::is_integral<Scalar>, Scalar>::type coerce(Scalar x, Scalar min, Scalar max)
 	{
@@ -190,28 +267,54 @@ namespace rc_utils
 		return y;
 	}
 
-	//! @brief Coerce the polar point `(r,\theta)` to be in the ellipse defined by @p maxAbsX and @p maxAbsY (must both be > 0, returns the coerced radius @p r)
-	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, Scalar>::type coerceEll(Scalar r, Scalar theta, Scalar maxAbsX, Scalar maxAbsY)
+	//! @brief Coerce the polar point `(r,\theta)` to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced radius @p r)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, Scalar>::type coerceEllP(Scalar r, Scalar theta, Scalar maxAbsX, Scalar maxAbsY)
 	{
-		// Calculate the required radius of the ellipse
-		double ctheta = cos(theta);
-		double stheta = sin(theta);
-		double rmax = maxAbsX*maxAbsY / sqrt(maxAbsX*maxAbsX*stheta*stheta + maxAbsY*maxAbsY*ctheta*ctheta);
-
 		// Perform the required coercion
-		return coerceAbs(r, rmax);
+		return coerceAbs(r, ellipseRadius(maxAbsX, maxAbsY, theta));
 	}
 
-	//! @brief Coerce the polar point `(r,\theta)` to be in the ellipse defined by @p maxAbsX and @p maxAbsY (must both be > 0, returns the coerced radius @p r), and return whether coercion was necessary
-	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, Scalar>::type coerceEll(Scalar r, Scalar theta, Scalar maxAbsX, Scalar maxAbsY, bool& coerced)
+	//! @brief Coerce the polar point `(r,\theta)` to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced radius @p r and whether coercion was necessary)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, Scalar>::type coerceEllP(Scalar r, Scalar theta, Scalar maxAbsX, Scalar maxAbsY, bool& coerced)
 	{
-		// Calculate the required radius of the ellipse
-		double ctheta = cos(theta);
-		double stheta = sin(theta);
-		double rmax = maxAbsX*maxAbsY / sqrt(maxAbsX*maxAbsX*stheta*stheta + maxAbsY*maxAbsY*ctheta*ctheta);
-
 		// Perform the required coercion
-		return coerceAbs(r, rmax, coerced);
+		return coerceAbs(r, ellipseRadius(maxAbsX, maxAbsY, theta), coerced);
+	}
+
+	//! @brief Coerce the cartesian point `(x,y)` in place to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced point `(x,y)`)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, void>::type coerceEllC(Scalar& x, Scalar& y, Scalar maxAbsX, Scalar maxAbsY)
+	{
+		// Perform the required coercion
+		Scalar r = sqrt(x*x + y*y);
+		if(r <= 0.0) return;
+		Scalar scale = coerceAbs(r, ellipseRadius<Scalar>(maxAbsX, maxAbsY, x, y)) / r;
+		x *= scale;
+		y *= scale;
+	}
+
+	//! @brief Coerce the cartesian point `(x,y)` in place to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced point `(x,y)` and whether coercion was necessary)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, void>::type coerceEllC(Scalar& x, Scalar& y, Scalar maxAbsX, Scalar maxAbsY, bool& coerced)
+	{
+		// Perform the required coercion
+		Scalar r = sqrt(x*x + y*y);
+		if(r <= 0.0) { coerced = false; return; }
+		Scalar scale = coerceAbs(r, ellipseRadius<Scalar>(maxAbsX, maxAbsY, x, y), coerced) / r;
+		x *= scale;
+		y *= scale;
+	}
+
+	//! @brief Coerce the cartesian point `(x,y)` to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced point `(xout,yout)`)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, void>::type coerceEllC(Scalar x, Scalar y, Scalar maxAbsX, Scalar maxAbsY, Scalar& xout, Scalar& yout)
+	{
+		// Perform the required coercion
+		coerceEllC<Scalar>(xout = x, yout = y, maxAbsX, maxAbsY);
+	}
+
+	//! @brief Coerce the cartesian point `(x,y)` to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced point `(xout,yout)` and whether coercion was necessary)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, void>::type coerceEllC(Scalar x, Scalar y, Scalar maxAbsX, Scalar maxAbsY, Scalar& xout, Scalar& yout, bool& coerced)
+	{
+		// Perform the required coercion
+		coerceEllC<Scalar>(xout = x, yout = y, maxAbsX, maxAbsY, coerced);
 	}
 
 	//! @brief Coerce the value @p x to be in the range `[min,max]` in a soft manner, rounding off exponentially within the soft range given by within @p buffer of the limits
@@ -418,28 +521,54 @@ namespace rc_utils
 		}
 	}
 
-	//! @brief Coerce the polar point `(r,\theta)` in a soft manner to be in the ellipse defined by @p maxAbsX and @p maxAbsY (must both be > 0, returns the coerced radius @p r)
-	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, Scalar>::type coerceSoftEll(Scalar r, Scalar theta, Scalar maxAbsX, Scalar maxAbsY, Scalar buffer)
+	//! @brief Coerce the polar point `(r,\theta)` in a soft manner to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced radius @p r)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, Scalar>::type coerceSoftEllP(Scalar r, Scalar theta, Scalar maxAbsX, Scalar maxAbsY, Scalar buffer)
 	{
-		// Calculate the required radius of the ellipse
-		double ctheta = cos(theta);
-		double stheta = sin(theta);
-		double rmax = maxAbsX*maxAbsY / sqrt(maxAbsX*maxAbsX*stheta*stheta + maxAbsY*maxAbsY*ctheta*ctheta);
-
 		// Perform the required coercion
-		return coerceSoftAbs(r, rmax, buffer);
+		return coerceSoftAbs(r, ellipseRadius(maxAbsX, maxAbsY, theta), buffer);
 	}
 
-	//! @brief Coerce the polar point `(r,\theta)` in a soft manner to be in the ellipse defined by @p maxAbsX and @p maxAbsY (must both be > 0, returns the coerced radius @p r), and return whether coercion was necessary
-	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, Scalar>::type coerceSoftEll(Scalar r, Scalar theta, Scalar maxAbsX, Scalar maxAbsY, Scalar buffer, bool& coerced)
+	//! @brief Coerce the polar point `(r,\theta)` in a soft manner to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced radius @p r and whether coercion was necessary)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, Scalar>::type coerceSoftEllP(Scalar r, Scalar theta, Scalar maxAbsX, Scalar maxAbsY, Scalar buffer, bool& coerced)
 	{
-		// Calculate the required radius of the ellipse
-		double ctheta = cos(theta);
-		double stheta = sin(theta);
-		double rmax = maxAbsX*maxAbsY / sqrt(maxAbsX*maxAbsX*stheta*stheta + maxAbsY*maxAbsY*ctheta*ctheta);
-
 		// Perform the required coercion
-		return coerceSoftAbs(r, rmax, buffer, coerced);
+		return coerceSoftAbs(r, ellipseRadius(maxAbsX, maxAbsY, theta), buffer, coerced);
+	}
+
+	//! @brief Coerce the cartesian point `(x,y)` in place in a soft manner to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced point `(x,y)`)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, void>::type coerceSoftEllC(Scalar& x, Scalar& y, Scalar maxAbsX, Scalar maxAbsY, Scalar buffer)
+	{
+		// Perform the required coercion
+		Scalar r = sqrt(x*x + y*y);
+		if(r <= 0.0) return;
+		Scalar scale = coerceSoftAbs(r, ellipseRadius<Scalar>(maxAbsX, maxAbsY, x, y), buffer) / r;
+		x *= scale;
+		y *= scale;
+	}
+
+	//! @brief Coerce the cartesian point `(x,y)` in place in a soft manner to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced point `(x,y)` and whether coercion was necessary)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, void>::type coerceSoftEllC(Scalar& x, Scalar& y, Scalar maxAbsX, Scalar maxAbsY, Scalar buffer, bool& coerced)
+	{
+		// Perform the required coercion
+		Scalar r = sqrt(x*x + y*y);
+		if(r <= 0.0) { coerced = false; return; }
+		Scalar scale = coerceSoftAbs(r, ellipseRadius<Scalar>(maxAbsX, maxAbsY, x, y), buffer, coerced) / r;
+		x *= scale;
+		y *= scale;
+	}
+
+	//! @brief Coerce the cartesian point `(x,y)` in a soft manner to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced point `(xout,yout)`)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, void>::type coerceSoftEllC(Scalar x, Scalar y, Scalar maxAbsX, Scalar maxAbsY, Scalar buffer, Scalar& xout, Scalar& yout)
+	{
+		// Perform the required coercion
+		coerceSoftEllC<Scalar>(xout = x, yout = y, maxAbsX, maxAbsY, buffer);
+	}
+
+	//! @brief Coerce the cartesian point `(x,y)` in a soft manner to be in the ellipse defined by @p maxAbsX and @p maxAbsY (returns the coerced point `(xout,yout)` and whether coercion was necessary)
+	template<typename Scalar> typename boost::enable_if<boost::is_floating_point<Scalar>, void>::type coerceSoftEllC(Scalar x, Scalar y, Scalar maxAbsX, Scalar maxAbsY, Scalar buffer, Scalar& xout, Scalar& yout, bool& coerced)
+	{
+		// Perform the required coercion
+		coerceSoftEllC<Scalar>(xout = x, yout = y, maxAbsX, maxAbsY, buffer, coerced);
 	}
 
 	//! @brief Interpolate a @c y value from a given @c x value

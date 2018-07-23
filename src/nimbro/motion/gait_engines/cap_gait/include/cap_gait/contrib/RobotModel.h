@@ -135,8 +135,6 @@ public:
 	Frame rAnkle;          // Frame placed at the right ankle joint, aligned with the foot
 	Frame rFootFloorPoint; // Frame placed at the point on the bottom of the right foot that is assumed to be in contact with the ground when right is the support foot, aligned with the foot
 	
-	// TODO: A current shortcoming of the robot model is that x-offsets from the hip midpoint to the shoulder line/arm axis/head axis aren't considered.
-
 	// Support leg information
 	enum
 	{

@@ -5,7 +5,8 @@
 // Includes
 #include <rot_conv/rot_conv.h>
 #include <Eigen/Eigenvalues>
-#include <cmath>
+#include <algorithm>
+#include <cfloat>
 
 // Defines
 #define M_2PI (2.0*M_PI)
@@ -13,18 +14,120 @@
 // Rotations conversion namespace
 namespace rot_conv
 {
-	// ########################
-	// #### Rotation types ####
-	// ########################
+	// ################################
+	// #### Rotation normalisation ####
+	// ################################
 
-	// Euler angles constants
-	const EulerAngles EulerAngles::Identity(0.0, 0.0, 0.0);
+	// Normalise: Rotation matrix
+	void NormaliseRotmat(Rotmat& R)
+	{
+		// Find the closest orthogonal matrix to the input rotation matrix
+		Rotmat nonOrth = R.transpose() * R;
+		R *= Eigen::SelfAdjointEigenSolver<Rotmat>(nonOrth).operatorInverseSqrt();
 
-	// Fused angles constants
-	const FusedAngles FusedAngles::Identity(0.0, 0.0, 0.0, true);
+		// Filter out invalid left hand coordinate systems
+		if(R.determinant() < 0.0)
+			R.setIdentity();
+	}
 
-	// Tilt angles constants
-	const TiltAngles TiltAngles::Identity(0.0, 0.0, 0.0);
+	// Normalise: Quaternion
+	void NormaliseQuat(Quat& q, double normTol)
+	{
+		// Normalise the quaternion
+		double normsq = QuatNormSq(q);
+		if(normsq <= normTol*normTol)
+			q.setIdentity();
+		else
+			q /= sqrt(normsq);
+	}
+
+	// Normalise: Vector
+	void NormaliseVec(Vec3& v, double normTol, const Vec3& vdef)
+	{
+		// Normalise the vector
+		double normsq = VecNormSq(v);
+		if(normsq <= normTol*normTol)
+			v = vdef;
+		else
+			v /= sqrt(normsq);
+	}
+
+	// ##########################
+	// #### Random rotations ####
+	// ##########################
+
+	// Random: Vector
+	Vec3 RandVec(double maxNorm)
+	{
+		// Generate the required random vector
+		double desNorm = (maxNorm * std::rand()) / RAND_MAX;
+		Vec3 vec((2.0*std::rand()) / RAND_MAX - 1.0, (2.0*std::rand()) / RAND_MAX - 1.0, (2.0*std::rand()) / RAND_MAX - 1.0);
+		double vecNorm = VecNorm(vec);
+		if(vecNorm > 0.0)
+			vec *= desNorm / vecNorm;
+		return vec;
+	}
+
+	// Random: Unit vector
+	Vec3 RandUnitVec()
+	{
+		// Generate the required random vector
+		Vec3 vec((2.0*std::rand()) / RAND_MAX - 1.0, (2.0*std::rand()) / RAND_MAX - 1.0, (2.0*std::rand()) / RAND_MAX - 1.0);
+		NormaliseVec(vec);
+		return vec;
+	}
+
+	// Random: Rotation matrix
+	void RandRotmat(Rotmat& R)
+	{
+		// Generate the required random rotation
+		Quat q;
+		RandQuat(q);
+		RotmatFromQuat(q, R);
+	}
+
+	// Random: Quaternion
+	void RandQuat(Quat& q)
+	{
+		// Generate random rotation components
+		q.w() = (2.0*std::rand()) / RAND_MAX - 1.0;
+		q.x() = (2.0*std::rand()) / RAND_MAX - 1.0;
+		q.y() = (2.0*std::rand()) / RAND_MAX - 1.0;
+		q.z() = (2.0*std::rand()) / RAND_MAX - 1.0;
+
+		// Normalise the quaternion
+		NormaliseQuat(q);
+	}
+
+	// Random: Euler angles
+	void RandEuler(EulerAngles& e)
+	{
+		// Generate the required random rotation
+		e.yaw = RandAng();
+		e.pitch = 0.5*RandAng();
+		e.roll = RandAng();
+	}
+
+	// Random: Fused angles
+	void RandFused(FusedAngles& f)
+	{
+		// Generate the required random rotation
+		double lambda1 = 0.25*RandAng();
+		double lambda2 = 0.25*RandAng();
+		f.fusedYaw = RandAng();
+		f.fusedPitch = lambda1 + lambda2;
+		f.fusedRoll = lambda1 - lambda2;
+		f.hemi = (std::rand() % 2 == 0);
+	}
+
+	// Random: Tilt angles
+	void RandTilt(TiltAngles& t)
+	{
+		// Generate the required random rotation
+		t.fusedYaw = RandAng();
+		t.tiltAxisAngle = RandAng();
+		t.tiltAngle = (M_PI * std::rand()) / RAND_MAX;
+	}
 
 	// ##########################################
 	// #### Rotation checking and validation ####
@@ -36,13 +139,8 @@ namespace rot_conv
 		// Make a copy of the input
 		Rotmat Rorig = R;
 
-		// Find the closest orthogonal matrix to the input rotation matrix
-		Rotmat nonOrth = R.transpose() * R;
-		R *= Eigen::SelfAdjointEigenSolver<Rotmat>(nonOrth).operatorInverseSqrt();
-
-		// Filter out invalid left hand coordinate systems
-		if(R.determinant() < 0.0)
-			R.setIdentity();
+		// Normalise the rotation matrix
+		NormaliseRotmat(R);
 
 		// Return whether the rotation matrix was valid within the given tolerance
 		return (R - Rorig).isZero(tol);
@@ -54,33 +152,15 @@ namespace rot_conv
 		// Make a copy of the input
 		Quat qorig = q;
 
-		// Renormalise the quaternion
-		double normsq = q.w()*q.w() + q.x()*q.x() + q.y()*q.y() + q.z()*q.z();
-		if(normsq <= 0.0)
-		{
-			q.w() = 1.0;
-			q.x() = q.y() = q.z() = 0.0;
-		}
-		else
-		{
-			double norm = sqrt(normsq);
-			q.w() /= norm;
-			q.x() /= norm;
-			q.y() /= norm;
-			q.z() /= norm;
-		}
+		// Normalise the quaternion
+		NormaliseQuat(q);
 
 		// Make the quaternion unique
 		if(unique && q.w() < 0.0)
-		{
-			q.w() = -q.w();
-			q.x() = -q.x();
-			q.y() = -q.y();
-			q.z() = -q.z();
-		}
+			q = -q;
 
 		// Return whether the quaternion was valid within the given tolerance
-		return (fabs(q.w() - qorig.w()) <= tol && fabs(q.x() - qorig.x()) <= tol && fabs(q.y() - qorig.y()) <= tol && fabs(q.z() - qorig.z()) <= tol);
+		return QuatEqualExact(q, qorig, tol);
 	}
 
 	// Check and validate: Euler angles
@@ -90,7 +170,7 @@ namespace rot_conv
 		EulerAngles eorig = e;
 
 		// Wrap the pitch to (-pi,pi] and then collapse it to the [-pi/2,pi/2] interval
-		e.pitch += M_2PI*std::floor((M_PI - e.pitch) / M_2PI);
+		internal::picutVar(e.pitch);
 		if(fabs(e.pitch) > M_PI_2)
 		{
 			e.yaw += M_PI;
@@ -115,8 +195,8 @@ namespace rot_conv
 		}
 
 		// Wrap yaw and roll to (-pi,pi]
-		e.yaw += M_2PI*std::floor((M_PI - e.yaw) / M_2PI);
-		e.roll += M_2PI*std::floor((M_PI - e.roll) / M_2PI);
+		internal::picutVar(e.yaw);
+		internal::picutVar(e.roll);
 
 		// Return whether the Euler angles were valid within the given tolerance
 		return (fabs(e.yaw - eorig.yaw) <= tol && fabs(e.pitch - eorig.pitch) <= tol && fabs(e.roll - eorig.roll) <= tol);
@@ -129,29 +209,33 @@ namespace rot_conv
 		FusedAngles forig = f;
 
 		// Wrap the angles to (-pi,pi]
-		f.fusedYaw += M_2PI*std::floor((M_PI - f.fusedYaw) / M_2PI);
-		f.fusedPitch += M_2PI*std::floor((M_PI - f.fusedPitch) / M_2PI);
-		f.fusedRoll += M_2PI*std::floor((M_PI - f.fusedRoll) / M_2PI);
+		internal::picutVar(f.fusedYaw);
+		internal::picutVar(f.fusedPitch);
+		internal::picutVar(f.fusedRoll);
 
-		// Coerce the L1 norm
-		double L1Norm = fabs(f.fusedPitch) + fabs(f.fusedRoll);
-		if(L1Norm > M_PI_2)
+		// Mirror the pitch and roll angles into the [-pi/2,pi/2] range
+		f.fusedPitch = std::max(std::min(f.fusedPitch, M_PI - f.fusedPitch), -M_PI - f.fusedPitch);
+		f.fusedRoll = std::max(std::min(f.fusedRoll, M_PI - f.fusedRoll), -M_PI - f.fusedRoll);
+
+		// Coerce the fused pitch and roll angles to the valid domain
+		double spitch = sin(f.fusedPitch);
+		double sroll = sin(f.fusedRoll);
+		double sqrtcrit = sqrt(spitch*spitch + sroll*sroll);
+		if(sqrtcrit > 1.0)
 		{
-			double scale = M_PI_2 / L1Norm;
-			f.fusedPitch *= scale;
-			f.fusedRoll *= scale;
+			spitch /= sqrtcrit;
+			sroll /= sqrtcrit;
+			f.fusedPitch = asin(spitch);
+			f.fusedRoll = asin(sroll);
+			sqrtcrit = 1.0;
 		}
 
 		// Make the representation unique if required
 		if(unique)
 		{
-			double spitch = sin(f.fusedPitch);
-			double sroll = sin(f.fusedRoll);
-			double sineSum = spitch*spitch + sroll*sroll;
-			if(sineSum >= 1.0 - tol)
+			if(sqrtcrit >= 1.0 - tol)
 				f.hemi = true;
-			L1Norm = fabs(f.fusedPitch) + fabs(f.fusedRoll);
-			if(L1Norm <= tol && !f.hemi)
+			if(sqrtcrit <= tol && !f.hemi)
 				f.fusedYaw = 0.0;
 		}
 
@@ -166,9 +250,9 @@ namespace rot_conv
 		TiltAngles torig = t;
 
 		// Wrap the angles to (-pi,pi]
-		t.fusedYaw += M_2PI*std::floor((M_PI - t.fusedYaw) / M_2PI);
-		t.tiltAxisAngle += M_2PI*std::floor((M_PI - t.tiltAxisAngle) / M_2PI);
-		t.tiltAngle += M_2PI*std::floor((M_PI - t.tiltAngle) / M_2PI);
+		internal::picutVar(t.fusedYaw);
+		internal::picutVar(t.tiltAxisAngle);
+		internal::picutVar(t.tiltAngle);
 
 		// Handle the case of a negative tilt angle
 		if(t.tiltAngle < 0.0)
@@ -204,6 +288,13 @@ namespace rot_conv
 		return (Ra - Rb).isZero(tol);
 	}
 
+	// Check equality: Rotation matrix (exact)
+	bool RotmatEqualExact(const Rotmat& Ra, const Rotmat& Rb, double tol)
+	{
+		// Return whether none of the elements of the rotation matrices differ by more than the tolerance
+		return (Ra - Rb).isZero(tol);
+	}
+
 	// Check equality: Quaternion
 	bool QuatEqual(const Quat& qa, const Quat& qb, double tol)
 	{
@@ -211,6 +302,13 @@ namespace rot_conv
 		bool isSame = (fabs(qa.w() - qb.w()) <= tol && fabs(qa.x() - qb.x()) <= tol && fabs(qa.y() - qb.y()) <= tol && fabs(qa.z() - qb.z()) <= tol);
 		bool isOpp  = (fabs(qa.w() + qb.w()) <= tol && fabs(qa.x() + qb.x()) <= tol && fabs(qa.y() + qb.y()) <= tol && fabs(qa.z() + qb.z()) <= tol);
 		return (isSame || isOpp);
+	}
+
+	// Check equality: Quaternion (exact)
+	bool QuatEqualExact(const Quat& qa, const Quat& qb, double tol)
+	{
+		// Return whether to the specified tolerance the quaternions are the same
+		return (fabs(qa.w() - qb.w()) <= tol && fabs(qa.x() - qb.x()) <= tol && fabs(qa.y() - qb.y()) <= tol && fabs(qa.z() - qb.z()) <= tol);
 	}
 
 	// Check equality: Euler angles
@@ -241,6 +339,13 @@ namespace rot_conv
 		return (fabs(eau.yaw - ebu.yaw) <= tol && fabs(sin(eau.pitch) - sin(ebu.pitch)) <= tol && fabs(eau.roll - ebu.roll) <= tol); // The pitch suffers from the numerical insensitivity of asin, so the sine thereof is checked
 	}
 
+	// Check equality: Euler angles (exact)
+	bool EulerEqualExact(const EulerAngles& ea, const EulerAngles& eb, double tol)
+	{
+		// Return whether to the specified tolerance the Euler angles are the same
+		return (fabs(ea.yaw - eb.yaw) <= tol && fabs(ea.pitch - eb.pitch) <= tol && fabs(ea.roll - eb.roll) <= tol);
+	}
+
 	// Check equality: Fused angles
 	bool FusedEqual(const FusedAngles& fa, const FusedAngles& fb, double tol)
 	{
@@ -260,6 +365,13 @@ namespace rot_conv
 
 		// Return whether to the specified tolerance the fused angles are the same
 		return (fabs(fau.fusedYaw - fbu.fusedYaw) <= tol && fabs(sin(fau.fusedPitch) - sin(fbu.fusedPitch)) <= tol && fabs(sin(fau.fusedRoll) - sin(fbu.fusedRoll)) <= tol && fau.hemi == fbu.hemi); // The fused pitch and roll suffer from the numerical insensitivity of asin, so the sine's thereof are checked
+	}
+
+	// Check equality: Fused angles (exact)
+	bool FusedEqualExact(const FusedAngles& fa, const FusedAngles& fb, double tol)
+	{
+		// Return whether to the specified tolerance the fused angles are the same
+		return (fabs(fa.fusedYaw - fb.fusedYaw) <= tol && fabs(fa.fusedPitch - fb.fusedPitch) <= tol && fabs(fa.fusedRoll - fb.fusedRoll) <= tol && fa.hemi == fb.hemi);
 	}
 
 	// Check equality: Tilt angles
@@ -285,6 +397,13 @@ namespace rot_conv
 		double stiltasq = stilta*stilta;
 		double stiltbsq = stiltb*stiltb;
 		return (fabs(tau.fusedYaw - tbu.fusedYaw) <= tol && fabs(stiltasq*cos(tau.tiltAxisAngle) - stiltbsq*cos(tbu.tiltAxisAngle)) <= tol && fabs(stiltasq*sin(tau.tiltAxisAngle) - stiltbsq*sin(tbu.tiltAxisAngle)) <= tol && fabs(cos(tau.tiltAngle) - cos(tbu.tiltAngle)) <= tol); // The tilt angle suffers from the numerical insensitivity of acos, so the cosine thereof is checked / The tilt axis angle has a singularity when the tilt angle is zero, so two geometrically relevant terms are checked instead of the tilt axis angle directly
+	}
+
+	// Check equality: Tilt angles (exact)
+	bool TiltEqualExact(const TiltAngles& ta, const TiltAngles& tb, double tol)
+	{
+		// Return whether to the specified tolerance the tilt angles are the same
+		return (fabs(ta.fusedYaw - tb.fusedYaw) <= tol && fabs(ta.tiltAxisAngle - tb.tiltAxisAngle) <= tol && fabs(ta.tiltAngle - tb.tiltAngle) <= tol);
 	}
 
 	// #########################
@@ -404,7 +523,9 @@ namespace rot_conv
 
 		// Construct the Euler ZYX yaw component of the rotation
 		Rotmat REYawTrans;
-		REYawTrans << cEYaw, sEYaw, 0.0, -sEYaw, cEYaw, 0.0, 0.0, 0.0, 1.0;
+		REYawTrans << cEYaw, sEYaw, 0.0,
+		              -sEYaw, cEYaw, 0.0,
+		              0.0, 0.0, 1.0;
 
 		// Remove the Euler ZYX yaw component of the rotation
 		Rout = REYawTrans * R;
@@ -422,7 +543,9 @@ namespace rot_conv
 
 		// Construct the fused yaw component of the rotation
 		Rotmat RFYawTrans;
-		RFYawTrans << cFYaw, sFYaw, 0.0, -sFYaw, cFYaw, 0.0, 0.0, 0.0, 1.0;
+		RFYawTrans << cFYaw, sFYaw, 0.0,
+		              -sFYaw, cFYaw, 0.0,
+		              0.0, 0.0, 1.0;
 
 		// Remove the fused yaw component of the rotation
 		Rout = RFYawTrans * R;
@@ -495,6 +618,125 @@ namespace rot_conv
 
 		// Remove the Euler ZYX yaw component of the rotation
 		tout.fusedYaw = t.fusedYaw - EYaw;
+		tout.tiltAxisAngle = t.tiltAxisAngle;
+		tout.tiltAngle = t.tiltAngle;
+	}
+
+	// #################################
+	// #### Rotation with given yaw ####
+	// #################################
+
+	// Rotation with given Euler yaw: Rotation matrix
+	void RotmatWithEYaw(const Rotmat& R, double eulerYaw, Rotmat& Rout)
+	{
+		// Calculate the Euler ZYX yaw of the input
+		double EYaw = EYawOfRotmat(R);
+
+		// Precalculate trigonometric terms
+		double deltaEYaw = eulerYaw - EYaw;
+		double cdEYaw = cos(deltaEYaw);
+		double sdEYaw = sin(deltaEYaw);
+
+		// Construct the yaw adjustment rotation
+		Rotmat REYawAdj;
+		REYawAdj << cdEYaw, -sdEYaw, 0.0,
+		            sdEYaw, cdEYaw, 0.0,
+		            0.0, 0.0, 1.0;
+
+		// Adjust the Euler ZYX yaw component of the rotation
+		Rout = REYawAdj * R;
+	}
+
+	// Rotation with given fused yaw: Rotation matrix
+	void RotmatWithFYaw(const Rotmat& R, double fusedYaw, Rotmat& Rout)
+	{
+		// Calculate the fused yaw of the input
+		double FYaw = FYawOfRotmat(R);
+
+		// Precalculate trigonometric terms
+		double deltaFYaw = fusedYaw - FYaw;
+		double cdFYaw = cos(deltaFYaw);
+		double sdFYaw = sin(deltaFYaw);
+
+		// Construct the yaw adjustment rotation
+		Rotmat RFYawAdj;
+		RFYawAdj << cdFYaw, -sdFYaw, 0.0,
+		            sdFYaw, cdFYaw, 0.0,
+		            0.0, 0.0, 1.0;
+
+		// Adjust the fused yaw component of the rotation
+		Rout = RFYawAdj * R;
+	}
+
+	// Rotation with given Euler yaw: Quaternion
+	void QuatWithEYaw(const Quat& q, double eulerYaw, Quat& qout)
+	{
+		// Calculate the Euler ZYX yaw of the input
+		double EYaw = EYawOfQuat(q);
+
+		// Construct the components of the Euler ZYX yaw adjustment rotation
+		double hdeltaEYaw = 0.5*(eulerYaw - EYaw);
+		double hcdEYaw = cos(hdeltaEYaw);
+		double hsdEYaw = sin(hdeltaEYaw);
+
+		// Adjust the Euler ZYX yaw component of the rotation
+		qout.w() = hcdEYaw*q.w() - hsdEYaw*q.z();
+		qout.x() = hcdEYaw*q.x() - hsdEYaw*q.y();
+		qout.y() = hcdEYaw*q.y() + hsdEYaw*q.x();
+		qout.z() = hcdEYaw*q.z() + hsdEYaw*q.w();
+	}
+
+	// Rotation with given fused yaw: Quaternion
+	void QuatWithFYaw(const Quat& q, double fusedYaw, Quat& qout)
+	{
+		// Calculate the fused yaw of the input
+		double FYaw = FYawOfQuat(q);
+
+		// Construct the components of the fused yaw adjustment rotation
+		double hdeltaFYaw = 0.5*(fusedYaw - FYaw);
+		double hcdFYaw = cos(hdeltaFYaw);
+		double hsdFYaw = sin(hdeltaFYaw);
+
+		// Adjust the fused yaw component of the rotation
+		qout.w() = hcdFYaw*q.w() - hsdFYaw*q.z();
+		qout.x() = hcdFYaw*q.x() - hsdFYaw*q.y();
+		qout.y() = hcdFYaw*q.y() + hsdFYaw*q.x();
+		qout.z() = hcdFYaw*q.z() + hsdFYaw*q.w();
+	}
+
+	// Rotation with given fused yaw: Euler angles
+	void EulerWithFYaw(const EulerAngles& e, double fusedYaw, EulerAngles& eout)
+	{
+		// Calculate the fused yaw of the input
+		double FYaw = FYawOfEuler(e);
+
+		// Adjust the fused yaw component of the rotation
+		eout.yaw = e.yaw + (fusedYaw - FYaw);
+		eout.pitch = e.pitch;
+		eout.roll = e.roll;
+	}
+
+	// Rotation with given Euler yaw: Fused angles
+	void FusedWithEYaw(const FusedAngles& f, double eulerYaw, FusedAngles& fout)
+	{
+		// Calculate the Euler ZYX yaw of the input
+		double EYaw = EYawOfFused(f);
+
+		// Adjust the Euler ZYX yaw component of the rotation
+		fout.fusedYaw = f.fusedYaw + (eulerYaw - EYaw);
+		fout.fusedPitch = f.fusedPitch;
+		fout.fusedRoll = f.fusedRoll;
+		fout.hemi = f.hemi;
+	}
+
+	// Rotation with given Euler yaw: Tilt angles
+	void TiltWithEYaw(const TiltAngles& t, double eulerYaw, TiltAngles& tout)
+	{
+		// Calculate the Euler ZYX yaw of the input
+		double EYaw = EYawOfTilt(t);
+
+		// Adjust the Euler ZYX yaw component of the rotation
+		tout.fusedYaw = t.fusedYaw + (eulerYaw - EYaw);
 		tout.tiltAxisAngle = t.tiltAxisAngle;
 		tout.tiltAngle = t.tiltAngle;
 	}
@@ -575,8 +817,7 @@ namespace rot_conv
 	void TiltInv(const TiltAngles& t, TiltAngles& tinv)
 	{
 		// Calculate the inverse tilt axis angle
-		double gammainv = t.fusedYaw + t.tiltAxisAngle - M_PI;
-		gammainv += M_2PI*std::floor((M_PI - gammainv) / M_2PI);
+		double gammainv = internal::picut(t.fusedYaw + t.tiltAxisAngle - M_PI);
 
 		// Construct the inverse tilt angles rotation
 		tinv.fusedYaw = -t.fusedYaw;
@@ -591,8 +832,22 @@ namespace rot_conv
 	// Rotate vector by: Rotation matrix
 	Vec3 RotmatRotVec(const Rotmat& R, const Vec3& v)
 	{
-		// Return the required rotated vector
+		// Return the required vector
 		return R*v;
+	}
+
+	// Rotate vector by: Rotation matrix (in-place)
+	void RotmatRotVecInPlace(const Rotmat& R, Vec3& v)
+	{
+		// Calculate the required vector
+		v = R*v;
+	}
+
+	// Rotate pure z-vector by: Rotation matrix
+	Vec3 RotmatRotVecPureZ(const Rotmat& R, double vz)
+	{
+		// Return the required vector
+		return R.col(2)*vz;
 	}
 
 	// Rotate vector by: Quaternion
@@ -611,55 +866,580 @@ namespace rot_conv
 		return vout;
 	}
 
+	// Rotate vector by: Quaternion (in-place)
+	void QuatRotVecInPlace(const Quat& q, Vec3& v)
+	{
+		// Precalculate an intermediate vector term
+		double tx = 2.0*(q.y()*v.z() - v.y()*q.z());
+		double ty = 2.0*(q.z()*v.x() - v.z()*q.x());
+		double tz = 2.0*(q.x()*v.y() - v.x()*q.y());
+
+		// Calculate the required vector
+		v.x() += q.w()*tx + q.y()*tz - ty*q.z();
+		v.y() += q.w()*ty + q.z()*tx - tz*q.x();
+		v.z() += q.w()*tz + q.x()*ty - tx*q.y();
+	}
+
+	// Rotate pure z-vector by: Quaternion
+	Vec3 QuatRotVecPureZ(const Quat& q, double vz)
+	{
+		// Calculate and return the required vector
+		return Vec3(vz*2.0*(q.x()*q.z() + q.y()*q.w()), vz*2.0*(q.y()*q.z() - q.x()*q.w()), vz*(1.0 - 2.0*(q.x()*q.x() + q.y()*q.y())));
+	}
+
 	// Rotate vector by: Euler angles
 	Vec3 EulerRotVec(const EulerAngles& e, const Vec3& v)
 	{
-		// Return the required rotated vector
+		// Return the required vector
 		return RotmatFromEuler(e)*v;
+	}
+
+	// Rotate vector by: Euler angles (in-place)
+	void EulerRotVecInPlace(const EulerAngles& e, Vec3& v)
+	{
+		// Calculate the required vector
+		v = RotmatFromEuler(e)*v;
+	}
+
+	// Rotate pure z-vector by: Euler angles
+	Vec3 EulerRotVecPureZ(const EulerAngles& e, double vz)
+	{
+		// Precalculate the trigonometric values
+		double cpsi = cos(e.yaw);
+		double spsi = sin(e.yaw);
+		double cth  = cos(e.pitch);
+		double sth  = sin(e.pitch);
+		double cphi = cos(e.roll);
+		double sphi = sin(e.roll);
+
+		// Calculate and return the required vector
+		return Vec3(vz*(cpsi*sth*cphi + spsi*sphi), vz*(spsi*sth*cphi - cpsi*sphi), vz*(cth*cphi));
 	}
 
 	// Rotate vector by: Fused angles
 	Vec3 FusedRotVec(const FusedAngles& f, const Vec3& v)
 	{
-		// Return the required rotated vector
+		// Return the required vector
 		return RotmatFromFused(f)*v;
+	}
+
+	// Rotate vector by: Fused angles (in-place)
+	void FusedRotVecInPlace(const FusedAngles& f, Vec3& v)
+	{
+		// Calculate the required vector
+		v = RotmatFromFused(f)*v;
+	}
+
+	// Rotate pure z-vector by: Fused angles
+	Vec3 FusedRotVecPureZ(const FusedAngles& f, double vz)
+	{
+		// Precalculate the sine values
+		double sth = sin(f.fusedPitch);
+		double sphi = sin(f.fusedRoll);
+
+		// Calculate the sine sum criterion
+		double crit = sth*sth + sphi*sphi;
+
+		// Calculate the tilt angle alpha
+		double calpha, salpha;
+		if(crit >= 1.0)
+		{
+			calpha = 0.0;
+			salpha = 1.0;
+		}
+		else
+		{
+			calpha = (f.hemi ? sqrt(1.0 - crit) : -sqrt(1.0 - crit));
+			salpha = sqrt(crit);
+		}
+
+		// Calculate the tilt axis angle gamma
+		double gamma = atan2(sth,sphi);
+
+		// Precalculate terms involved in the vector expression
+		double psigam = f.fusedYaw + gamma;
+		double cpsigam = cos(psigam);
+		double spsigam = sin(psigam);
+
+		// Calculate and return the required vector
+		return Vec3(vz*salpha*spsigam, -vz*salpha*cpsigam, vz*calpha);
 	}
 
 	// Rotate vector by: Tilt angles
 	Vec3 TiltRotVec(const TiltAngles& t, const Vec3& v)
 	{
-		// Return the required rotated vector
+		// Return the required vector
 		return RotmatFromTilt(t)*v;
 	}
 
-	// ##############################
-	// #### Pure yaw conversions ####
-	// ##############################
-
-	// Conversion: Pure yaw --> Rotation matrix
-	void RotmatFromYaw(double yaw, Rotmat& R)
+	// Rotate vector by: Tilt angles (in-place)
+	void TiltRotVecInPlace(const TiltAngles& t, Vec3& v)
 	{
-		// Precalculate trigonometric values
-		double cyaw = cos(yaw);
-		double syaw = sin(yaw);
-
-		// Set the required rotation matrix
-		R << cyaw, -syaw, 0.0, syaw, cyaw, 0.0, 0.0, 0.0, 1.0;
+		// Return the required vector
+		v = RotmatFromTilt(t)*v;
 	}
 
-	// Conversion: Pure yaw --> Quaternion
-	void QuatFromYaw(double yaw, Quat& q)
+	// Rotate pure z-vector by: Tilt angles
+	Vec3 TiltRotVecPureZ(const TiltAngles& t, double vz)
 	{
-		// Precalculate the sin values
-		double hpsi = 0.5*yaw;
-		double chpsi = cos(hpsi);
-		double shpsi = sin(hpsi);
+		// Precalculate terms involved in the vector expression
+		double calpha = cos(t.tiltAngle);
+		double salpha = sin(t.tiltAngle);
+		double psigam = t.fusedYaw + t.tiltAxisAngle;
+		double cpsigam = cos(psigam);
+		double spsigam = sin(psigam);
 
-		// Set the required quaternion orientation
-		q.w() = chpsi;
-		q.x() = 0.0;
-		q.y() = 0.0;
-		q.z() = shpsi;
+		// Calculate and return the required vector
+		return Vec3(vz*salpha*spsigam, -vz*salpha*cpsigam, vz*calpha);
+	}
+
+	// #########################################
+	// #### Rotation about global unit axis ####
+	// #########################################
+
+	// Rotate about global x-axis: Rotation matrix
+	void RotmatRotGlobalX(const Rotmat& R, double angle, Rotmat& Rout)
+	{
+		// Precalculate trigonometric values
+		double cang = cos(angle);
+		double sang = sin(angle);
+
+		// Calculate the required rotated rotation
+		Rout << R.coeff(0,0), R.coeff(0,1), R.coeff(0,2),
+		        R.coeff(1,0)*cang - R.coeff(2,0)*sang, R.coeff(1,1)*cang - R.coeff(2,1)*sang, R.coeff(1,2)*cang - R.coeff(2,2)*sang,
+		        R.coeff(2,0)*cang + R.coeff(1,0)*sang, R.coeff(2,1)*cang + R.coeff(1,1)*sang, R.coeff(2,2)*cang + R.coeff(1,2)*sang;
+	}
+
+	// Rotate about global y-axis: Rotation matrix
+	void RotmatRotGlobalY(const Rotmat& R, double angle, Rotmat& Rout)
+	{
+		// Precalculate trigonometric values
+		double cang = cos(angle);
+		double sang = sin(angle);
+
+		// Calculate the required rotated rotation
+		Rout << R.coeff(0,0)*cang + R.coeff(2,0)*sang, R.coeff(0,1)*cang + R.coeff(2,1)*sang, R.coeff(0,2)*cang + R.coeff(2,2)*sang,
+		        R.coeff(1,0), R.coeff(1,1), R.coeff(1,2),
+		        R.coeff(2,0)*cang - R.coeff(0,0)*sang, R.coeff(2,1)*cang - R.coeff(0,1)*sang, R.coeff(2,2)*cang - R.coeff(0,2)*sang;
+	}
+
+	// Rotate about global z-axis: Rotation matrix
+	void RotmatRotGlobalZ(const Rotmat& R, double angle, Rotmat& Rout)
+	{
+		// Precalculate trigonometric values
+		double cang = cos(angle);
+		double sang = sin(angle);
+
+		// Calculate the required rotated rotation
+		Rout << R.coeff(0,0)*cang - R.coeff(1,0)*sang, R.coeff(0,1)*cang - R.coeff(1,1)*sang, R.coeff(0,2)*cang - R.coeff(1,2)*sang,
+		        R.coeff(1,0)*cang + R.coeff(0,0)*sang, R.coeff(1,1)*cang + R.coeff(0,1)*sang, R.coeff(1,2)*cang + R.coeff(0,2)*sang,
+		        R.coeff(2,0), R.coeff(2,1), R.coeff(2,2);
+	}
+
+	// Rotate about global x-axis: Quaternion
+	void QuatRotGlobalX(const Quat& q, double angle, Quat& qout)
+	{
+		// Precalculate trigonometric values
+		double hcang = cos(0.5*angle);
+		double hsang = sin(0.5*angle);
+
+		// Calculate the required rotated rotation
+		qout.w() = hcang*q.w() - hsang*q.x();
+		qout.x() = hcang*q.x() + hsang*q.w();
+		qout.y() = hcang*q.y() - hsang*q.z();
+		qout.z() = hcang*q.z() + hsang*q.y();
+	}
+
+	// Rotate about global y-axis: Quaternion
+	void QuatRotGlobalY(const Quat& q, double angle, Quat& qout)
+	{
+		// Precalculate trigonometric values
+		double hcang = cos(0.5*angle);
+		double hsang = sin(0.5*angle);
+
+		// Calculate the required rotated rotation
+		qout.w() = hcang*q.w() - hsang*q.y();
+		qout.x() = hcang*q.x() + hsang*q.z();
+		qout.y() = hcang*q.y() + hsang*q.w();
+		qout.z() = hcang*q.z() - hsang*q.x();
+	}
+
+	// Rotate about global z-axis: Quaternion
+	void QuatRotGlobalZ(const Quat& q, double angle, Quat& qout)
+	{
+		// Precalculate trigonometric values
+		double hcang = cos(0.5*angle);
+		double hsang = sin(0.5*angle);
+
+		// Calculate the required rotated rotation
+		qout.w() = hcang*q.w() - hsang*q.z();
+		qout.x() = hcang*q.x() - hsang*q.y();
+		qout.y() = hcang*q.y() + hsang*q.x();
+		qout.z() = hcang*q.z() + hsang*q.w();
+	}
+
+	// Rotate about global x-axis: Euler angles
+	void EulerRotGlobalX(const EulerAngles& e, double angle, EulerAngles& eout)
+	{
+		// Calculate the required rotated rotation
+		Quat q = QuatFromEuler(e), qout;
+		QuatRotGlobalX(q, angle, qout);
+		EulerFromQuat(qout, eout);
+	}
+
+	// Rotate about global y-axis: Euler angles
+	void EulerRotGlobalY(const EulerAngles& e, double angle, EulerAngles& eout)
+	{
+		// Calculate the required rotated rotation
+		Quat q = QuatFromEuler(e), qout;
+		QuatRotGlobalY(q, angle, qout);
+		EulerFromQuat(qout, eout);
+	}
+
+	// Rotate about global x-axis: Fused angles
+	void FusedRotGlobalX(const FusedAngles& f, double angle, FusedAngles& fout)
+	{
+		// Calculate the required rotated rotation
+		Quat q = QuatFromFused(f), qout;
+		QuatRotGlobalX(q, angle, qout);
+		FusedFromQuat(qout, fout);
+	}
+
+	// Rotate about global y-axis: Fused angles
+	void FusedRotGlobalY(const FusedAngles& f, double angle, FusedAngles& fout)
+	{
+		// Calculate the required rotated rotation
+		Quat q = QuatFromFused(f), qout;
+		QuatRotGlobalY(q, angle, qout);
+		FusedFromQuat(qout, fout);
+	}
+
+	// Rotate about global x-axis: Tilt angles
+	void TiltRotGlobalX(const TiltAngles& t, double angle, TiltAngles& tout)
+	{
+		// Calculate the required rotated rotation
+		Quat q = QuatFromTilt(t), qout;
+		QuatRotGlobalX(q, angle, qout);
+		TiltFromQuat(qout, tout);
+	}
+
+	// Rotate about global y-axis: Tilt angles
+	void TiltRotGlobalY(const TiltAngles& t, double angle, TiltAngles& tout)
+	{
+		// Calculate the required rotated rotation
+		Quat q = QuatFromTilt(t), qout;
+		QuatRotGlobalY(q, angle, qout);
+		TiltFromQuat(qout, tout);
+	}
+
+	// #####################################
+	// #### Conversions from axis angle ####
+	// #####################################
+
+	// Conversion: Axis angle (unit axis) --> Rotation matrix
+	void RotmatFromAxis(UnitAxis axis, double angle, Rotmat& R)
+	{
+		// Precalculate trigonometric values
+		double cang = cos(angle);
+		double sang = sin(angle);
+
+		// Calculate the required rotation matrix
+		if(axis == X_AXIS)
+		{
+			R << 1.0, 0.0, 0.0,
+			     0.0, cang, -sang,
+			     0.0, sang, cang;
+		}
+		else if(axis == Y_AXIS)
+		{
+			R << cang, 0.0, sang,
+			     0.0, 1.0, 0.0,
+			     -sang, 0.0, cang;
+		}
+		else // Z_AXIS
+		{
+			R << cang, -sang, 0.0,
+			     sang, cang, 0.0,
+			     0.0, 0.0, 1.0;
+		}
+	}
+
+	// Conversion: Axis angle --> Rotation matrix
+	void RotmatFromAxis(const Vec3& axis, double angle, Rotmat& R)
+	{
+		// Precalculate trigonometric values
+		double cang = cos(angle);
+		double sang = sin(angle);
+		double C = 1.0 - cang;
+
+		// Precalculate values
+		double xC = axis.x()*C;
+		double yC = axis.y()*C;
+		double zC = axis.z()*C;
+		double xxC = axis.x()*xC;
+		double yyC = axis.y()*yC;
+		double zzC = axis.z()*zC;
+		double xyC = axis.x()*yC;
+		double yzC = axis.y()*zC;
+		double zxC = axis.z()*xC;
+		double xs = axis.x()*sang;
+		double ys = axis.y()*sang;
+		double zs = axis.z()*sang;
+
+		// Calculate the required rotation matrix
+		R << xxC + cang, xyC - zs, zxC + ys,
+		     xyC + zs, yyC + cang, yzC - xs,
+		     zxC - ys, yzC + xs, zzC + cang;
+	}
+
+	// Conversion: Axis angle (unit axis) --> Quaternion
+	void QuatFromAxis(UnitAxis axis, double angle, Quat& q)
+	{
+		// Precalculate trigonometric values
+		double hcang = cos(0.5*angle);
+		double hsang = sin(0.5*angle);
+
+		// Calculate the required quaternion
+		if(axis == X_AXIS)
+		{
+			q.w() = hcang;
+			q.x() = hsang;
+			q.y() = 0.0;
+			q.z() = 0.0;
+		}
+		else if(axis == Y_AXIS)
+		{
+			q.w() = hcang;
+			q.x() = 0.0;
+			q.y() = hsang;
+			q.z() = 0.0;
+		}
+		else // Z_AXIS
+		{
+			q.w() = hcang;
+			q.x() = 0.0;
+			q.y() = 0.0;
+			q.z() = hsang;
+		}
+	}
+
+	// Conversion: Axis angle --> Quaternion
+	void QuatFromAxis(const Vec3& axis, double angle, Quat& q)
+	{
+		// Precalculate trigonometric values
+		double hcang = cos(0.5*angle);
+		double hsang = sin(0.5*angle);
+
+		// Calculate the required quaternion
+		double normsq = VecNormSq(axis);
+		if(normsq <= 0.0)
+			q.setIdentity();
+		else
+		{
+			double scale = hsang / sqrt(normsq);
+			q.w() = hcang;
+			q.x() = axis.x() * scale;
+			q.y() = axis.y() * scale;
+			q.z() = axis.z() * scale;
+		}
+	}
+
+	// Conversion: Axis angle (unit axis) --> Euler angles
+	void EulerFromAxis(UnitAxis axis, double angle, EulerAngles& e)
+	{
+		// Wrap the rotation angle to (-pi,pi]
+		internal::picutVar(angle);
+
+		// Calculate the required Euler angles
+		if(axis == X_AXIS)
+		{
+			e.yaw = 0.0;
+			e.pitch = 0.0;
+			e.roll = angle;
+		}
+		else if(axis == Y_AXIS)
+		{
+			if(fabs(angle) <= M_PI_2)
+			{
+				e.yaw = 0.0;
+				e.pitch = angle;
+				e.roll = 0.0;
+			}
+			else
+			{
+				e.yaw = M_PI;
+				e.pitch = (angle >= M_PI_2 ? M_PI - angle : -M_PI - angle);
+				e.roll = M_PI;
+			}
+		}
+		else // Z_AXIS
+		{
+			e.yaw = angle;
+			e.pitch = 0.0;
+			e.roll = 0.0;
+		}
+	}
+
+	// Conversion: Axis angle --> Euler angles
+	void EulerFromAxis(const Vec3& axis, double angle, EulerAngles& e)
+	{
+		// Calculate the required Euler angles via the quaternion space
+		Quat q;
+		QuatFromAxis(axis, angle, q);
+		EulerFromQuat(q, e);
+	}
+
+	// Conversion: Axis angle (unit axis) --> Fused angles
+	void FusedFromAxis(UnitAxis axis, double angle, FusedAngles& f)
+	{
+		// Wrap the rotation angle to (-pi,pi]
+		internal::picutVar(angle);
+
+		// Calculate the required fused angles
+		if(axis == X_AXIS)
+		{
+			if(fabs(angle) <= M_PI_2)
+			{
+				f.fusedYaw = 0.0;
+				f.fusedPitch = 0.0;
+				f.fusedRoll = angle;
+				f.hemi = true;
+			}
+			else
+			{
+				f.fusedYaw = 0.0;
+				f.fusedPitch = 0.0;
+				f.fusedRoll = (angle >= M_PI_2 ? M_PI - angle : -M_PI - angle);
+				f.hemi = false;
+			}
+		}
+		else if(axis == Y_AXIS)
+		{
+			if(fabs(angle) <= M_PI_2)
+			{
+				f.fusedYaw = 0.0;
+				f.fusedPitch = angle;
+				f.fusedRoll = 0.0;
+				f.hemi = true;
+			}
+			else
+			{
+				f.fusedYaw = 0.0;
+				f.fusedPitch = (angle >= M_PI_2 ? M_PI - angle : -M_PI - angle);
+				f.fusedRoll = 0.0;
+				f.hemi = false;
+			}
+		}
+		else // Z_AXIS
+		{
+			f.fusedYaw = angle;
+			f.fusedPitch = 0.0;
+			f.fusedRoll = 0.0;
+			f.hemi = true;
+		}
+	}
+
+	// Conversion: Axis angle --> Fused angles
+	void FusedFromAxis(const Vec3& axis, double angle, FusedAngles& f)
+	{
+		// Calculate the required fused angles via the quaternion space
+		Quat q;
+		QuatFromAxis(axis, angle, q);
+		FusedFromQuat(q, f);
+	}
+
+	// Conversion: Axis angle (unit axis) --> Tilt angles
+	void TiltFromAxis(UnitAxis axis, double angle, TiltAngles& t)
+	{
+		// Wrap the rotation angle to (-pi,pi]
+		internal::picutVar(angle);
+
+		// Calculate the required fused angles
+		if(axis == X_AXIS)
+		{
+			t.fusedYaw = 0.0;
+			if(angle >= 0.0)
+			{
+				t.tiltAxisAngle = 0.0;
+				t.tiltAngle = angle;
+			}
+			else
+			{
+				t.tiltAxisAngle = M_PI;
+				t.tiltAngle = -angle;
+			}
+		}
+		else if(axis == Y_AXIS)
+		{
+			t.fusedYaw = 0.0;
+			if(angle >= 0.0)
+			{
+				t.tiltAxisAngle = M_PI_2;
+				t.tiltAngle = angle;
+			}
+			else
+			{
+				t.tiltAxisAngle = -M_PI_2;
+				t.tiltAngle = -angle;
+			}
+		}
+		else // Z_AXIS
+		{
+			t.fusedYaw = angle;
+			t.tiltAxisAngle = 0.0;
+			t.tiltAngle = 0.0;
+		}
+	}
+
+	// Conversion: Axis angle --> Tilt angles
+	void TiltFromAxis(const Vec3& axis, double angle, TiltAngles& t)
+	{
+		// Calculate the required tilt angles via the quaternion space
+		Quat q;
+		QuatFromAxis(axis, angle, q);
+		TiltFromQuat(q, t);
+	}
+
+	// Conversion: Axis angle (unit axis) --> Z vector
+	void ZVecFromAxis(UnitAxis axis, double angle, ZVec& z)
+	{
+		// Precalculate trigonometric values
+		double cang = cos(angle);
+		double sang = sin(angle);
+
+		// Calculate the required Z vector
+		if(axis == X_AXIS)
+		{
+			z.x() = 0.0;
+			z.y() = sang;
+			z.z() = cang;
+		}
+		else if(axis == Y_AXIS)
+		{
+			z.x() = -sang;
+			z.y() = 0.0;
+			z.z() = cang;
+		}
+		else // Z_AXIS
+		{
+			z.x() = 0.0;
+			z.y() = 0.0;
+			z.z() = 1.0;
+		}
+	}
+
+	// Conversion: Axis angle --> Z vector
+	void ZVecFromAxis(const Vec3& axis, double angle, ZVec& z)
+	{
+		// Precalculate trigonometric values
+		double cang = cos(angle);
+		double sang = sin(angle);
+		double zC = axis.z()*(1.0 - cang);
+
+		// Calculate the required Z vector
+		z.x() = axis.x()*zC - axis.y()*sang;
+		z.y() = axis.y()*zC + axis.x()*sang;
+		z.z() = axis.z()*zC + cang;
 	}
 
 	// ############################################
@@ -789,9 +1569,82 @@ namespace rot_conv
 		TiltFromRotmat(R, tiltAxisAngle, tiltAngle);
 	}
 
+	//
+	// Conversion: Rotation matrix --> Tilt phase
+	//
+
+	// Conversion: Rotation matrix --> Tilt phase (2D)
+	void PhaseFromRotmat(const Rotmat& R, double& px, double& py)
+	{
+		// Calculate the sin of the tilt angle alpha
+		double salpha = sqrt(R.coeff(2,0)*R.coeff(2,0) + R.coeff(2,1)*R.coeff(2,1));
+
+		// Calculate the required x and y tilt phase components
+		if(salpha == 0.0)
+		{
+			if(R.coeff(2,2) >= 0.0)
+				px = py = 0.0;
+			else
+			{
+				double cdgamma = 0.5*(R.coeff(0,0) - R.coeff(1,1));
+				double sdgamma = 0.5*(R.coeff(0,1) + R.coeff(1,0));
+				px = M_PI * sqrt(std::max(0.5*(1.0 + cdgamma), 0.0));
+				py = M_PI * sqrt(std::max(0.5*(1.0 - cdgamma), 0.0));
+				if(sdgamma < 0.0)
+					py = -py;
+			}
+		}
+		else
+		{
+			double calpha = std::max(std::min(R.coeff(2,2), 1.0), -1.0);
+			double alpha = acos(calpha);
+			px = alpha * ( R.coeff(2,1) / salpha);
+			py = alpha * (-R.coeff(2,0) / salpha);
+		}
+	}
+
+	// Conversion: Rotation matrix --> Tilt phase (3D)
+	void PhaseFromRotmat(const Rotmat& R, double& px, double& py, double& pz)
+	{
+		// Calculate the tilt phase components
+		pz = FYawOfRotmat(R);
+		PhaseFromRotmat(R, px, py);
+	}
+
 	// ######################################
 	// #### Conversions from quaternions ####
 	// ######################################
+
+	//
+	// Conversion: Quaternion --> Axes
+	//
+
+	// Conversion: Quaternion --> X-axis
+	void AxisXFromQuat(const Quat& q, Vec3& axis)
+	{
+		// Construct the required axis
+		axis.x() = 1.0 - 2.0*(q.y()*q.y() + q.z()*q.z());
+		axis.y() = 2.0*(q.x()*q.y() + q.z()*q.w());
+		axis.z() = 2.0*(q.x()*q.z() - q.y()*q.w());
+	}
+
+	// Conversion: Quaternion --> Y-axis
+	void AxisYFromQuat(const Quat& q, Vec3& axis)
+	{
+		// Construct the required axis
+		axis.x() = 2.0*(q.x()*q.y() - q.z()*q.w());
+		axis.y() = 1.0 - 2.0*(q.x()*q.x() + q.z()*q.z());
+		axis.z() = 2.0*(q.y()*q.z() + q.x()*q.w());
+	}
+
+	// Conversion: Quaternion --> Z-axis
+	void AxisZFromQuat(const Quat& q, Vec3& axis)
+	{
+		// Construct the required axis
+		axis.x() = 2.0*(q.x()*q.z() + q.y()*q.w());
+		axis.y() = 2.0*(q.y()*q.z() - q.x()*q.w());
+		axis.z() = 1.0 - 2.0*(q.x()*q.x() + q.y()*q.y());
+	}
 
 	//
 	// Conversion: Quaternion --> Rotation matrix
@@ -896,6 +1749,49 @@ namespace rot_conv
 		z.z() = 1.0 - 2.0*(q.x()*q.x() + q.y()*q.y());
 	}
 
+	//
+	// Conversion: Quaternion --> Tilt phase
+	//
+
+	// Conversion: Quaternion --> Tilt phase (2D)
+	void PhaseFromQuat(const Quat& q, double& px, double& py)
+	{
+		// Precalculate terms
+		double wzsq = q.w()*q.w() + q.z()*q.z();
+		double xysq = q.x()*q.x() + q.y()*q.y();
+
+		// Calculate the cos of the tilt angle
+		double calpha = (wzsq - xysq) / (wzsq + xysq); // Note: wzsq and xysq are both guaranteed >= 0, so this is guaranteed to be in the range [-1,1]
+
+		// Calculate the required x and y tilt phase components
+		double hsalpha = sqrt(wzsq * xysq);
+		if(hsalpha == 0.0)
+		{
+			if(calpha >= 0.0) // Note: Here we should have alpha = 0
+				px = py = 0.0;
+			else // Note: Here we should have alpha = pi, and xysq = 1 if q is unit norm
+			{
+				double xy = sqrt(xysq);
+				px = M_PI * (q.x() / xy);
+				py = M_PI * (q.y() / xy);
+			}
+		}
+		else
+		{
+			double alpha = acos(calpha);
+			px = alpha * ((q.w()*q.x() + q.y()*q.z()) / hsalpha);
+			py = alpha * ((q.w()*q.y() - q.x()*q.z()) / hsalpha);
+		}
+	}
+
+	// Conversion: Quaternion --> Tilt phase (3D)
+	void PhaseFromQuat(const Quat& q, double& px, double& py, double& pz)
+	{
+		// Calculate the tilt phase components
+		pz = FYawOfQuat(q);
+		PhaseFromQuat(q, px, py);
+	}
+
 	// #######################################
 	// #### Conversions from Euler angles ####
 	// #######################################
@@ -936,7 +1832,7 @@ namespace rot_conv
 		double hsphi = sin(hphi);
 
 		// Calculate and return the required quaternion
-		return Quat(hcphi*hcth*hcpsi + hsphi*hsth*hspsi, hsphi*hcth*hcpsi - hcphi*hsth*hspsi, hcphi*hsth*hcpsi + hsphi*hcth*hspsi, hcphi*hcth*hspsi - hsphi*hsth*hcpsi);
+		return Quat(hcphi*hcth*hcpsi + hsphi*hsth*hspsi, hsphi*hcth*hcpsi - hcphi*hsth*hspsi, hcphi*hsth*hcpsi + hsphi*hcth*hspsi, hcphi*hcth*hspsi - hsphi*hsth*hcpsi); // Order: (w,x,y,z)
 	}
 
 	// Conversion: Euler angles --> Fused angles
@@ -1003,6 +1899,26 @@ namespace rot_conv
 		return ZVec(-sth, cth*sphi, cth*cphi);
 	}
 
+	//
+	// Conversion: Euler angles --> Tilt phase
+	//
+
+	// Conversion: Euler angles --> Tilt phase (2D)
+	TiltPhase2D PhaseFromEuler(double pitch, double roll)
+	{
+		// Calculate and return the required tilt phase representation
+		ZVec z = ZVecFromEuler(pitch, roll);
+		return PhaseFromZVec(z);
+	}
+
+	// Conversion: Euler angles --> Tilt phase (3D)
+	TiltPhase3D PhaseFromEuler(double yaw, double pitch, double roll)
+	{
+		// Calculate and return the required tilt phase representation
+		Quat q = QuatFromEuler(yaw, pitch, roll);
+		return PhaseFromQuat(q);
+	}
+
 	// #######################################
 	// #### Conversions from fused angles ####
 	// #######################################
@@ -1020,7 +1936,20 @@ namespace rot_conv
 
 		// Calculate the sine sum criterion
 		double crit = sth*sth + sphi*sphi;
-		double calpha = (crit >= 1.0 ? 0.0 : sqrt(1.0 - crit));
+
+		// Calculate the cos of the tilt angle
+		double calpha;
+		if(crit >= 1.0)
+		{
+			calpha = 0.0;
+			double sqrtcrit = sqrt(crit);
+			sth /= sqrtcrit;
+			sphi /= sqrtcrit;
+		}
+		else
+		{
+			calpha = sqrt(1.0 - crit);
+		}
 
 		// Calculate the tilt axis angle gamma
 		double gamma = atan2(sth,sphi);
@@ -1051,12 +1980,15 @@ namespace rot_conv
 		// Calculate the sine sum criterion
 		double crit = sth*sth + sphi*sphi;
 
-		// Calculate the tilt angle alpha
+		// Calculate the sin and cos of the tilt angle
 		double calpha, salpha;
 		if(crit >= 1.0)
 		{
 			calpha = 0.0;
 			salpha = 1.0;
+			double sqrtcrit = sqrt(crit);
+			sth /= sqrtcrit;
+			sphi /= sqrtcrit;
 		}
 		else
 		{
@@ -1093,63 +2025,89 @@ namespace rot_conv
 	// Conversion: Fused angles (2D) --> Quaternion
 	Quat QuatFromFused(double fusedPitch, double fusedRoll) // Assume: fusedYaw = 0, hemi = true
 	{
-		// Precalculate the sine values
+		// Precalculate the required trigonometric values
 		double sth = sin(fusedPitch);
 		double sphi = sin(fusedRoll);
 
 		// Calculate the sine sum criterion
 		double crit = sth*sth + sphi*sphi;
 
-		// Calculate the tilt angle alpha
-		double alpha = (crit >= 1.0 ? M_PI_2 : acos(sqrt(1.0 - crit)));
-		double halpha = 0.5*alpha;
-		double chalpha = cos(halpha);
-		double shalpha = sin(halpha);
+		// Calculate the sin and cos of the tilt angle
+		double calpha;
+		if(crit >= 1.0)
+		{
+			calpha = 0.0;
+			double sqrtcrit = sqrt(crit);
+			sth /= sqrtcrit;
+			sphi /= sqrtcrit;
+			crit = 1.0;
+		}
+		else
+		{
+			calpha = sqrt(1.0 - crit);
+		}
 
-		// Calculate the tilt axis angle gamma
-		double gamma = atan2(sth,sphi);
-		double cgamma = cos(gamma);
-		double sgamma = sin(gamma);
+		// Precalculate terms involved in the quaternion expression
+		double C = 1.0 + calpha;
 
-		// Return the required quaternion orientation (a rotation about (cgamma, sgamma, 0) by angle alpha)
-		return Quat(chalpha, cgamma*shalpha, sgamma*shalpha, 0.0); // Order: (w,x,y,z)
+		// Calculate and return the required quaternion
+		double scale = 1.0 / sqrt(C*C + crit); // Note: Norm of quat = sqrt(C*C+sth*sth+sphi*sphi) = sqrt(2*C) > 1
+		return Quat(C*scale, sphi*scale, sth*scale, 0.0); // Order: (w,x,y,z)
 	}
 
 	// Conversion: Fused angles (3D/4D) --> Quaternion
 	Quat QuatFromFused(double fusedYaw, double fusedPitch, double fusedRoll, bool hemi)
 	{
-		// Precalculate the sine values
+		// Precalculate the required trigonometric values
+		double hpsi = 0.5*fusedYaw;
+		double chpsi = cos(hpsi);
+		double shpsi = sin(hpsi);
 		double sth = sin(fusedPitch);
 		double sphi = sin(fusedRoll);
 
 		// Calculate the sine sum criterion
 		double crit = sth*sth + sphi*sphi;
 
-		// Calculate the tilt angle alpha
-		double alpha;
+		// Calculate the sin and cos of the tilt angle
+		double calpha, salpha;
 		if(crit >= 1.0)
-			alpha = M_PI_2;
+		{
+			calpha = 0.0;
+			salpha = 1.0;
+			double sqrtcrit = sqrt(crit);
+			sth /= sqrtcrit;
+			sphi /= sqrtcrit;
+			crit = 1.0;
+		}
 		else
-			alpha = acos(hemi ? sqrt(1.0 - crit) : -sqrt(1.0 - crit));
+		{
+			calpha = (hemi ? sqrt(1.0 - crit) : -sqrt(1.0 - crit));
+			salpha = sqrt(crit);
+		}
 
-		// Calculate the tilt axis angle gamma
-		double gamma = atan2(sth,sphi);
+		// Construct the output quaternion using the best conditioned expression
+		if(calpha >= 0.0)
+		{
+			// Precalculate terms involved in the quaternion expression
+			double C = 1.0 + calpha;
 
-		// Evaluate the required intermediate angles
-		double halpha = 0.5*alpha;
-		double hpsi = 0.5*fusedYaw;
-		double hgampsi = gamma + hpsi;
+			// Calculate and return the required quaternion
+			double scale = 1.0 / sqrt(C*C + crit); // Note: Norm of quat = sqrt(C*C+sth*sth+sphi*sphi) = sqrt(2*C) > 1
+			return Quat(C*chpsi*scale, (sphi*chpsi-sth*shpsi)*scale, (sphi*shpsi+sth*chpsi)*scale, C*shpsi*scale); // Order: (w,x,y,z)
+		}
+		else
+		{
+			// Precalculate terms involved in the quaternion expression
+			double C = 1.0 - calpha;
+			double gamma = atan2(sth,sphi);
+			double hgampsi = gamma + hpsi;
+			double chgampsi = cos(hgampsi);
+			double shgampsi = sin(hgampsi);
 
-		// Precalculate trigonometric terms involved in the quaternion expression
-		double chalpha = cos(halpha);
-		double shalpha = sin(halpha);
-		double chpsi = cos(hpsi);
-		double shpsi = sin(hpsi);
-		double chgampsi = cos(hgampsi);
-		double shgampsi = sin(hgampsi);
-
-		// Calculate and return the required quaternion
-		return Quat(chalpha*chpsi, shalpha*chgampsi, shalpha*shgampsi, chalpha*shpsi); // Order: (w,x,y,z)
+			// Calculate and return the required quaternion
+			double scale = 1.0 / sqrt(C*C + crit); // Note: Norm of quat = sqrt(C*C+sth*sth+sphi*sphi) = sqrt(2*C) > 1
+			return Quat(salpha*chpsi*scale, C*chgampsi*scale, C*shgampsi*scale, salpha*shpsi*scale); // Order: (w,x,y,z)
+		}
 	}
 
 	//
@@ -1176,7 +2134,7 @@ namespace rot_conv
 		double A = cgam*(1.0 - calpha);
 
 		// Calculate and return the required Euler angles
-		return EulerAngles(atan2(A*sgam, calpha + A*cgam), fusedPitch, atan2(sphi, calpha));
+		return EulerAngles(atan2(A*sgam, calpha + A*cgam), fusedPitch, atan2(sphi, calpha)); // Note: This use of sphi is okay, as if crit >= 1 then calpha = 0 so rescaling sphi doesn't matter for the value of atan2(sphi,calpha)
 	}
 
 	// Conversion: Fused angles (3D/4D) --> Euler angles
@@ -1204,7 +2162,7 @@ namespace rot_conv
 		double A = sgam*calpha;
 
 		// Calculate and return the required Euler angles
-		return EulerAngles(atan2(cgam*spsigam - A*cpsigam, cgam*cpsigam + A*spsigam), fusedPitch, atan2(sphi, calpha));
+		return EulerAngles(atan2(cgam*spsigam - A*cpsigam, cgam*cpsigam + A*spsigam), fusedPitch, atan2(sphi, calpha)); // Note: This use of sphi is okay, as if crit >= 1 then calpha = 0 so rescaling sphi doesn't matter for the value of atan2(sphi,calpha)
 	}
 
 	//
@@ -1255,6 +2213,21 @@ namespace rot_conv
 		return t;
 	}
 
+	// Conversion: Fused angles (2D) --> Tilt angle component
+	double TiltAngleFromFused(double fusedPitch, double fusedRoll)
+	{
+		// Precalculate the sine values
+		double sth = sin(fusedPitch);
+		double sphi = sin(fusedRoll);
+
+		// Calculate the cosine of the tilt angle
+		double crit = sth*sth + sphi*sphi;
+		double calpha = (crit >= 1.0 ? 0.0 : sqrt(1.0 - crit));
+
+		// Calculate and return the tilt angle component of the tilt angles representation
+		return acos(calpha);
+	}
+
 	//
 	// Conversion: Fused angles --> Z vector
 	//
@@ -1263,17 +2236,129 @@ namespace rot_conv
 	ZVec ZVecFromFused(double fusedPitch, double fusedRoll, bool hemi)
 	{
 		// Precalculate the sin values
-		double sth  = sin(fusedPitch);
+		double sth = sin(fusedPitch);
 		double sphi = sin(fusedRoll);
 
-		// Calculate the cosine of the tilt angle
+		// Calculate the sine sum criterion
 		double crit = sth*sth + sphi*sphi;
-		double calpha = 0.0;
-		if(crit < 1.0)
+
+		// Calculate the cos of the tilt angle
+		double calpha;
+		if(crit >= 1.0)
+		{
+			calpha = 0.0;
+			double sqrtcrit = sqrt(crit);
+			sth /= sqrtcrit;
+			sphi /= sqrtcrit;
+		}
+		else
+		{
 			calpha = (hemi ? sqrt(1.0 - crit) : -sqrt(1.0 - crit));
+		}
 
 		// Return the required Z vector
 		return ZVec(-sth, sphi, calpha);
+	}
+
+	//
+	// Conversion: Fused angles --> Tilt phase
+	//
+
+	// Conversion: Fused angles --> Tilt phase (2D)
+	TiltPhase2D PhaseFromFused(double fusedPitch, double fusedRoll)
+	{
+		// Declare variables
+		TiltPhase2D p;
+
+		// Precalculate the sin values
+		double sth = sin(fusedPitch);
+		double sphi = sin(fusedRoll);
+
+		// Calculate the sine sum criterion
+		double crit = sth*sth + sphi*sphi;
+
+		// Calculate the sin and cos of the tilt angle
+		double calpha, salpha;
+		if(crit >= 1.0)
+		{
+			salpha = 1.0;
+			calpha = 0.0;
+			double sqrtcrit = sqrt(crit);
+			sth /= sqrtcrit;
+			sphi /= sqrtcrit;
+		}
+		else
+		{
+			salpha = sqrt(crit);
+			calpha = sqrt(1.0 - crit);
+		}
+
+		// Calculate the required x and y tilt phase components
+		if(salpha == 0.0)
+			p.px = p.py = 0.0;
+		else
+		{
+			double alpha = acos(calpha);
+			p.px = alpha * (sphi / salpha);
+			p.py = alpha * (sth / salpha);
+		}
+
+		// Return the required tilt phase representation
+		return p;
+	}
+
+	// Conversion: Fused angles --> Tilt phase (3D)
+	TiltPhase3D PhaseFromFused(double fusedYaw, double fusedPitch, double fusedRoll, bool hemi)
+	{
+		// Declare variables
+		TiltPhase3D p;
+
+		// Precalculate the sin values
+		double sth = sin(fusedPitch);
+		double sphi = sin(fusedRoll);
+
+		// Calculate the sine sum criterion
+		double crit = sth*sth + sphi*sphi;
+
+		// Calculate the sin and cos of the tilt angle
+		double calpha, salpha;
+		if(crit >= 1.0)
+		{
+			salpha = 1.0;
+			calpha = 0.0;
+			double sqrtcrit = sqrt(crit);
+			sth /= sqrtcrit;
+			sphi /= sqrtcrit;
+		}
+		else
+		{
+			salpha = sqrt(crit);
+			calpha = (hemi ? sqrt(1.0 - crit) : -sqrt(1.0 - crit));
+		}
+
+		// Calculate the required x and y tilt phase components
+		if(salpha == 0.0)
+		{
+			if(hemi)
+				p.px = p.py = 0.0;
+			else
+			{
+				p.px = M_PI;
+				p.py = 0.0;
+			}
+		}
+		else
+		{
+			double alpha = acos(calpha);
+			p.px = alpha * (sphi / salpha);
+			p.py = alpha * (sth / salpha);
+		}
+
+		// Set the required z tilt phase component
+		p.pz = fusedYaw;
+
+		// Return the required tilt phase representation
+		return p;
 	}
 
 	// ######################################
@@ -1457,12 +2542,86 @@ namespace rot_conv
 		return ZVec(-salpha*sgamma, salpha*cgamma, calpha);
 	}
 
+	//
+	// Conversion: Tilt angles --> Tilt phase
+	//
+
+	// Conversion: Tilt angles --> Tilt phase (2D)
+	void PhaseFromTilt(double tiltAxisAngle, double tiltAngle, double& px, double& py)
+	{
+		// Calculate the required tilt phase parameters
+		px = tiltAngle * cos(tiltAxisAngle);
+		py = tiltAngle * sin(tiltAxisAngle);
+	}
+
 	// ####################################
 	// #### Conversions from Z vectors ####
 	// ####################################
 
 	//
-	// Conversion: Z vector --> Fused angles
+	// Conversion: Z vector --> Rotation matrix (zero fused yaw)
+	//
+
+	// Conversion: Z vector --> Rotation matrix
+	void RotmatFromZVec(const ZVec& z, Rotmat& R)
+	{
+		// Perform the conversion via a quaternion
+		Quat q;
+		QuatFromZVec(z, q);
+		RotmatFromQuat(q, R);
+	}
+
+	//
+	// Conversion: Z vector --> Quaternion (zero fused yaw)
+	//
+
+	// Conversion: Z vector --> Quaternion
+	void QuatFromZVec(const ZVec& z, Quat& q)
+	{
+		// Calculate the z component
+		q.z() = 0.0; // Zero fused yaw is equivalent to a quaternion z component of zero!
+
+		// Calculate the w component
+		double wsq = 0.5*(1.0 + z.z());
+		wsq = (wsq >= 1.0 ? 1.0 : (wsq <= 0.0 ? 0.0 : wsq)); // Coerce wsq to [0,1]
+		q.w() = sqrt(wsq);
+
+		// Calculate the x and y components
+		double xsqplusysq = 1.0 - wsq;
+		double xtilde = z.y();
+		double ytilde = -z.x();
+		double xytildenormsq = xtilde*xtilde + ytilde*ytilde;
+		if(xytildenormsq <= 0.0)
+		{
+			q.x() = sqrt(xsqplusysq);
+			q.y() = 0.0;
+		}
+		else
+		{
+			double factor = sqrt(xsqplusysq / xytildenormsq);
+			q.x() = factor * xtilde;
+			q.y() = factor * ytilde;
+		}
+	}
+
+	//
+	// Conversion: Z vector --> Euler angles (zero Euler yaw)
+	//
+
+	// Conversion: Z vector --> Euler angles
+	void EulerFromZVec(const ZVec& z, double& pitch, double& roll)
+	{
+		// Calculate the pitch
+		double stheta = -z.x();
+		stheta = (stheta >= 1.0 ? 1.0 : (stheta <= -1.0 ? -1.0 : stheta)); // Coerce stheta to [-1,1]
+		pitch = asin(stheta);
+
+		// Calculate the roll
+		roll = atan2(z.y(), z.z());
+	}
+
+	//
+	// Conversion: Z vector --> Fused angles (zero fused yaw)
 	//
 
 	// Conversion: Z vector --> Fused angles (2D)
@@ -1488,7 +2647,7 @@ namespace rot_conv
 	}
 
 	//
-	// Conversion: Z vector --> Tilt angles
+	// Conversion: Z vector --> Tilt angles (zero fused yaw)
 	//
 
 	// Conversion: Z vector --> Tilt angles (2D)
@@ -1501,6 +2660,476 @@ namespace rot_conv
 		double calpha = z.z();
 		calpha = (calpha >= 1.0 ? 1.0 : (calpha <= -1.0 ? -1.0 : calpha)); // Coerce calpha to [-1,1]
 		tiltAngle = acos(calpha);
+	}
+
+	//
+	// Conversion: Z vector --> Tilt phase (zero fused yaw)
+	//
+
+	// Conversion: Z vector --> Tilt phase (2D)
+	void PhaseFromZVec(const ZVec& z, double& px, double& py)
+	{
+		// Calculate the sin of the tilt angle alpha
+		double salpha = sqrt(z.x()*z.x() + z.y()*z.y());
+
+		// Calculate the required x and y tilt phase components
+		if(salpha == 0.0)
+		{
+			if(z.z() >= 0.0)
+				px = py = 0.0;
+			else
+			{
+				px = M_PI;
+				py = 0.0;
+			}
+		}
+		else
+		{
+			double calpha = std::max(std::min(z.z(), 1.0), -1.0);
+			double alpha = acos(calpha);
+			px = alpha * ( z.y() / salpha);
+			py = alpha * (-z.x() / salpha);
+		}
+	}
+
+	// #####################################
+	// #### Conversions from tilt phase ####
+	// #####################################
+
+	//
+	// Conversion: Tilt phase --> Quaternion
+	//
+
+	// Conversion: Tilt phase --> Quaternion (2D)
+	Quat QuatFromPhase(double px, double py)
+	{
+		double tiltAxisAngle, tiltAngle;
+		TiltFromPhase(px, py, tiltAxisAngle, tiltAngle);
+		return QuatFromTilt(tiltAxisAngle, tiltAngle);
+	}
+
+	// Conversion: Tilt phase --> Quaternion (3D)
+	Quat QuatFromPhase(double px, double py, double pz)
+	{
+		double tiltAxisAngle, tiltAngle;
+		TiltFromPhase(px, py, tiltAxisAngle, tiltAngle);
+		return QuatFromTilt(pz, tiltAxisAngle, tiltAngle);
+	}
+
+	//
+	// Conversion: Tilt phase --> Tilt angles
+	//
+
+	// Conversion: Tilt phase --> Tilt angles (2D)
+	void TiltFromPhase(double px, double py, double& tiltAxisAngle, double& tiltAngle)
+	{
+		// Calculate the required tilt angles parameters
+		tiltAxisAngle = atan2(py, px);
+		tiltAngle = sqrt(px*px + py*py);
+	}
+
+	// #########################################
+	// #### Conversions from yaw and z-axis ####
+	// #########################################
+
+	// Conversion: Yaw and z-axis (BzG) --> Rotation matrix
+	void RotmatFromFYawBzG(double fusedYaw, const Vec3& BzG, Rotmat& RGB)
+	{
+		// Calculate the quaternion representation of the required rotation
+		Quat qGB;
+		QuatFromFYawBzG(fusedYaw, BzG, qGB);
+
+		// Return the required rotation matrix representation
+		RotmatFromQuat(qGB, RGB);
+	}
+
+	// Conversion: Yaw and z-axis (GzB) --> Rotation matrix
+	void RotmatFromFYawGzB(double fusedYaw, const Vec3& GzB, Rotmat& RGB)
+	{
+		// Calculate the quaternion representation of the required rotation
+		Quat qGB;
+		QuatFromFYawGzB(fusedYaw, GzB, qGB);
+
+		// Return the required rotation matrix representation
+		RotmatFromQuat(qGB, RGB);
+	}
+
+	// Conversion: Yaw and z-axis (BzG) --> Quaternion
+	void QuatFromFYawBzG(double fusedYaw, const Vec3& BzG, Quat& qGB)
+	{
+		// Precalculate trigonometric terms
+		double chpsi = cos(0.5*fusedYaw);
+		double shpsi = sin(0.5*fusedYaw);
+
+		// Calculate the w and z components
+		double wsqpluszsq = 0.5*(1 + BzG.z());
+		wsqpluszsq = (wsqpluszsq >= 1.0 ? 1.0 : (wsqpluszsq <= 0.0 ? 0.0 : wsqpluszsq)); // Coerce wsqpluszsq to [0,1]
+		double wznorm = sqrt(wsqpluszsq);
+		qGB.w() = wznorm * chpsi;
+		qGB.z() = wznorm * shpsi;
+
+		// Calculate the x and y components
+		double xsqplusysq = 1.0 - wsqpluszsq;
+		double xtilde = BzG.x()*qGB.z() + BzG.y()*qGB.w();
+		double ytilde = BzG.y()*qGB.z() - BzG.x()*qGB.w();
+		double xytildenormsq = xtilde*xtilde + ytilde*ytilde;
+		if(xytildenormsq <= 0.0)
+		{
+			qGB.x() = sqrt(xsqplusysq);
+			qGB.y() = 0.0;
+		}
+		else
+		{
+			double factor = sqrt(xsqplusysq / xytildenormsq);
+			qGB.x() = factor * xtilde;
+			qGB.y() = factor * ytilde;
+		}
+	}
+
+	// Conversion: Yaw and z-axis (GzB) --> Quaternion
+	void QuatFromFYawGzB(double fusedYaw, const Vec3& GzB, Quat& qGB)
+	{
+		// Precalculate trigonometric terms
+		double chpsi = cos(0.5*fusedYaw);
+		double shpsi = sin(0.5*fusedYaw);
+
+		// Calculate the w and z components
+		double wsqpluszsq = 0.5*(1 + GzB.z());
+		wsqpluszsq = (wsqpluszsq >= 1.0 ? 1.0 : (wsqpluszsq <= 0.0 ? 0.0 : wsqpluszsq)); // Coerce wsqpluszsq to [0,1]
+		double wznorm = sqrt(wsqpluszsq);
+		qGB.w() = wznorm * chpsi;
+		qGB.z() = wznorm * shpsi;
+
+		// Calculate the x and y components
+		double xsqplusysq = 1.0 - wsqpluszsq;
+		double xtilde = GzB.x()*qGB.z() - GzB.y()*qGB.w();
+		double ytilde = GzB.y()*qGB.z() + GzB.x()*qGB.w();
+		double xytildenormsq = xtilde*xtilde + ytilde*ytilde;
+		if(xytildenormsq <= 0.0)
+		{
+			qGB.x() = sqrt(xsqplusysq);
+			qGB.y() = 0.0;
+		}
+		else
+		{
+			double factor = sqrt(xsqplusysq / xytildenormsq);
+			qGB.x() = factor * xtilde;
+			qGB.y() = factor * ytilde;
+		}
+	}
+
+	// Conversion: Yaw and z-axis --> Euler angles
+	void EulerFromFYawBzG(double fusedYaw, const Vec3& BzG, EulerAngles& eGB)
+	{
+		// Calculate the Euler pitch
+		double stheta = -BzG.x();
+		stheta = (stheta >= 1.0 ? 1.0 : (stheta <= -1.0 ? -1.0 : stheta)); // Coerce stheta to [-1,1]
+		eGB.pitch = asin(stheta);
+
+		// Calculate the Euler roll
+		eGB.roll = atan2(BzG.y(), BzG.z());
+
+		// Calculate the Euler ZYX yaw
+		if(stheta == 0.0 && BzG.y() == 0.0)
+			eGB.yaw = fusedYaw;
+		else
+		{
+			double cphi = cos(eGB.roll);
+			double sphi = sin(eGB.roll);
+			eGB.yaw = fusedYaw + atan2(sphi, stheta*cphi) - atan2(BzG.y(), stheta);
+		}
+		internal::picutVar(eGB.yaw);
+	}
+
+	// Conversion: Yaw and z-axis --> Euler angles
+	void EulerFromFYawGzB(double fusedYaw, const Vec3& GzB, EulerAngles& eGB)
+	{
+		// Precalculate trigonometric terms
+		double cfyaw = cos(fusedYaw);
+		double sfyaw = sin(fusedYaw);
+
+		// Calculate the Euler pitch
+		double stheta = cfyaw*GzB.x() + sfyaw*GzB.y();
+		stheta = (stheta >= 1.0 ? 1.0 : (stheta <= -1.0 ? -1.0 : stheta)); // Coerce stheta to [-1,1]
+		eGB.pitch = asin(stheta);
+
+		// Calculate the Euler roll
+		double sfphi = sfyaw*GzB.x() - cfyaw*GzB.y();
+		eGB.roll = atan2(sfphi, GzB.z());
+
+		// Calculate the Euler ZYX yaw
+		if(stheta == 0.0 && sfphi == 0.0)
+			eGB.yaw = fusedYaw;
+		else
+		{
+			double cphi = cos(eGB.roll);
+			double sphi = sin(eGB.roll);
+			eGB.yaw = fusedYaw + atan2(sphi, stheta*cphi) - atan2(sfphi, stheta);
+		}
+		internal::picutVar(eGB.yaw);
+	}
+
+	// Conversion: Yaw and z-axis --> Fused angles
+	void FusedFromFYawBzG(double fusedYaw, const Vec3& BzG, FusedAngles& fGB)
+	{
+		// Transcribe and wrap the fused yaw
+		fGB.fusedYaw = internal::picut(fusedYaw);
+
+		// Calculate the fused pitch and roll
+		double stheta = -BzG.x();
+		double sphi   = BzG.y();
+		stheta = (stheta >= 1.0 ? 1.0 : (stheta <= -1.0 ? -1.0 : stheta)); // Coerce stheta to [-1,1]
+		sphi   = (sphi   >= 1.0 ? 1.0 : (sphi   <= -1.0 ? -1.0 : sphi  )); // Coerce sphi   to [-1,1]
+		fGB.fusedPitch = asin(stheta);
+		fGB.fusedRoll  = asin(sphi);
+
+		// Calculate the hemisphere
+		fGB.hemi = (BzG.z() >= 0.0);
+	}
+
+	// Conversion: Yaw and z-axis --> Fused angles
+	void FusedFromFYawGzB(double fusedYaw, const Vec3& GzB, FusedAngles& fGB)
+	{
+		// Transcribe and wrap the fused yaw
+		fGB.fusedYaw = internal::picut(fusedYaw);
+
+		// Precalculate trigonometric terms
+		double cpsi = cos(fGB.fusedYaw);
+		double spsi = sin(fGB.fusedYaw);
+
+		// Calculate the fused pitch and roll
+		double stheta = cpsi*GzB.x() + spsi*GzB.y();
+		double sphi   = spsi*GzB.x() - cpsi*GzB.y();
+		stheta = (stheta >= 1.0 ? 1.0 : (stheta <= -1.0 ? -1.0 : stheta)); // Coerce stheta to [-1,1]
+		sphi   = (sphi   >= 1.0 ? 1.0 : (sphi   <= -1.0 ? -1.0 : sphi  )); // Coerce sphi   to [-1,1]
+		fGB.fusedPitch = asin(stheta);
+		fGB.fusedRoll  = asin(sphi);
+
+		// Calculate the hemisphere
+		fGB.hemi = (GzB.z() >= 0.0);
+	}
+
+	// Conversion: Yaw and z-axis --> Tilt angles
+	void TiltFromFYawBzG(double fusedYaw, const Vec3& BzG, TiltAngles& tGB)
+	{
+		// Transcribe and wrap the fused yaw
+		tGB.fusedYaw = internal::picut(fusedYaw);
+
+		// Calculate the tilt axis angle
+		tGB.tiltAxisAngle = atan2(-BzG.x(), BzG.y());
+
+		// Calculate the tilt angle
+		double calpha = BzG.z();
+		calpha = (calpha >= 1.0 ? 1.0 : (calpha <= -1.0 ? -1.0 : calpha)); // Coerce calpha to [-1,1]
+		tGB.tiltAngle = acos(calpha);
+	}
+
+	// Conversion: Yaw and z-axis --> Tilt angles
+	void TiltFromFYawGzB(double fusedYaw, const Vec3& GzB, TiltAngles& tGB)
+	{
+		// Transcribe and wrap the fused yaw
+		tGB.fusedYaw = internal::picut(fusedYaw);
+
+		// Calculate the tilt axis angle
+		if(GzB.x() == 0.0 && GzB.y() == 0.0)
+			tGB.tiltAxisAngle = 0.0;
+		else
+			tGB.tiltAxisAngle = internal::picut(atan2(GzB.x(), -GzB.y()) - tGB.fusedYaw);
+
+		// Calculate the tilt angle
+		double calpha = GzB.z();
+		calpha = (calpha >= 1.0 ? 1.0 : (calpha <= -1.0 ? -1.0 : calpha)); // Coerce calpha to [-1,1]
+		tGB.tiltAngle = acos(calpha);
+	}
+
+	// ########################################
+	// #### Spherical Linear Interpolation ####
+	// ########################################
+
+	// Slerp: Quaternion
+	Quat QuatSlerp(const Quat& q0, const Quat& q1, double u)
+	{
+		// Calculate the dot product of the two quaternions
+		double dprod = q0.w()*q1.w() + q0.x()*q1.x() + q0.y()*q1.y() + q0.z()*q1.z();
+
+		// Adjust for the situation that two quaternions in different hemispheres are being interpolated
+		double q1sign = 1.0;
+		if(dprod < 0.0)
+		{
+			dprod = -dprod;
+			q1sign = -1.0;
+		}
+
+		// If q0 and q1 are very close then just use linear interpolation, otherwise use spherical linear interpolation
+		Quat qu;
+		if(dprod >= 1.0 - 5e-9) // A dot product within this tolerance of unity produces a negligible amount of error if using linear interpolation instead
+		{
+			// Perform the required interpolation
+			qu = (1.0 - u)*q0 + (u*q1sign)*q1;
+		}
+		else
+		{
+			// Calculate half the angle between the two quaternions
+			double htheta = acos(dprod);
+
+			// Perform the required interpolation
+			qu = sin((1.0 - u)*htheta)*q0 + (sin(u*htheta)*q1sign)*q1;
+		}
+
+		// Normalise the interpolated quaternion
+		NormaliseQuat(qu);
+
+		// Return the interpolated quaternion
+		return qu;
+	}
+
+	// Slerp: Quaternion scaling
+	Quat QuatSlerp(const Quat& q, double u)
+	{
+		// Ensure the w component is non-negative
+		Quat qu = (q.w() < 0.0 ? -q : q);
+
+		// If q is a very small rotation then just use linear interpolation, otherwise use spherical linear interpolation
+		if(qu.w() >= 1.0 - 5e-9) // A w component within this tolerance of unity produces a negligible amount of error if using linear interpolation instead
+		{
+			// Perform the required interpolation
+			qu *= u;
+			qu.w() += (1.0 - u);
+		}
+		else
+		{
+			// Calculate half the angle magnitude of the quaternion
+			double htheta = acos(qu.w());
+
+			// Perform the required interpolation
+			qu *= sin(u*htheta);
+			qu.w() += sin((1.0 - u)*htheta);
+		}
+
+		// Normalise the interpolated quaternion
+		NormaliseQuat(qu);
+
+		// Return the interpolated quaternion
+		return qu;
+	}
+
+	// Slerp: Unit vector
+	Vec3 VecSlerp(const Vec3& v0, const Vec3& v1, double u)
+	{
+		// Normalise the input vectors
+		Vec3 v0hat = NormalisedVec(v0);
+		Vec3 v1hat = NormalisedVec(v1);
+
+		// Calculate the dot product of the two vectors
+		double dprod = v0hat.x()*v1hat.x() + v0hat.y()*v1hat.y() + v0hat.z()*v1hat.z();
+
+		// If v0hat and v1hat are very close then just use linear interpolation, otherwise use spherical linear interpolation
+		Vec3 vu;
+		if(dprod >= 1.0 - 5e-9) // A dot product within this tolerance of unity produces a negligible amount of error if using linear interpolation instead
+		{
+			// Perform the required interpolation
+			vu = (1.0 - u)*v0hat + u*v1hat;
+		}
+		else
+		{
+			// Calculate half the angle between the two quaternions
+			double htheta = acos(dprod);
+
+			// Perform the required interpolation
+			vu = sin((1.0 - u)*htheta)*v0hat + sin(u*htheta)*v1hat;
+		}
+
+		// Normalise the interpolated vector
+		NormaliseVec(vu);
+
+		// Return the interpolated vector
+		return vu;
+	}
+
+	// ##############################
+	// #### Tilt phase functions ####
+	// ##############################
+
+	// Conversion: Tilt phase velocity 2D --> Angular velocity (assumes zero pzVel)
+	void AngFromTiltPhaseVel(const TiltPhaseVel2D& pdot, const TiltAngles& t, AngVel& angVel)
+	{
+		// Precalculate trigonometric values
+		double cgamma = cos(t.tiltAxisAngle);
+		double sgamma = sin(t.tiltAxisAngle);
+		double psigam = t.fusedYaw + t.tiltAxisAngle;
+		double cpsigam = cos(psigam);
+		double spsigam = sin(psigam);
+
+		// Precalculate additional terms
+		double S, C;
+		if(t.tiltAngle == 0.0)
+		{
+			S = 1.0;
+			C = 0.0;
+		}
+		else
+		{
+			S = sin(t.tiltAngle) / t.tiltAngle;
+			C = (1.0 - cos(t.tiltAngle)) / t.tiltAngle;
+		}
+
+		// Calculate the tilt velocity parameters
+		double alphadot = pdot.pxVel*cgamma + pdot.pyVel*sgamma;
+		double agammadot = pdot.pyVel*cgamma - pdot.pxVel*sgamma; // = alpha*gammadot
+
+		// Calculate the required angular velocity
+		angVel.x() = cpsigam*alphadot - S*agammadot*spsigam;
+		angVel.y() = spsigam*alphadot + S*agammadot*cpsigam;
+		angVel.z() = C*agammadot;
+	}
+
+	// Conversion: Tilt phase velocity 3D --> Angular velocity
+	void AngFromTiltPhaseVel(const TiltPhaseVel3D& pdot, const TiltAngles& t, AngVel& angVel)
+	{
+		// Calculate the required angular velocity
+		TiltPhaseVel2D pdot2D = pdot;
+		AngFromTiltPhaseVel(pdot2D, t, angVel);
+		angVel.z() += pdot.pzVel;
+	}
+
+	// #######################
+	// #### Miscellaneous ####
+	// #######################
+
+	// Conversion: Split yaw and tilt --> Quaternion
+	// Calculates qHB for the frame B that has a given fused yaw relative to G and tilt rotation component relative to H
+	// qGH       ==> Relative quaternion rotation between G and H
+	// fusedYawG ==> Desired fused yaw of B relative to G
+	// qH        ==> Specification of the desired tilt rotation component of B relative to H, can be any qHC that has the
+	//               same tilt rotation component as is desired for qHB
+	Quat QuatHFromFYawGTiltH(const Quat& qGH, double fusedYawG, const Quat& qH)
+	{
+		// Precalculate trigonometric values
+		double chpsi = cos(0.5*fusedYawG);
+		double shpsi = sin(0.5*fusedYawG);
+
+		// Construct the base components of the solution
+		double a = qGH.x()*qH.x() + qGH.y()*qH.y();
+		double b = qGH.x()*qH.y() - qGH.y()*qH.x();
+		double c = qGH.w()*qH.z() + qGH.z()*qH.w();
+		double d = qGH.w()*qH.w() - qGH.z()*qH.z();
+		double A = d - a;
+		double B = b - c;
+		double C = b + c;
+		double D = d + a;
+		double G = D*chpsi - B*shpsi;
+		double H = A*shpsi - C*chpsi;
+		double F = sqrt(G*G + H*H);
+
+		// Construct and return the output quaternion
+		if(F < 64.0*DBL_EPSILON)
+			return qH;
+		else
+		{
+			double chphi = G/F;
+			double shphi = H/F;
+			return Quat(chphi*qH.w() - qH.z()*shphi, chphi*qH.x() - qH.y()*shphi, chphi*qH.y() + qH.x()*shphi, chphi*qH.z() + qH.w()*shphi); // Order: (w,x,y,z)
+		}
 	}
 }
 // EOF

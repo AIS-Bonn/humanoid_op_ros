@@ -3,6 +3,7 @@
 
 // Includes
 #include <rot_conv/rot_conv.h>
+#include <rot_conv/rot_conv_extras.h>
 #include <iostream>
 #include <ctime>
 
@@ -21,9 +22,9 @@ int main(int argc, char **argv)
 	// Print the identity rotations
 	std::cout << "The identity rotation matrix is:" << std::endl << Rotmat::Identity() << std::endl;
 	std::cout << "The identity quaternion is " << Quat::Identity() << std::endl;
-	std::cout << "The identity Euler angles is " << EulerAngles::Identity << std::endl;
-	std::cout << "The identity fused angles is " << FusedAngles::Identity << std::endl;
-	std::cout << "The identity tilt angles is " << TiltAngles::Identity << std::endl;
+	std::cout << "The identity Euler angles is " << EulerAngles::Identity() << std::endl;
+	std::cout << "The identity fused angles is " << FusedAngles::Identity() << std::endl;
+	std::cout << "The identity tilt angles is " << TiltAngles::Identity() << std::endl;
 	std::cout << std::endl;
 
 	// Construct the same rotation of each type
@@ -40,7 +41,7 @@ int main(int argc, char **argv)
 	std::cout << "Euler angles e = " << e << std::endl;
 	std::cout << "Fused angles f = " << f << std::endl;
 	std::cout << "Tilt angles  t = " << t << std::endl;
-	std::cout<< std::endl;
+	std::cout << std::endl;
 
 	// Yaw of rotations
 	std::cout << "So for starters they should all have the same Euler and fused yaws:" << std::endl;
@@ -49,7 +50,7 @@ int main(int argc, char **argv)
 	std::cout << "Euler:  EYaw = " << EYawOfEuler(e) << ", FYaw = " << FYawOfEuler(e) << std::endl;
 	std::cout << "Fused:  EYaw = " << EYawOfFused(f) << ", FYaw = " << FYawOfFused(f) << std::endl;
 	std::cout << "Tilt:   EYaw = " << EYawOfTilt(t) << ", FYaw = " << FYawOfTilt(t) << std::endl;
-	std::cout<< std::endl;
+	std::cout << std::endl;
 
 	// Apply rotations to vector
 	Vec3 v(1.0, 2.0, 3.0);
@@ -59,7 +60,7 @@ int main(int argc, char **argv)
 	std::cout << "Applying Euler  gives vout = [" << EulerRotVec(e, v).transpose() << "]" << std::endl;
 	std::cout << "Applying Fused  gives vout = [" << FusedRotVec(f, v).transpose() << "]" << std::endl;
 	std::cout << "Applying Tilt   gives vout = [" << TiltRotVec(t, v).transpose() << "]" << std::endl;
-	std::cout<< std::endl;
+	std::cout << std::endl;
 
 	// Check equality
 	std::cout << "But we can perform some conversions and check equality directly:" << std::endl;
@@ -68,7 +69,7 @@ int main(int argc, char **argv)
 	std::cout << "EulerEqual(e, EulerFromRotmat(R)) = " << (EulerEqual(e, EulerFromRotmat(R)) ? "true" : "false") << std::endl;
 	std::cout << "FusedEqual(f, FusedFromTilt(t))   = " << (FusedEqual(f, FusedFromTilt(t)) ? "true" : "false") << std::endl;
 	std::cout << "TiltEqual(t, TiltFromQuat(q))     = " << (TiltEqual(t, TiltFromQuat(q)) ? "true" : "false") << std::endl;
-	std::cout<< std::endl;
+	std::cout << std::endl;
 
 	// Remove the fused yaw components of the rotations
 	Rotmat Rny = RotmatNoFYaw(R);
@@ -84,7 +85,7 @@ int main(int argc, char **argv)
 	std::cout << "Output Euler " << eny << " has a fused yaw of " << FYawOfEuler(eny) << std::endl;
 	std::cout << "Output Fused " << fny << " has a fused yaw of " << FYawOfFused(fny) << std::endl;
 	std::cout << "Output Tilt  " << tny << " has a fused yaw of " << FYawOfTilt(tny) << std::endl;
-	std::cout<< std::endl;
+	std::cout << std::endl;
 
 	// Rotation inverses
 	std::cout << "The inverse rotations are:" << std::endl;
@@ -93,11 +94,20 @@ int main(int argc, char **argv)
 	std::cout << "Inverse Euler is " << EulerInv(e) << std::endl;
 	std::cout << "Inverse Fused is " << FusedInv(f) << std::endl;
 	std::cout << "Inverse Tilt  is " << TiltInv(t) << std::endl;
-	std::cout<< std::endl;
+	std::cout << std::endl;
+
+	// Composition of rotations
+	std::cout << "Composing the rotations with themselves twice gives:" << std::endl;
+	std::cout << "Cubed Rotmat:" << std::endl << ComposeRotmat(R, R, R) << std::endl;
+	std::cout << "Cubed Quat  is " << ComposeQuat(q, q, q) << std::endl;
+	std::cout << "Cubed Euler is " << ComposeEuler(e, e, e) << std::endl;
+	std::cout << "Cubed Fused is " << ComposeFused(f, f, f) << std::endl;
+	std::cout << "Cubed Tilt  is " << ComposeTilt(t, t, t) << std::endl;
+	std::cout << std::endl;
 
 	// Final message
 	std::cout << "But it does not stop there..." << std::endl;
 	std::cout << "Check out the library header(s) for a full list of available functions!" << std::endl;
-	std::cout<< std::endl;
+	std::cout << std::endl;
 }
 // EOF

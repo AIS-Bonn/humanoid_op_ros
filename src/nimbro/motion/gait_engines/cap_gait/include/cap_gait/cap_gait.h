@@ -22,6 +22,9 @@
 #include <rc_utils/ew_integrator.h>
 #include <rc_utils/mean_filter.h>
 #include <rc_utils/wlbf_filter.h>
+#include <rc_utils/wlbf_filter_nd.h>
+#include <rc_utils/hold_filter.h>
+#include <feed_gait/model/tilt_phase/tripendulum_model.h>
 
 // Includes - Library
 #include <Eigen/Core>
@@ -270,6 +273,15 @@ namespace cap_gait
 		double gyroXFeed;
 		double gyroYFeed;
 
+		// Basic step size adaptation
+		void resetStepSize();
+		void configStepSize();
+		double updateStepSize(double fusedX, double fusedY);
+		rc_utils::WLBFFilter2D syncPhaseFilter;
+		tripendulum::TriPendModel stepTriPendModelSag;
+		rc_utils::HoldMinFilter stepGcvXBHoldFilter;
+		rc_utils::HoldMaxFilter stepGcvXFHoldFilter;
+
 		//
 		// Capture step variables
 		//
@@ -450,6 +462,15 @@ namespace cap_gait
 			PM_FEEDBACK_GYRO_Y,
 			PM_TIMING_FEED_WEIGHT,
 			PM_TIMING_FREQ_DELTA,
+			PM_STEPSIZE_SYNCPHASEY,
+			PM_STEPSIZE_SYNCDERIVY,
+			PM_STEPSIZE_THETABM,
+			PM_STEPSIZE_THETAMF,
+			PM_STEPSIZE_CROSSENERGY_B,
+			PM_STEPSIZE_CROSSENERGY_F,
+			PM_STEPSIZE_GCVDELTAX_B,
+			PM_STEPSIZE_GCVDELTAX_F,
+			PM_STEPSIZE_GCVDELTAX,
 			PM_GAIT_FREQUENCY,
 			PM_REM_GAIT_PHASE,
 			PM_TIMETOSTEP,

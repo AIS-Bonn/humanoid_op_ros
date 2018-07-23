@@ -62,7 +62,7 @@ public:
 	{
 		LimpState ms;
 		ms.reset(); // Just to be safe
-		setState(ms, Vec3f(0.0, 0.0, 0.0)); // TODO: This is probably not such a good idea as a zero LimpState is actually highly atypical and a situation that is in unstable equilibrium, leading to possibly weird timeToStep's and so on.
+		setState(ms, Vec3f(0.0, 0.0, 0.0));
 		updateInputData(systemIterationTime, 0.0, 0.0);
 	}
 

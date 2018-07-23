@@ -213,7 +213,8 @@ namespace gait
 		void callbackPlotData();
 		enum PMIDS
 		{
-			PM_NOMINAL_DT = 0,
+			PM_EXEC_TIME = 0,
+			PM_NOMINAL_DT,
 			PM_TRUE_DT,
 			PM_GAITCMD_LIN_VEL_X,
 			PM_GAITCMD_LIN_VEL_Y,
@@ -235,6 +236,7 @@ namespace gait
 			PM_GAIT_ODOM_X,
 			PM_GAIT_ODOM_Y,
 			PM_GAIT_ODOM_Z,
+			PM_GAIT_ODOM_JUMP,
 			PM_GAIT_ODOM_ID,
 			PM_COUNT
 		};

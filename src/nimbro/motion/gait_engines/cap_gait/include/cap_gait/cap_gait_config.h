@@ -199,6 +199,7 @@ namespace cap_gait
 		 , basicEnableHipAngleY   (CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableHipAngleY", false)
 		 , basicEnableTiming      (CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableTiming", false)
 		 , basicEnableVirtualSlope(CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableVirtualSlope", false)
+		 , basicEnableStepSizeX   (CONFIG_PARAM_PATH + "CL/basicFeedback/enable/enableStepSizeX", false)
 		 
 		 , basicFeedBiasArmAngleX (CONFIG_PARAM_PATH + "CL/basicFeedback/feedbackBias/biasArmAngleX", -0.5, 0.01, 0.5, 0.0)
 		 , basicFeedBiasArmAngleY (CONFIG_PARAM_PATH + "CL/basicFeedback/feedbackBias/biasArmAngleY", -0.5, 0.01, 0.5, 0.0)
@@ -306,6 +307,21 @@ namespace cap_gait
 		 , virtualSlopeGainDsc    (CONFIG_PARAM_PATH + "CL/basicFeedback/virtualSlope/virtualSlopeGainDsc", 0.0, 0.02, 2.0, 0.0)
 		 , virtualSlopeMidAngle   (CONFIG_PARAM_PATH + "CL/basicFeedback/virtualSlope/virtualSlopeMidAngle", -0.5, 0.01, 0.5, 0.0)
 		 , virtualSlopeMinAngle   (CONFIG_PARAM_PATH + "CL/basicFeedback/virtualSlope/virtualSlopeMinAngle", 0.0, 0.01, 1.0, 0.1)
+
+		 , legScaleTip            (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/legScaleTip", 0.1, 0.01, 1.0, 0.45)
+		 , syncPhaseFilterN       (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/syncFilterN", 1, 1, 50, 25)
+		 , stepSTPMCrossingPhaseB (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/sagTriPendModel/crossingPhaseYB", -0.7, 0.01, 0.0, -0.4)
+		 , stepSTPMCrossingPhaseF (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/sagTriPendModel/crossingPhaseYF", 0.0, 0.01, 0.7, 0.4)
+		 , stepSTPMCsqConstBF     (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/sagTriPendModel/CsqConstBF", 2.0, 0.1, 30.0, 10.0)
+		 , stepSTPMCsqConstM      (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/sagTriPendModel/CsqConstM", 2.0, 0.1, 30.0, 10.0)
+		 , stepSCrossingEMinB     (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/sagCrossingEnergy/energyMinB", -0.1, 0.001, 0.0, 0.0)
+		 , stepSCrossingEMinF     (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/sagCrossingEnergy/energyMinF", -0.1, 0.001, 0.0, 0.0)
+		 , stepSCrossingEDeadRadB (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/sagCrossingEnergy/energyDeadRadiusB", 0.0, 0.0002, 0.02, 0.0)
+		 , stepSCrossingEDeadRadF (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/sagCrossingEnergy/energyDeadRadiusF", 0.0, 0.0002, 0.02, 0.0)
+		 , stepSCrossingEToGcvX   (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/sagCrossingEnergy/energyToGcvXScaler", 0.0, 0.5, 120.0, 0.0)
+		 , stepGcvXHoldFilterN    (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/gcvDeltaX/holdFilterN", 1, 1, 40, 10)
+		 , stepGcvDeltaXMaxAbs    (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/gcvDeltaX/deltaMaxAbs", 0.0, 0.05, 1.5, 1.0)
+		 , stepGcvDeltaXBuf       (CONFIG_PARAM_PATH + "CL/basicFeedback/stepSize/gcvDeltaX/deltaBuf", 0.0, 0.01, 0.2, 0.1)
 		 
 		 , cmdAllowCLStepSizeX    (CONFIG_PARAM_PATH + "CL/cmd/allowCLStepSizeX", false)
 		 , cmdAllowCLStepSizeY    (CONFIG_PARAM_PATH + "CL/cmd/allowCLStepSizeY", false)
@@ -580,6 +596,7 @@ namespace cap_gait
 		config_server::Parameter<bool>  basicEnableHipAngleY;
 		config_server::Parameter<bool>  basicEnableTiming; // Note: To enable basic timing feedback, cmdUseCLTiming must also be true!
 		config_server::Parameter<bool>  basicEnableVirtualSlope;
+		config_server::Parameter<bool>  basicEnableStepSizeX;
 
 		config_server::Parameter<float> basicFeedBiasArmAngleX;
 		config_server::Parameter<float> basicFeedBiasArmAngleY;
@@ -687,6 +704,21 @@ namespace cap_gait
 		config_server::Parameter<float> virtualSlopeGainDsc;    //!< @brief Gradient of the virtual slope with respect to the fused pitch angle (after deadband has been applied) when walking down a virtual slope
 		config_server::Parameter<float> virtualSlopeMidAngle;   //!< @brief Fused pitch angle for which the (offset-less) virtual slope should be zero
 		config_server::Parameter<float> virtualSlopeMinAngle;   //!< @brief Minimum radius of the fused pitch angle from virtualSlopeMidAngle before virtual slope starts being applied with a certain gradient (i.e. radius of deadband)
+
+		config_server::Parameter<float> legScaleTip;            //!< @brief Kinematics tip leg scale, as for humanoid kinematics
+		config_server::Parameter<int>   syncPhaseFilterN;       //!< @brief Number of points to use for the synchronised tilt phase value/derivative filter
+		config_server::Parameter<float> stepSTPMCrossingPhaseB; //!< @brief Backwards crossing tilt phase Y of the sagittal tripendulum model
+		config_server::Parameter<float> stepSTPMCrossingPhaseF; //!< @brief Forwards crossing tilt phase Y of the sagittal tripendulum model
+		config_server::Parameter<float> stepSTPMCsqConstBF;     //!< @brief Pendulum constant (C^2, in inverse units of tip leg scale) of the forwards and backwards pendulums in the sagittal tripendulum model (theoretically this value should be ~ g = 9.81)
+		config_server::Parameter<float> stepSTPMCsqConstM;      //!< @brief Pendulum constant (C^2, in inverse units of tip leg scale) of the middle pendulum in the sagittal tripendulum model
+		config_server::Parameter<float> stepSCrossingEMinB;     //!< @brief Minimum backwards crossing energy above which sagittal step size adjustments are activated
+		config_server::Parameter<float> stepSCrossingEMinF;     //!< @brief Minimum forwards crossing energy above which sagittal step size adjustments are activated
+		config_server::Parameter<float> stepSCrossingEDeadRadB; //!< @brief Smooth deadband radius to apply when the minimum backwards crossing energy has been exceeded
+		config_server::Parameter<float> stepSCrossingEDeadRadF; //!< @brief Smooth deadband radius to apply when the minimum forwards crossing energy has been exceeded
+		config_server::Parameter<float> stepSCrossingEToGcvX;   //!< @brief Scale factor to go from deadbanded crossing energy to gcv X
+		config_server::Parameter<int>   stepGcvXHoldFilterN;    //!< @brief Number of points to use for the sagittal step size adjustment hold filters
+		config_server::Parameter<float> stepGcvDeltaXMaxAbs;    //!< @brief Maximum allowed adjustment of gcv X based on the state of the sagittal tripendulum model
+		config_server::Parameter<float> stepGcvDeltaXBuf;       //!< @brief Buffer for soft coercion of the allowed adjustment of gcv X
 		///@}
 
 		//! @name Capture step parameters

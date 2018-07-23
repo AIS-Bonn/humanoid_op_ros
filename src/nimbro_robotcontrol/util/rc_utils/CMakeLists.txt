@@ -4,10 +4,12 @@ project(rc_utils)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS tf cmake_modules)
+find_package(catkin REQUIRED COMPONENTS tf test_utilities cmake_modules)
 
 # Find Eigen
-find_package(Eigen3)
+find_package(PkgConfig)
+pkg_search_module(Eigen3 REQUIRED eigen3)
+
 if(EIGEN3_FOUND)
 	set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 else()
@@ -103,6 +105,36 @@ catkin_add_gtest(test_golay
 	test/test_golay.cpp
 )
 target_link_libraries(test_golay
+	rc_utils
+	${catkin_LIBRARIES}
+	${GTEST_LIBRARIES}
+)
+
+## Deadband class test
+catkin_add_gtest(test_deadband
+	test/test_deadband.cpp
+)
+target_link_libraries(test_deadband
+	rc_utils
+	${catkin_LIBRARIES}
+	${GTEST_LIBRARIES}
+)
+
+## Mean filter test
+catkin_add_gtest(test_mean_filter
+	test/test_mean_filter.cpp
+)
+target_link_libraries(test_mean_filter
+	rc_utils
+	${catkin_LIBRARIES}
+	${GTEST_LIBRARIES}
+)
+
+## WLBF filter test
+catkin_add_gtest(test_wlbf_filter
+	test/test_wlbf_filter.cpp
+)
+target_link_libraries(test_wlbf_filter
 	rc_utils
 	${catkin_LIBRARIES}
 	${GTEST_LIBRARIES}

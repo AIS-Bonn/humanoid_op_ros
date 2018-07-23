@@ -9,6 +9,7 @@
 // Includes
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_arithmetic.hpp>
+#include <limits>
 #include <cmath>
 
 // Robotcontrol utilities namespace
@@ -54,7 +55,7 @@ namespace rc_utils
 			// Update the settling time
 			if(!std::isfinite(Ts))
 			{
-				m_Ts = INFINITY;
+				m_Ts = std::numeric_limits<double>::infinity();
 				m_alpha = 0.0;
 			}
 			else if(Ts <= 0.0)
@@ -94,11 +95,12 @@ namespace rc_utils
 		bool isFrozen() const { return m_freeze; }
 		
 		//! Update the low pass filter with a new input data value
-		void put(const ValueType& value)
+		ValueType put(const ValueType& value)
 		{
 			// Update the low pass filter
 			if(!m_freeze)
 				m_value += m_alpha*(value - m_value);
+			return m_value;
 		}
 		
 		//! Static function to compute an alpha value from a 90% settling time @p Ts based on a nominal time step @p dT

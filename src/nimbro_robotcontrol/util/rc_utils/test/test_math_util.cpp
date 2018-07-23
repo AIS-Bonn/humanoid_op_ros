@@ -5,10 +5,13 @@
 #include <rc_utils/math_funcs.h>
 #include <rc_utils/math_spline.h>
 #include <rc_utils/math_vec_mat.h>
+#include <test_utilities/test_misc.h>
 #include <gtest/gtest.h>
+#include <cmath>
 
 // Namespaces
 using namespace rc_utils;
+using namespace testutilities;
 
 //
 // Math functions tests
@@ -160,174 +163,423 @@ TEST(MathFuncsTest, test_sign)
 	EXPECT_EQ( 1, sign0(d));
 }
 
-// Test: coerce, coerceAbs, coerceMax, coerceMin
+// Test class
+struct TestCoerce
+{
+	template<typename T> void testCoerce(T exp, bool expcoerced, T x, T min, T max)
+	{
+		bool coerced = !expcoerced;
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, x, min, max);
+		EXPECT_THAT_EQ(T, exp, coerce(x, min, max));
+		EXPECT_THAT_EQ(T, exp, coerce(x, min, max, coerced));
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceAbs(T exp, bool expcoerced, T x, T maxAbs)
+	{
+		bool coerced = !expcoerced;
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, x, maxAbs);
+		EXPECT_THAT_EQ(T, exp, coerceAbs(x, maxAbs));
+		EXPECT_THAT_EQ(T, exp, coerceAbs(x, maxAbs, coerced));
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceMax(T exp, bool expcoerced, T x, T max)
+	{
+		bool coerced = !expcoerced;
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, x, max);
+		EXPECT_THAT_EQ(T, exp, coerceMax(x, max));
+		EXPECT_THAT_EQ(T, exp, coerceMax(x, max, coerced));
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceMin(T exp, bool expcoerced, T x, T min)
+	{
+		bool coerced = !expcoerced;
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, x, min);
+		EXPECT_THAT_EQ(T, exp, coerceMin(x, min));
+		EXPECT_THAT_EQ(T, exp, coerceMin(x, min, coerced));
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceEllP(T exp, bool expcoerced, T r, T theta, T maxAbsX, T maxAbsY)
+	{
+		bool coerced = !expcoerced;
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, r, theta, maxAbsX, maxAbsY);
+		EXPECT_THAT_EQ(T, exp, coerceEllP(r, theta, maxAbsX, maxAbsY));
+		EXPECT_THAT_EQ(T, exp, coerceEllP(r, theta, maxAbsX, maxAbsY, coerced));
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceEllC(T expX, T expY, bool expcoerced, T x, T y, T maxAbsX, T maxAbsY)
+	{
+		T retX, retY;
+		bool coerced;
+		std::string args = argsAsString(typeid(T).name(), expX, expY, expcoerced, x, y, maxAbsX, maxAbsY);
+		retX = x; retY = y;
+		coerceEllC(retX, retY, maxAbsX, maxAbsY);
+		EXPECT_THAT_UTEQ(T, expX, retX);
+		EXPECT_THAT_UTEQ(T, expY, retY);
+		retX = x; retY = y; coerced = !expcoerced;
+		coerceEllC(retX, retY, maxAbsX, maxAbsY, coerced);
+		EXPECT_THAT_UTEQ(T, expX, retX);
+		EXPECT_THAT_UTEQ(T, expY, retY);
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+		retX = NAN; retY = NAN;
+		coerceEllC(x, y, maxAbsX, maxAbsY, retX, retY);
+		EXPECT_THAT_UTEQ(T, expX, retX);
+		EXPECT_THAT_UTEQ(T, expY, retY);
+		retX = NAN; retY = NAN; coerced = !expcoerced;
+		coerceEllC(x, y, maxAbsX, maxAbsY, retX, retY, coerced);
+		EXPECT_THAT_UTEQ(T, expX, retX);
+		EXPECT_THAT_UTEQ(T, expY, retY);
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+};
+
+// Test: coerce, coerceAbs, coerceMax, coerceMin, coerceEllP, coerceEllC
 TEST(MathFuncsTest, test_coerce)
 {
-	// Test the standard overloads
-	EXPECT_EQ(2, coerce(1, 2, 7));
-	EXPECT_EQ(5, coerce(5, 2, 7));
-	EXPECT_EQ(7, coerce(9, 2, 7));
-	EXPECT_EQ(4, coerce(6, 7, 2));
-	EXPECT_EQ(2.0, coerce(1.0, 2.0, 7.0));
-	EXPECT_EQ(5.0, coerce(5.0, 2.0, 7.0));
-	EXPECT_EQ(7.0, coerce(9.0, 2.0, 7.0));
-	EXPECT_EQ(4.5, coerce(6.0, 7.0, 2.0));
-	EXPECT_EQ(-8.0, coerceAbs(-9.0, 8.0));
-	EXPECT_EQ( 1.0, coerceAbs( 1.0, 8.0));
-	EXPECT_EQ( 8.0, coerceAbs( 9.0, 8.0));
-	EXPECT_EQ(-5.0, coerceMax( 0.0,-5.0));
-	EXPECT_EQ(-8.0, coerceMax(-8.0,-5.0));
-	EXPECT_EQ( 0.0, coerceMin( 0.0,-5.0));
-	EXPECT_EQ(-5.0, coerceMin(-8.0,-5.0));
-	EXPECT_EQ(0.7, coerceEll(0.7, 1.9, 2.0, 5.0));
-	EXPECT_EQ(4.0177692190172261, coerceEll(7.0, 1.9, 2.0, 5.0));
-	EXPECT_EQ(-4.0177692190172261, coerceEll(-6.0, 1.9, 2.0, 5.0));
-	EXPECT_EQ(2.0, coerceEll(7.0, 0.0, 2.0, 5.0));
-	EXPECT_EQ(5.0, coerceEll(7.0, M_PI_2, 2.0, 5.0));
-	EXPECT_EQ(2.0, coerceEll(7.0, M_PI, 2.0, 5.0));
-	EXPECT_EQ(5.0, coerceEll(7.0, 3.0*M_PI_2, 2.0, 5.0));
+	// Test class
+	TestCoerce T;
 
-	// Test boolean variant overloads
-	bool coerced = false;
-	EXPECT_EQ(2, coerce(1, 2, 7, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(2, coerce(2, 2, 7, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(5, coerce(5, 2, 7, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(7, coerce(7, 2, 7, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(7, coerce(9, 2, 7, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(4, coerce(6, 7, 2, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(4, coerce(4, 7, 2, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(2.0, coerce(1.0, 2.0, 7.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(2.0, coerce(2.0, 2.0, 7.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(5.0, coerce(5.0, 2.0, 7.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(7.0, coerce(7.0, 2.0, 7.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(7.0, coerce(9.0, 2.0, 7.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(4.5, coerce(6.0, 7.0, 2.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(4.5, coerce(4.5, 7.0, 2.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(-8.0, coerceAbs(-9.0, 8.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(-8.0, coerceAbs(-8.0, 8.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ( 1.0, coerceAbs( 1.0, 8.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ( 8.0, coerceAbs( 8.0, 8.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ( 8.0, coerceAbs( 9.0, 8.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ( 0.0, coerceAbs(-9.0, -8.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ( 0.0, coerceAbs( 0.0, -8.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(-5.0, coerceMax( 0.0, -5.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(-5.0, coerceMax(-5.0, -5.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(-8.0, coerceMax(-8.0, -5.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ( 0.0, coerceMin( 0.0, -5.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(-5.0, coerceMin(-5.0, -5.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(-5.0, coerceMin(-8.0, -5.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(0.7, coerceEll(0.7, 1.9, 2.0, 5.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(4.0177692190172261, coerceEll(7.0, 1.9, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(-4.0177692190172261, coerceEll(-6.0, 1.9, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(2.0, coerceEll(7.0, 0.0, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(5.0, coerceEll(7.0, M_PI_2, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(2.0, coerceEll(7.0, M_PI, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(5.0, coerceEll(7.0, 3.0*M_PI_2, 2.0, 5.0, coerced)); EXPECT_TRUE(coerced);
+	// Test coerce
+	T.testCoerce(2, true, 1, 2, 7);
+	T.testCoerce(2, false, 2, 2, 7);
+	T.testCoerce(5, false, 5, 2, 7);
+	T.testCoerce(7, false, 7, 2, 7);
+	T.testCoerce(7, true, 9, 2, 7);
+	T.testCoerce(4, true, 6, 7, 2);
+	T.testCoerce(4, true, 4, 7, 2);
+	T.testCoerce(2.0, true, 1.0, 2.0, 7.0);
+	T.testCoerce(2.0, false, 2.0, 2.0, 7.0);
+	T.testCoerce(5.0, false, 5.0, 2.0, 7.0);
+	T.testCoerce(7.0, false, 7.0, 2.0, 7.0);
+	T.testCoerce(7.0, true, 9.0, 2.0, 7.0);
+	T.testCoerce(4.5, true, 6.0, 7.0, 2.0);
+	T.testCoerce(4.5, true, 4.5, 7.0, 2.0);
+
+	// Test coerceAbs
+	T.testCoerceAbs(-8.0, true, -9.0, 8.0);
+	T.testCoerceAbs(-8.0, false, -8.0, 8.0);
+	T.testCoerceAbs(1.0, false, 1.0, 8.0);
+	T.testCoerceAbs(8.0, false, 8.0, 8.0);
+	T.testCoerceAbs(8.0, true, 9.0, 8.0);
+	T.testCoerceAbs(0.0, true, -9.0, -8.0);
+	T.testCoerceAbs(0.0, true, 0.0, -8.0);
+
+	// Test coerceMax
+	T.testCoerceMax(-5.0, true, 0.0, -5.0);
+	T.testCoerceMax(-5.0, false, -5.0, -5.0);
+	T.testCoerceMax(-8.0, false, -8.0, -5.0);
+
+	// Test coerceMin
+	T.testCoerceMin(0.0, false, 0.0, -5.0);
+	T.testCoerceMin(-5.0, false, -5.0, -5.0);
+	T.testCoerceMin(-5.0, true, -8.0, -5.0);
+
+	// Test coerceEllP
+	T.testCoerceEllP(0.7, false, 0.7, 1.9, 2.0, 5.0);
+	T.testCoerceEllP(4.0177692190172261, true, 7.0, 1.9, 2.0, 5.0);
+	T.testCoerceEllP(-4.0177692190172261, true, -6.0, 1.9, 2.0, 5.0);
+	T.testCoerceEllP(2.0, true, 7.0, 0.0, 2.0, 5.0);
+	T.testCoerceEllP(5.0, true, 7.0, M_PI_2, 2.0, 5.0);
+	T.testCoerceEllP(2.0, true, 7.0, M_PI, 2.0, 5.0);
+	T.testCoerceEllP(5.0, true, 7.0, 3.0*M_PI_2, 2.0, 5.0);
+	T.testCoerceEllP(2.0, true, 7.0, 0.0, 2.0, 0.0);
+	T.testCoerceEllP(0.0, true, 7.0, 0.01, 2.0, 0.0);
+	T.testCoerceEllP(0.0, true, 7.0, -0.01, 2.0, 0.0);
+	T.testCoerceEllP(0.0, true, 7.0, 1.57, 0.0, 5.0);
+	T.testCoerceEllP(0.0, true, 7.0, 1.571, 0.0, 5.0);
+	T.testCoerceEllP(0.0, true, 7.0, 1.2, 0.0, 0.0);
+
+	// Test coerceEllC
+	T.testCoerceEllC(0.7, 1.1, false, 0.7, 1.1, 2.0, 5.0);
+	T.testCoerceEllC(-1.2803687993289596, 3.8411063979868789, true, -2.2, 6.6, 2.0, 5.0);
+	T.testCoerceEllC(-1.2803687993289596, -3.8411063979868789, true, -3.3, -9.9, 2.0, 5.0);
+	T.testCoerceEllC(2.0, 0.0, true, 7.0, 0.0, 2.0, 5.0);
+	T.testCoerceEllC(0.0, 5.0, true, 0.0, 7.0, 2.0, 5.0);
+	T.testCoerceEllC(-2.0, 0.0, true, -7.0, 0.0, 2.0, 5.0);
+	T.testCoerceEllC(0.0, -5.0, true, 0.0, -7.0, 2.0, 5.0);
+	T.testCoerceEllC(2.0, 0.0, true, 7.0, 0.0, 2.0, 0.0);
+	T.testCoerceEllC(0.0, 0.0, true, 7.0, 0.01, 2.0, 0.0);
+	T.testCoerceEllC(0.0, 0.0, true, 7.0, -0.01, 2.0, 0.0);
+	T.testCoerceEllC(0.0, 5.0, true, 0.0, 7.0, 0.0, 5.0);
+	T.testCoerceEllC(0.0, 0.0, true, 0.01, 7.0, 0.0, 5.0);
+	T.testCoerceEllC(0.0, 0.0, true, -0.01, 7.0, 0.0, 5.0);
+	T.testCoerceEllC(0.0, 0.0, true, 1.3, 5.4, 0.0, 0.0);
 }
 
-// Test: coerceSoft, coerceSoftAbs, coerceSoftMax, coerceSoftMin
+// Test: EllipseAxes, collapseFlatEllipse
+TEST(MathFuncsTest, test_collapseFlatEllipse)
+{
+	// Declare variables
+	EllipseAxesd tmp;
+	tmp.a = tmp.b = NAN;
+
+	// Test a case
+	const EllipseAxesd EA1(3.0, 4.0);
+	EXPECT_EQ(3.0, EA1.a);
+	EXPECT_EQ(4.0, EA1.b);
+	tmp = EA1.collapsedFlat();
+	EXPECT_EQ(3.0, tmp.a);
+	EXPECT_EQ(4.0, tmp.b);
+	tmp = EA1;
+	EXPECT_EQ(3.0, tmp.a);
+	EXPECT_EQ(4.0, tmp.b);
+	tmp.collapseFlat();
+	EXPECT_EQ(3.0, tmp.a);
+	EXPECT_EQ(4.0, tmp.b);
+	tmp = collapseFlatEllipse(EA1.a, EA1.b);
+	EXPECT_EQ(3.0, tmp.a);
+	EXPECT_EQ(4.0, tmp.b);
+
+	// Test a case
+	const EllipseAxesd EA2(0.0, 4.0);
+	EXPECT_EQ(0.0, EA2.a);
+	EXPECT_EQ(4.0, EA2.b);
+	tmp = EA2.collapsedFlat();
+	EXPECT_EQ(0.0, tmp.a);
+	EXPECT_EQ(0.0, tmp.b);
+	tmp = EA2;
+	EXPECT_EQ(0.0, tmp.a);
+	EXPECT_EQ(4.0, tmp.b);
+	tmp.collapseFlat();
+	EXPECT_EQ(0.0, tmp.a);
+	EXPECT_EQ(0.0, tmp.b);
+	tmp = collapseFlatEllipse(EA2.a, EA2.b);
+	EXPECT_EQ(0.0, tmp.a);
+	EXPECT_EQ(0.0, tmp.b);
+
+	// Test a case
+	const EllipseAxesd EA3(3.0, 0.0);
+	EXPECT_EQ(3.0, EA3.a);
+	EXPECT_EQ(0.0, EA3.b);
+	tmp = EA3.collapsedFlat();
+	EXPECT_EQ(0.0, tmp.a);
+	EXPECT_EQ(0.0, tmp.b);
+	tmp = EA3;
+	EXPECT_EQ(3.0, tmp.a);
+	EXPECT_EQ(0.0, tmp.b);
+	tmp.collapseFlat();
+	EXPECT_EQ(0.0, tmp.a);
+	EXPECT_EQ(0.0, tmp.b);
+	tmp = collapseFlatEllipse(EA3.a, EA3.b);
+	EXPECT_EQ(0.0, tmp.a);
+	EXPECT_EQ(0.0, tmp.b);
+
+	// Test a case
+	const EllipseAxesd EA4(0.0, 0.0);
+	EXPECT_EQ(0.0, EA4.a);
+	EXPECT_EQ(0.0, EA4.b);
+	tmp = EA4.collapsedFlat();
+	EXPECT_EQ(0.0, tmp.a);
+	EXPECT_EQ(0.0, tmp.b);
+	tmp = EA4;
+	EXPECT_EQ(0.0, tmp.a);
+	EXPECT_EQ(0.0, tmp.b);
+	tmp.collapseFlat();
+	EXPECT_EQ(0.0, tmp.a);
+	EXPECT_EQ(0.0, tmp.b);
+	tmp = collapseFlatEllipse(EA4.a, EA4.b);
+	EXPECT_EQ(0.0, tmp.a);
+	EXPECT_EQ(0.0, tmp.b);
+
+	// Test a case
+	EllipseAxesd EA5(3.0, 0.0, true);
+	EXPECT_EQ(0.0, EA5.a);
+	EXPECT_EQ(0.0, EA5.b);
+	EllipseAxesd EA6(0.0, 4.0, false);
+	EXPECT_EQ(0.0, EA6.a);
+	EXPECT_EQ(4.0, EA6.b);
+	EllipseAxesd EA7(3.0, 4.0, false);
+	EXPECT_EQ(3.0, EA7.a);
+	EXPECT_EQ(4.0, EA7.b);
+}
+
+// Test: ellipseRadius
+TEST(MathFuncsTest, test_ellipseRadius)
+{
+	// Test the polar form
+	EXPECT_DOUBLE_EQ(4.0, ellipseRadius(4.0, 6.0, 0.0));
+	EXPECT_DOUBLE_EQ(6.0, ellipseRadius(4.0, 6.0, M_PI_2));
+	EXPECT_DOUBLE_EQ(4.0, ellipseRadius(4.0, 6.0, M_PI));
+	EXPECT_DOUBLE_EQ(6.0, ellipseRadius(4.0, 6.0, 3*M_PI_2));
+	EXPECT_DOUBLE_EQ(2.1552636243212988, ellipseRadius(-3.0, 2.0, M_PI/3));
+	EXPECT_DOUBLE_EQ(2.3533936216582081, ellipseRadius(-3.0, 2.0, 3*M_PI_4));
+	EXPECT_DOUBLE_EQ(2.6186146828319088, ellipseRadius(-3.0, 2.0, 7*M_PI/6));
+	EXPECT_DOUBLE_EQ(2.3533936216582081, ellipseRadius(-3.0, 2.0, -M_PI_4));
+	EXPECT_DOUBLE_EQ(4.0, ellipseRadius(4.0, 0.0, 0.0));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(4.0, 0.0, 0.01));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(4.0, 0.0, -0.01));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, 6.0, 1.57));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, 6.0, 1.571));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, 0.0, 1.3));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, 0.0, 0.0));
+
+	// Test the cartesian form
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(4.0, 6.0, 0.0, 0.0));
+	EXPECT_DOUBLE_EQ(4.0, ellipseRadius(4.0, 6.0, 2.0, 0.0));
+	EXPECT_DOUBLE_EQ(6.0, ellipseRadius(4.0, 6.0, 0.0, -0.5));
+	EXPECT_DOUBLE_EQ(4.7067872433164171, ellipseRadius(4.0, 6.0, 2.0, 2.0));
+	EXPECT_DOUBLE_EQ(5.6568542494923806, ellipseRadius(4.0, 6.0, -1.0, 3.0));
+	EXPECT_DOUBLE_EQ(4.1159660434202126, ellipseRadius(4.0, 6.0, 3.0, 1.0));
+	EXPECT_DOUBLE_EQ(4.2426406871192848, ellipseRadius(4.0, -6.0, -2.0, 1.0));
+	EXPECT_DOUBLE_EQ(4.0, ellipseRadius(4.0, 0.0, 5.0, 0.0));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(4.0, 0.0, 5.0, 0.01));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(4.0, 0.0, 5.0, -0.01));
+	EXPECT_DOUBLE_EQ(6.0, ellipseRadius(0.0, -6.0, 0.0, 0.1));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, -6.0, 0.001, 0.1));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, -6.0, -0.001, 0.1));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, 0.0, 1.4, 0.7));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, 0.0, -0.3, 0.0));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, 0.0, 0.0, 0.7));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, 0.0, 0.0, 0.0));
+}
+
+// Test class
+struct TestCoerceSoft
+{
+	template<typename T> void testCoerceSoft(T exp, bool expcoerced, T x, T min, T max, T buf)
+	{
+		bool coerced = !expcoerced;
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, x, min, max, buf);
+		EXPECT_THAT_EQ(T, exp, coerceSoft(x, min, max, buf));
+		EXPECT_THAT_EQ(T, exp, coerceSoft(x, min, max, buf, coerced));
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceSoftAbs(T exp, bool expcoerced, T x, T maxAbs, T buf)
+	{
+		bool coerced = !expcoerced;
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, x, maxAbs, buf);
+		EXPECT_THAT_EQ(T, exp, coerceSoftAbs(x, maxAbs, buf));
+		EXPECT_THAT_EQ(T, exp, coerceSoftAbs(x, maxAbs, buf, coerced));
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceSoftMax(T exp, bool expcoerced, T x, T max, T buf)
+	{
+		bool coerced = !expcoerced;
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, x, max, buf);
+		EXPECT_THAT_EQ(T, exp, coerceSoftMax(x, max, buf));
+		EXPECT_THAT_EQ(T, exp, coerceSoftMax(x, max, buf, coerced));
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceSoftMin(T exp, bool expcoerced, T x, T min, T buf)
+	{
+		bool coerced = !expcoerced;
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, x, min, buf);
+		EXPECT_THAT_EQ(T, exp, coerceSoftMin(x, min, buf));
+		EXPECT_THAT_EQ(T, exp, coerceSoftMin(x, min, buf, coerced));
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceSoftEllP(T exp, bool expcoerced, T r, T theta, T maxAbsX, T maxAbsY, T buf)
+	{
+		bool coerced = !expcoerced;
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, r, theta, maxAbsX, maxAbsY, buf);
+		EXPECT_THAT_EQ(T, exp, coerceSoftEllP(r, theta, maxAbsX, maxAbsY, buf));
+		EXPECT_THAT_EQ(T, exp, coerceSoftEllP(r, theta, maxAbsX, maxAbsY, buf, coerced));
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceSoftEllC(T expX, T expY, bool expcoerced, T x, T y, T maxAbsX, T maxAbsY, T buf)
+	{
+		T retX, retY;
+		bool coerced;
+		std::string args = argsAsString(typeid(T).name(), expX, expY, expcoerced, x, y, maxAbsX, maxAbsY, buf);
+		retX = x; retY = y;
+		coerceSoftEllC(retX, retY, maxAbsX, maxAbsY, buf);
+		EXPECT_THAT_UTEQ(T, expX, retX);
+		EXPECT_THAT_UTEQ(T, expY, retY);
+		retX = x; retY = y; coerced = !expcoerced;
+		coerceSoftEllC(retX, retY, maxAbsX, maxAbsY, buf, coerced);
+		EXPECT_THAT_UTEQ(T, expX, retX);
+		EXPECT_THAT_UTEQ(T, expY, retY);
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+		retX = NAN; retY = NAN;
+		coerceSoftEllC(x, y, maxAbsX, maxAbsY, buf, retX, retY);
+		EXPECT_THAT_UTEQ(T, expX, retX);
+		EXPECT_THAT_UTEQ(T, expY, retY);
+		retX = NAN; retY = NAN; coerced = !expcoerced;
+		coerceSoftEllC(x, y, maxAbsX, maxAbsY, buf, retX, retY, coerced);
+		EXPECT_THAT_UTEQ(T, expX, retX);
+		EXPECT_THAT_UTEQ(T, expY, retY);
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+};
+
+// Test: coerceSoft, coerceSoftAbs, coerceSoftMax, coerceSoftMin, coerceSoftEllP, coerceSoftEllC
 TEST(MathFuncsTest, test_coerceSoft)
 {
-	// Check that we are getting the expected values for coerceSoft
-	EXPECT_DOUBLE_EQ(2.0248935341839318, coerceSoft(1.0, 2.0, 8.0, 0.5));
-	EXPECT_DOUBLE_EQ(7.9751064658160677, coerceSoft(9.0, 2.0, 8.0, 0.5));
-	EXPECT_EQ(5.0, coerceSoft(5.0, 2.0, 8.0, 0.5));
-	EXPECT_EQ(2.0, coerceSoft(1.0, 2.0, 8.0, 0.0));
-	EXPECT_EQ(5.0, coerceSoft(5.0, 2.0, 8.0, 0.0));
-	EXPECT_EQ(8.0, coerceSoft(9.0, 2.0, 8.0, 0.0));
-	EXPECT_DOUBLE_EQ(3.5472799993675128, coerceSoft(1.0, 2.0, 8.0, 10.0));
-	EXPECT_DOUBLE_EQ(5.0000000000000000, coerceSoft(5.0, 2.0, 8.0, 10.0));
-	EXPECT_DOUBLE_EQ(6.4527200006324872, coerceSoft(9.0, 2.0, 8.0, 10.0));
+	// Test class
+	TestCoerceSoft T;
 
-	// Check that we are getting the expected values for coerceSoftAbs
-	EXPECT_DOUBLE_EQ(-7.3835075901459835, coerceSoftAbs(-9.0, 8.0, 2.5));
-	EXPECT_DOUBLE_EQ( 7.3835075901459835, coerceSoftAbs( 9.0, 8.0, 2.5));
-	EXPECT_EQ( 1.0, coerceSoftAbs( 1.0, 8.0, 2.5));
-	EXPECT_EQ(-8.0, coerceSoftAbs(-9.0, 8.0, 0.0));
-	EXPECT_EQ( 1.0, coerceSoftAbs( 1.0, 8.0, 0.0));
-	EXPECT_EQ( 8.0, coerceSoftAbs( 9.0, 8.0, 0.0));
-	EXPECT_DOUBLE_EQ(0.0000000000000000, coerceSoftAbs(0.0, 8.0, 10.0));
-	EXPECT_DOUBLE_EQ(0.7782291165556883, coerceSoftAbs(1.0, 8.0, 10.0));
-	EXPECT_DOUBLE_EQ(3.2042274025080628, coerceSoftAbs(5.0, 8.0, 10.0));
-	EXPECT_DOUBLE_EQ(4.8152638489847330, coerceSoftAbs(9.0, 8.0, 10.0));
+	// Test coerceSoft
+	T.testCoerceSoft(2.0248935341839318, true, 1.0, 2.0, 8.0, 0.5);
+	T.testCoerceSoft(7.9751064658160677, true, 9.0, 2.0, 8.0, 0.5);
+	T.testCoerceSoft(5.0, false, 5.0, 2.0, 8.0, 0.5);
+	T.testCoerceSoft(2.0, true, 1.0, 2.0, 8.0, 0.0);
+	T.testCoerceSoft(5.0, false, 5.0, 2.0, 8.0, 0.0);
+	T.testCoerceSoft(8.0, true, 9.0, 2.0, 8.0, 0.0);
+	T.testCoerceSoft(3.5472799993675128, true, 1.0, 2.0, 8.0, 10.0);
+	T.testCoerceSoft(5.0000000000000000, false, 5.0, 2.0, 8.0, 10.0);
+	T.testCoerceSoft(6.4527200006324872, true, 9.0, 2.0, 8.0, 10.0);
 
-	// Check that we are getting the expected values for coerceSoftMax
-	EXPECT_DOUBLE_EQ(-5.5518191617571633, coerceSoftMax(-5.0, -5.0, 1.5));
-	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, 1.5));
-	EXPECT_EQ(-5.0, coerceSoftMax(-4.5, -5.0, 0.0));
-	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, 0.0));
-	EXPECT_EQ(-5.0, coerceSoftMax(-4.5, -5.0, -1.0));
-	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, -1.0));
+	// Test coerceSoftAbs
+	T.testCoerceSoftAbs(-7.3835075901459835, true, -9.0, 8.0, 2.5);
+	T.testCoerceSoftAbs(7.3835075901459835, true, 9.0, 8.0, 2.5);
+	T.testCoerceSoftAbs(1.0, false, 1.0, 8.0, 2.5);
+	T.testCoerceSoftAbs(-8.0, true, -9.0, 8.0, 0.0);
+	T.testCoerceSoftAbs(1.0, false, 1.0, 8.0, 0.0);
+	T.testCoerceSoftAbs(8.0, true, 9.0, 8.0, 0.0);
+	T.testCoerceSoftAbs(0.0000000000000000, false, 0.0, 8.0, 10.0);
+	T.testCoerceSoftAbs(0.7782291165556883, true, 1.0, 8.0, 10.0);
+	T.testCoerceSoftAbs(3.2042274025080628, true, 5.0, 8.0, 10.0);
+	T.testCoerceSoftAbs(4.8152638489847330, true, 9.0, 8.0, 10.0);
 
-	// Check that we are getting the expected values for coerceSoftMin
-	EXPECT_DOUBLE_EQ(-4.4481808382428367, coerceSoftMin(-5.0, -5.0, 1.5));
-	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, 1.5));
-	EXPECT_EQ(-5.0, coerceSoftMin(-5.5, -5.0, 0.0));
-	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, 0.0));
-	EXPECT_EQ(-5.0, coerceSoftMin(-5.5, -5.0, -1.0));
-	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, -1.0));
+	// Test coerceSoftMax
+	T.testCoerceSoftMax(-5.5518191617571633, true, -5.0, -5.0, 1.5);
+	T.testCoerceSoftMax(-6.5, false, -6.5, -5.0, 1.5);
+	T.testCoerceSoftMax(-5.0, true, -4.5, -5.0, 0.0);
+	T.testCoerceSoftMax(-6.5, false, -6.5, -5.0, 0.0);
+	T.testCoerceSoftMax(-5.0, true, -4.5, -5.0, -1.0);
+	T.testCoerceSoftMax(-6.5, false, -6.5, -5.0, -1.0);
 
-	// Check that we are getting the expected values for coerceSoftEll
-	EXPECT_EQ(0.7, coerceSoftEll(0.7, 1.9, 2.0, 5.0, 1.0));
-	EXPECT_EQ(-2.4, coerceSoftEll(-2.4, 1.9, 2.0, 5.0, 1.0));
-	EXPECT_EQ(3.1843602357410350, coerceSoftEll(3.2, 1.9, 2.0, 5.0, 1.0));
-	EXPECT_EQ(3.9991252167894755, coerceSoftEll(7.0, 1.9, 2.0, 5.0, 1.0));
-	EXPECT_EQ(1.9975212478233337, coerceSoftEll(7.0, 0.0, 2.0, 5.0, 1.0));
-	EXPECT_EQ(4.9502129316321364, coerceSoftEll(7.0, M_PI_2, 2.0, 5.0, 1.0));
-	EXPECT_EQ(1.9975212478233337, coerceSoftEll(7.0, M_PI, 2.0, 5.0, 1.0));
-	EXPECT_EQ(4.9502129316321364, coerceSoftEll(7.0, 3.0*M_PI_2, 2.0, 5.0, 1.0));
+	// Test coerceSoftMin
+	T.testCoerceSoftMin(-4.4481808382428367, true, -5.0, -5.0, 1.5);
+	T.testCoerceSoftMin(-3.5, false, -3.5, -5.0, 1.5);
+	T.testCoerceSoftMin(-5.0, true, -5.5, -5.0, 0.0);
+	T.testCoerceSoftMin(-3.5, false, -3.5, -5.0, 0.0);
+	T.testCoerceSoftMin(-5.0, true, -5.5, -5.0, -1.0);
+	T.testCoerceSoftMin(-3.5, false, -3.5, -5.0, -1.0);
 
-	// Variable for checking whether coercion was necessary
-	bool coerced = false;
+	// Test coerceSoftEllP
+	T.testCoerceSoftEllP(0.7, false, 0.7, 1.9, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllP(-2.4, false, -2.4, 1.9, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllP(3.1843602357410350, true, 3.2, 1.9, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllP(3.9991252167894755, true, 7.0, 1.9, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllP(1.9975212478233337, true, 7.0, 0.0, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllP(4.9502129316321364, true, 7.0, M_PI_2, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllP(1.9975212478233337, true, 7.0, M_PI, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllP(4.9502129316321364, true, 7.0, 3.0*M_PI_2, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllP(1.9975212478233337, true, 7.0, 0.0, 2.0, 0.0, 1.0);
+	T.testCoerceSoftEllP(0.0, true, 7.0, 0.01, 2.0, 0.0, 1.0);
+	T.testCoerceSoftEllP(0.0, true, 7.0, -0.01, 2.0, 0.0, 1.0);
+	T.testCoerceSoftEllP(0.0, true, 7.0, 1.57, 0.0, 5.0, 1.0);
+	T.testCoerceSoftEllP(0.0, true, 7.0, 1.571, 0.0, 5.0, 1.0);
+	T.testCoerceSoftEllP(0.4998973901285135, true, 7.0, 1.2, 0.5, 0.5, 1.0);
+	T.testCoerceSoftEllP(0.0, true, 7.0, 1.2, 0.0, 0.0, 1.0);
 
-	// Check that we are getting the expected values for coerceSoft
-	EXPECT_DOUBLE_EQ(2.0248935341839318, coerceSoft(1.0, 2.0, 8.0, 0.5, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_DOUBLE_EQ(7.9751064658160677, coerceSoft(9.0, 2.0, 8.0, 0.5, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(5.0, coerceSoft(5.0, 2.0, 8.0, 0.5, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(2.0, coerceSoft(1.0, 2.0, 8.0, 0.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(5.0, coerceSoft(5.0, 2.0, 8.0, 0.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(8.0, coerceSoft(9.0, 2.0, 8.0, 0.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_DOUBLE_EQ(3.5472799993675128, coerceSoft(1.0, 2.0, 8.0, 10.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_DOUBLE_EQ(5.0000000000000000, coerceSoft(5.0, 2.0, 8.0, 10.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_DOUBLE_EQ(6.4527200006324872, coerceSoft(9.0, 2.0, 8.0, 10.0, coerced)); EXPECT_TRUE(coerced);
-
-	// Check that we are getting the expected values for coerceSoftAbs
-	EXPECT_DOUBLE_EQ(-7.3835075901459835, coerceSoftAbs(-9.0, 8.0, 2.5, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_DOUBLE_EQ( 7.3835075901459835, coerceSoftAbs( 9.0, 8.0, 2.5, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ( 1.0, coerceSoftAbs( 1.0, 8.0, 2.5, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(-8.0, coerceSoftAbs(-9.0, 8.0, 0.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ( 1.0, coerceSoftAbs( 1.0, 8.0, 0.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ( 8.0, coerceSoftAbs( 9.0, 8.0, 0.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_DOUBLE_EQ(0.0000000000000000, coerceSoftAbs(0.0, 8.0, 10.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_DOUBLE_EQ(0.7782291165556883, coerceSoftAbs(1.0, 8.0, 10.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_DOUBLE_EQ(3.2042274025080628, coerceSoftAbs(5.0, 8.0, 10.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_DOUBLE_EQ(4.8152638489847330, coerceSoftAbs(9.0, 8.0, 10.0, coerced)); EXPECT_TRUE(coerced);
-
-	// Check that we are getting the expected values for coerceSoftMax
-	EXPECT_DOUBLE_EQ(-5.5518191617571633, coerceSoftMax(-5.0, -5.0, 1.5, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, 1.5, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(-5.0, coerceSoftMax(-4.5, -5.0, 0.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, 0.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(-5.0, coerceSoftMax(-4.5, -5.0, -1.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(-6.5, coerceSoftMax(-6.5, -5.0, -1.0, coerced)); EXPECT_FALSE(coerced);
-
-	// Check that we are getting the expected values for coerceSoftMin
-	EXPECT_DOUBLE_EQ(-4.4481808382428367, coerceSoftMin(-5.0, -5.0, 1.5, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, 1.5, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(-5.0, coerceSoftMin(-5.5, -5.0, 0.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, 0.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(-5.0, coerceSoftMin(-5.5, -5.0, -1.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(-3.5, coerceSoftMin(-3.5, -5.0, -1.0, coerced)); EXPECT_FALSE(coerced);
-
-	// Check that we are getting the expected values for coerceSoftEll
-	EXPECT_EQ(0.7, coerceSoftEll(0.7, 1.9, 2.0, 5.0, 1.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(-2.4, coerceSoftEll(-2.4, 1.9, 2.0, 5.0, 1.0, coerced)); EXPECT_FALSE(coerced);
-	EXPECT_EQ(3.1843602357410350, coerceSoftEll(3.2, 1.9, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(3.9991252167894755, coerceSoftEll(7.0, 1.9, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(1.9975212478233337, coerceSoftEll(7.0, 0.0, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(4.9502129316321364, coerceSoftEll(7.0, M_PI_2, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(1.9975212478233337, coerceSoftEll(7.0, M_PI, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
-	EXPECT_EQ(4.9502129316321364, coerceSoftEll(7.0, 3.0*M_PI_2, 2.0, 5.0, 1.0, coerced)); EXPECT_TRUE(coerced);
+	// Test coerceSoftEllC
+	T.testCoerceSoftEllC(0.7, 1.9, false, 0.7, 1.9, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC(0.8, -2.3, false, 0.8, -2.3, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC(-0.9980415876987310, 2.9941247630961927, true, -1.0, 3.0, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC(-1.2740195694222953, 3.8220587082668849, true, -2.2, 6.6, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC(1.9975212478233337, 0.0, true, 7.0, 0.0, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC(0.0, 4.9502129316321364, true, 0.0, 7.0, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC(-1.9975212478233337, 0.0, true, -7.0, 0.0, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC(0.0, -4.9502129316321364, true, 0.0, -7.0, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC(1.9975212478233337, 0.0, true, 7.0, 0.0, 2.0, 0.0, 1.0);
+	T.testCoerceSoftEllC(0.0, 0.0, true, 7.0, 0.01, 2.0, 0.0, 1.0);
+	T.testCoerceSoftEllC(0.0, 0.0, true, 7.0, -0.01, 2.0, 0.0, 1.0);
+	T.testCoerceSoftEllC(0.0, 4.9502129316321364, true, 0.0, 7.0, 0.0, 5.0, 1.0);
+	T.testCoerceSoftEllC(0.0, 0.0, true, 0.01, 7.0, 0.0, 5.0, 1.0);
+	T.testCoerceSoftEllC(0.0, 0.0, true, -0.01, 7.0, 0.0, 5.0, 1.0);
+	T.testCoerceSoftEllC(0.2706844181193907, 0.4202731755011593, true, 3.8, 5.9, 0.5, 0.5, 1.0);
+	T.testCoerceSoftEllC(0.0, 0.0, true, 3.8, 5.9, 0.0, 0.0, 1.0);
 }
 
 // Test: interpolate
@@ -1054,66 +1306,274 @@ TEST(MathSplineTest, test_TrapVelSpline16)
 // Math vector matrix tests
 //
 
-// Test: eigenNormalized, eigenNormalize
-TEST(MathVecMatTest, test_eigenNormalization)
+// Test: normalize, eigenNormalize, eigenNormalizeDefX, eigenNormalizeDefY, eigenNormalizeDefZ (double)
+TEST(MathVecMatTest, test_eigenNormalizeDouble)
 {
-	//
-	// Float
-	//
-
 	// Test cases
-	Eigen::Vector2f vec2f(0.3, 0.4);
-	Eigen::Vector3f vec3f(1.2, 0.4, 0.3);
-	Eigen::Vector2f vec2fZero(0.0, 0.0);
-	Eigen::Vector3f vec3fZero(0.0, 0.0, 0.0);
+	Eigen::Vector2d vec2d(0.3, 0.4), vec2dTmp;
+	Eigen::Vector3d vec3d(1.2, 0.4, 0.3), vec3dTmp;
+	Eigen::Vector2d vec2dZero(0.0, 0.0), vec2dZeroTmp;
+	Eigen::Vector3d vec3dZero(0.0, 0.0, 0.0), vec3dZeroTmp;
 
-	// Check that we are getting the expected values for eigenNormalized
-	Eigen::Vector2f vec2fUnit = eigenNormalized(vec2f);
-	Eigen::Vector3f vec3fUnit = eigenNormalized(vec3f);
-	Eigen::Vector2f vec2fZeroUnit = eigenNormalized(vec2fZero);
-	Eigen::Vector3f vec3fZeroUnit = eigenNormalized(vec3fZero);
-	EXPECT_FLOAT_EQ(0.6, vec2fUnit.x());
-	EXPECT_FLOAT_EQ(0.8, vec2fUnit.y());
-	EXPECT_FLOAT_EQ(1.2/1.3, vec3fUnit.x());
-	EXPECT_FLOAT_EQ(0.4/1.3, vec3fUnit.y());
-	EXPECT_FLOAT_EQ(0.3/1.3, vec3fUnit.z());
-	EXPECT_FLOAT_EQ(1.0, vec2fZeroUnit.x());
-	EXPECT_FLOAT_EQ(0.0, vec2fZeroUnit.y());
-	EXPECT_FLOAT_EQ(1.0, vec3fZeroUnit.x());
-	EXPECT_FLOAT_EQ(0.0, vec3fZeroUnit.y());
-	EXPECT_FLOAT_EQ(0.0, vec3fZeroUnit.z());
+	// Check that we are getting the expected values for normalize
+	vec2dTmp = vec2d; vec2dTmp.normalize();
+	vec3dTmp = vec3d; vec3dTmp.normalize();
+	vec2dZeroTmp = vec2dZero; vec2dZeroTmp.normalize();
+	vec3dZeroTmp = vec3dZero; vec3dZeroTmp.normalize();
+	EXPECT_DOUBLE_EQ(0.6, vec2dTmp.x());
+	EXPECT_DOUBLE_EQ(0.8, vec2dTmp.y());
+	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dTmp.x());
+	EXPECT_DOUBLE_EQ(0.4/1.3, vec3dTmp.y());
+	EXPECT_DOUBLE_EQ(0.3/1.3, vec3dTmp.z());
+	EXPECT_TRUE(std::isnan(vec2dZeroTmp.x()));
+	EXPECT_TRUE(std::isnan(vec2dZeroTmp.y()));
+	EXPECT_TRUE(std::isnan(vec3dZeroTmp.x()));
+	EXPECT_TRUE(std::isnan(vec3dZeroTmp.y()));
+	EXPECT_TRUE(std::isnan(vec3dZeroTmp.z()));
 
-	// Check that we are getting the expected values for eigenNormalize
-	eigenNormalize(vec2f);
-	eigenNormalize(vec3f);
-	eigenNormalize(vec2fZero);
-	eigenNormalize(vec3fZero);
-	EXPECT_FLOAT_EQ(0.6, vec2f.x());
-	EXPECT_FLOAT_EQ(0.8, vec2f.y());
-	EXPECT_FLOAT_EQ(1.2/1.3, vec3f.x());
-	EXPECT_FLOAT_EQ(0.4/1.3, vec3f.y());
-	EXPECT_FLOAT_EQ(0.3/1.3, vec3f.z());
-	EXPECT_FLOAT_EQ(1.0, vec2fZero.x());
-	EXPECT_FLOAT_EQ(0.0, vec2fZero.y());
-	EXPECT_FLOAT_EQ(1.0, vec3fZero.x());
-	EXPECT_FLOAT_EQ(0.0, vec3fZero.y());
-	EXPECT_FLOAT_EQ(0.0, vec3fZero.z());
+	// Check that we are getting the expected values for eigenNormalize (zero)
+	vec2dTmp = vec2d; eigenNormalize(vec2dTmp);
+	vec3dTmp = vec3d; eigenNormalize(vec3dTmp);
+	vec2dZeroTmp = vec2dZero; eigenNormalize(vec2dZeroTmp);
+	vec3dZeroTmp = vec3dZero; eigenNormalize(vec3dZeroTmp);
+	EXPECT_DOUBLE_EQ(0.6, vec2dTmp.x());
+	EXPECT_DOUBLE_EQ(0.8, vec2dTmp.y());
+	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dTmp.x());
+	EXPECT_DOUBLE_EQ(0.4/1.3, vec3dTmp.y());
+	EXPECT_DOUBLE_EQ(0.3/1.3, vec3dTmp.z());
+	EXPECT_DOUBLE_EQ(0.0, vec2dZeroTmp.x());
+	EXPECT_DOUBLE_EQ(0.0, vec2dZeroTmp.y());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroTmp.x());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroTmp.y());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroTmp.z());
 
-	//
-	// Double
-	//
+	// Check that we are getting the expected values for eigenNormalize (custom)
+	Eigen::Vector2d vec2dCustom(0.7, 0.9);
+	Eigen::Vector3d vec3dCustom(0.7, 0.9, 0.2);
+	vec2dTmp = vec2d; eigenNormalize(vec2dTmp, vec2dCustom);
+	vec3dTmp = vec3d; eigenNormalize(vec3dTmp, vec3dCustom);
+	vec2dZeroTmp = vec2dZero; eigenNormalize(vec2dZeroTmp, vec2dCustom);
+	vec3dZeroTmp = vec3dZero; eigenNormalize(vec3dZeroTmp, vec3dCustom);
+	EXPECT_DOUBLE_EQ(0.6, vec2dTmp.x());
+	EXPECT_DOUBLE_EQ(0.8, vec2dTmp.y());
+	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dTmp.x());
+	EXPECT_DOUBLE_EQ(0.4/1.3, vec3dTmp.y());
+	EXPECT_DOUBLE_EQ(0.3/1.3, vec3dTmp.z());
+	EXPECT_DOUBLE_EQ(0.7, vec2dZeroTmp.x());
+	EXPECT_DOUBLE_EQ(0.9, vec2dZeroTmp.y());
+	EXPECT_DOUBLE_EQ(0.7, vec3dZeroTmp.x());
+	EXPECT_DOUBLE_EQ(0.9, vec3dZeroTmp.y());
+	EXPECT_DOUBLE_EQ(0.2, vec3dZeroTmp.z());
 
+	// Check that we are getting the expected values for eigenNormalizeDefX
+	vec2dTmp = vec2d; eigenNormalizeDefX(vec2dTmp);
+	vec3dTmp = vec3d; eigenNormalizeDefX(vec3dTmp);
+	vec2dZeroTmp = vec2dZero; eigenNormalizeDefX(vec2dZeroTmp);
+	vec3dZeroTmp = vec3dZero; eigenNormalizeDefX(vec3dZeroTmp);
+	EXPECT_DOUBLE_EQ(0.6, vec2dTmp.x());
+	EXPECT_DOUBLE_EQ(0.8, vec2dTmp.y());
+	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dTmp.x());
+	EXPECT_DOUBLE_EQ(0.4/1.3, vec3dTmp.y());
+	EXPECT_DOUBLE_EQ(0.3/1.3, vec3dTmp.z());
+	EXPECT_DOUBLE_EQ(1.0, vec2dZeroTmp.x());
+	EXPECT_DOUBLE_EQ(0.0, vec2dZeroTmp.y());
+	EXPECT_DOUBLE_EQ(1.0, vec3dZeroTmp.x());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroTmp.y());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroTmp.z());
+
+	// Check that we are getting the expected values for eigenNormalizeDefY
+	vec2dTmp = vec2d; eigenNormalizeDefY(vec2dTmp);
+	vec3dTmp = vec3d; eigenNormalizeDefY(vec3dTmp);
+	vec2dZeroTmp = vec2dZero; eigenNormalizeDefY(vec2dZeroTmp);
+	vec3dZeroTmp = vec3dZero; eigenNormalizeDefY(vec3dZeroTmp);
+	EXPECT_DOUBLE_EQ(0.6, vec2dTmp.x());
+	EXPECT_DOUBLE_EQ(0.8, vec2dTmp.y());
+	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dTmp.x());
+	EXPECT_DOUBLE_EQ(0.4/1.3, vec3dTmp.y());
+	EXPECT_DOUBLE_EQ(0.3/1.3, vec3dTmp.z());
+	EXPECT_DOUBLE_EQ(0.0, vec2dZeroTmp.x());
+	EXPECT_DOUBLE_EQ(1.0, vec2dZeroTmp.y());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroTmp.x());
+	EXPECT_DOUBLE_EQ(1.0, vec3dZeroTmp.y());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroTmp.z());
+
+	// Check that we are getting the expected values for eigenNormalizeDefZ
+	vec3dTmp = vec3d; eigenNormalizeDefZ(vec3dTmp);
+	vec3dZeroTmp = vec3dZero; eigenNormalizeDefZ(vec3dZeroTmp);
+	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dTmp.x());
+	EXPECT_DOUBLE_EQ(0.4/1.3, vec3dTmp.y());
+	EXPECT_DOUBLE_EQ(0.3/1.3, vec3dTmp.z());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroTmp.x());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroTmp.y());
+	EXPECT_DOUBLE_EQ(1.0, vec3dZeroTmp.z());
+}
+
+// Test: normalize, eigenNormalize, eigenNormalizeDefX, eigenNormalizeDefY, eigenNormalizeDefZ (float)
+TEST(MathVecMatTest, test_eigenNormalizeFloat)
+{
 	// Test cases
-	Eigen::Vector2d vec2d(0.3, 0.4);
-	Eigen::Vector3d vec3d(1.2, 0.4, 0.3);
-	Eigen::Vector2d vec2dZero(0.0, 0.0);
-	Eigen::Vector3d vec3dZero(0.0, 0.0, 0.0);
+	Eigen::Vector2f vec2f(0.3, 0.4), vec2fTmp;
+	Eigen::Vector3f vec3f(1.2, 0.4, 0.3), vec3fTmp;
+	Eigen::Vector2f vec2fZero(0.0, 0.0), vec2fZeroTmp;
+	Eigen::Vector3f vec3fZero(0.0, 0.0, 0.0), vec3fZeroTmp;
 
-	// Check that we are getting the expected values for eigenNormalized
-	Eigen::Vector2d vec2dUnit = eigenNormalized(vec2d);
-	Eigen::Vector3d vec3dUnit = eigenNormalized(vec3d);
-	Eigen::Vector2d vec2dZeroUnit = eigenNormalized(vec2dZero);
-	Eigen::Vector3d vec3dZeroUnit = eigenNormalized(vec3dZero);
+	// Check that we are getting the expected values for normalize
+	vec2fTmp = vec2f; vec2fTmp.normalize();
+	vec3fTmp = vec3f; vec3fTmp.normalize();
+	vec2fZeroTmp = vec2fZero; vec2fZeroTmp.normalize();
+	vec3fZeroTmp = vec3fZero; vec3fZeroTmp.normalize();
+	EXPECT_FLOAT_EQ(0.6, vec2fTmp.x());
+	EXPECT_FLOAT_EQ(0.8, vec2fTmp.y());
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fTmp.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fTmp.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fTmp.z());
+	EXPECT_TRUE(std::isnan(vec2fZeroTmp.x()));
+	EXPECT_TRUE(std::isnan(vec2fZeroTmp.y()));
+	EXPECT_TRUE(std::isnan(vec3fZeroTmp.x()));
+	EXPECT_TRUE(std::isnan(vec3fZeroTmp.y()));
+	EXPECT_TRUE(std::isnan(vec3fZeroTmp.z()));
+
+	// Check that we are getting the expected values for eigenNormalize (zero)
+	vec2fTmp = vec2f; eigenNormalize(vec2fTmp);
+	vec3fTmp = vec3f; eigenNormalize(vec3fTmp);
+	vec2fZeroTmp = vec2fZero; eigenNormalize(vec2fZeroTmp);
+	vec3fZeroTmp = vec3fZero; eigenNormalize(vec3fZeroTmp);
+	EXPECT_FLOAT_EQ(0.6, vec2fTmp.x());
+	EXPECT_FLOAT_EQ(0.8, vec2fTmp.y());
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fTmp.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fTmp.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fTmp.z());
+	EXPECT_FLOAT_EQ(0.0, vec2fZeroTmp.x());
+	EXPECT_FLOAT_EQ(0.0, vec2fZeroTmp.y());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroTmp.x());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroTmp.y());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroTmp.z());
+
+	// Check that we are getting the expected values for eigenNormalize (custom)
+	Eigen::Vector2f vec2fCustom(0.7, 0.9);
+	Eigen::Vector3f vec3fCustom(0.7, 0.9, 0.2);
+	vec2fTmp = vec2f; eigenNormalize(vec2fTmp, vec2fCustom);
+	vec3fTmp = vec3f; eigenNormalize(vec3fTmp, vec3fCustom);
+	vec2fZeroTmp = vec2fZero; eigenNormalize(vec2fZeroTmp, vec2fCustom);
+	vec3fZeroTmp = vec3fZero; eigenNormalize(vec3fZeroTmp, vec3fCustom);
+	EXPECT_FLOAT_EQ(0.6, vec2fTmp.x());
+	EXPECT_FLOAT_EQ(0.8, vec2fTmp.y());
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fTmp.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fTmp.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fTmp.z());
+	EXPECT_FLOAT_EQ(0.7, vec2fZeroTmp.x());
+	EXPECT_FLOAT_EQ(0.9, vec2fZeroTmp.y());
+	EXPECT_FLOAT_EQ(0.7, vec3fZeroTmp.x());
+	EXPECT_FLOAT_EQ(0.9, vec3fZeroTmp.y());
+	EXPECT_FLOAT_EQ(0.2, vec3fZeroTmp.z());
+
+	// Check that we are getting the expected values for eigenNormalizeDefX
+	vec2fTmp = vec2f; eigenNormalizeDefX(vec2fTmp);
+	vec3fTmp = vec3f; eigenNormalizeDefX(vec3fTmp);
+	vec2fZeroTmp = vec2fZero; eigenNormalizeDefX(vec2fZeroTmp);
+	vec3fZeroTmp = vec3fZero; eigenNormalizeDefX(vec3fZeroTmp);
+	EXPECT_FLOAT_EQ(0.6, vec2fTmp.x());
+	EXPECT_FLOAT_EQ(0.8, vec2fTmp.y());
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fTmp.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fTmp.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fTmp.z());
+	EXPECT_FLOAT_EQ(1.0, vec2fZeroTmp.x());
+	EXPECT_FLOAT_EQ(0.0, vec2fZeroTmp.y());
+	EXPECT_FLOAT_EQ(1.0, vec3fZeroTmp.x());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroTmp.y());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroTmp.z());
+
+	// Check that we are getting the expected values for eigenNormalizeDefY
+	vec2fTmp = vec2f; eigenNormalizeDefY(vec2fTmp);
+	vec3fTmp = vec3f; eigenNormalizeDefY(vec3fTmp);
+	vec2fZeroTmp = vec2fZero; eigenNormalizeDefY(vec2fZeroTmp);
+	vec3fZeroTmp = vec3fZero; eigenNormalizeDefY(vec3fZeroTmp);
+	EXPECT_FLOAT_EQ(0.6, vec2fTmp.x());
+	EXPECT_FLOAT_EQ(0.8, vec2fTmp.y());
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fTmp.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fTmp.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fTmp.z());
+	EXPECT_FLOAT_EQ(0.0, vec2fZeroTmp.x());
+	EXPECT_FLOAT_EQ(1.0, vec2fZeroTmp.y());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroTmp.x());
+	EXPECT_FLOAT_EQ(1.0, vec3fZeroTmp.y());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroTmp.z());
+
+	// Check that we are getting the expected values for eigenNormalizeDefZ
+	vec3fTmp = vec3f; eigenNormalizeDefZ(vec3fTmp);
+	vec3fZeroTmp = vec3fZero; eigenNormalizeDefZ(vec3fZeroTmp);
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fTmp.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fTmp.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fTmp.z());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroTmp.x());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroTmp.y());
+	EXPECT_FLOAT_EQ(1.0, vec3fZeroTmp.z());
+}
+
+// Test: normalized, eigenNormalized, eigenNormalizedDefX, eigenNormalizedDefY, eigenNormalizedDefZ (double)
+TEST(MathVecMatTest, test_eigenNormalizedDouble)
+{
+	// Test cases
+	Eigen::Vector2d vec2d(0.3, 0.4), vec2dUnit;
+	Eigen::Vector3d vec3d(1.2, 0.4, 0.3), vec3dUnit;
+	Eigen::Vector2d vec2dZero(0.0, 0.0), vec2dZeroUnit;
+	Eigen::Vector3d vec3dZero(0.0, 0.0, 0.0), vec3dZeroUnit;
+
+	// Check that we are getting the expected values for normalized
+	vec2dUnit = vec2d.normalized();
+	vec3dUnit = vec3d.normalized();
+	vec2dZeroUnit = vec2dZero.normalized();
+	vec3dZeroUnit = vec3dZero.normalized();
+	EXPECT_DOUBLE_EQ(0.6, vec2dUnit.x());
+	EXPECT_DOUBLE_EQ(0.8, vec2dUnit.y());
+	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dUnit.x());
+	EXPECT_DOUBLE_EQ(0.4/1.3, vec3dUnit.y());
+	EXPECT_DOUBLE_EQ(0.3/1.3, vec3dUnit.z());
+	EXPECT_TRUE(std::isnan(vec2dZeroUnit.x()));
+	EXPECT_TRUE(std::isnan(vec2dZeroUnit.y()));
+	EXPECT_TRUE(std::isnan(vec3dZeroUnit.x()));
+	EXPECT_TRUE(std::isnan(vec3dZeroUnit.y()));
+	EXPECT_TRUE(std::isnan(vec3dZeroUnit.z()));
+
+	// Check that we are getting the expected values for eigenNormalized (zero)
+	vec2dUnit = eigenNormalized(vec2d);
+	vec3dUnit = eigenNormalized(vec3d);
+	vec2dZeroUnit = eigenNormalized(vec2dZero);
+	vec3dZeroUnit = eigenNormalized(vec3dZero);
+	EXPECT_DOUBLE_EQ(0.6, vec2dUnit.x());
+	EXPECT_DOUBLE_EQ(0.8, vec2dUnit.y());
+	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dUnit.x());
+	EXPECT_DOUBLE_EQ(0.4/1.3, vec3dUnit.y());
+	EXPECT_DOUBLE_EQ(0.3/1.3, vec3dUnit.z());
+	EXPECT_DOUBLE_EQ(0.0, vec2dZeroUnit.x());
+	EXPECT_DOUBLE_EQ(0.0, vec2dZeroUnit.y());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroUnit.x());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroUnit.y());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroUnit.z());
+
+	// Check that we are getting the expected values for eigenNormalized (custom)
+	Eigen::Vector2d vec2dCustom(0.7, 0.9);
+	Eigen::Vector3d vec3dCustom(0.7, 0.9, 0.2);
+	vec2dUnit = eigenNormalized(vec2d, vec2dCustom);
+	vec3dUnit = eigenNormalized(vec3d, vec3dCustom);
+	vec2dZeroUnit = eigenNormalized(vec2dZero, vec2dCustom);
+	vec3dZeroUnit = eigenNormalized(vec3dZero, vec3dCustom);
+	EXPECT_DOUBLE_EQ(0.6, vec2dUnit.x());
+	EXPECT_DOUBLE_EQ(0.8, vec2dUnit.y());
+	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dUnit.x());
+	EXPECT_DOUBLE_EQ(0.4/1.3, vec3dUnit.y());
+	EXPECT_DOUBLE_EQ(0.3/1.3, vec3dUnit.z());
+	EXPECT_DOUBLE_EQ(0.7, vec2dZeroUnit.x());
+	EXPECT_DOUBLE_EQ(0.9, vec2dZeroUnit.y());
+	EXPECT_DOUBLE_EQ(0.7, vec3dZeroUnit.x());
+	EXPECT_DOUBLE_EQ(0.9, vec3dZeroUnit.y());
+	EXPECT_DOUBLE_EQ(0.2, vec3dZeroUnit.z());
+
+	// Check that we are getting the expected values for eigenNormalizedDefX
+	vec2dUnit = eigenNormalizedDefX(vec2d);
+	vec3dUnit = eigenNormalizedDefX(vec3d);
+	vec2dZeroUnit = eigenNormalizedDefX(vec2dZero);
+	vec3dZeroUnit = eigenNormalizedDefX(vec3dZero);
 	EXPECT_DOUBLE_EQ(0.6, vec2dUnit.x());
 	EXPECT_DOUBLE_EQ(0.8, vec2dUnit.y());
 	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dUnit.x());
@@ -1125,21 +1585,133 @@ TEST(MathVecMatTest, test_eigenNormalization)
 	EXPECT_DOUBLE_EQ(0.0, vec3dZeroUnit.y());
 	EXPECT_DOUBLE_EQ(0.0, vec3dZeroUnit.z());
 
-	// Check that we are getting the expected values for eigenNormalize
-	eigenNormalize(vec2d);
-	eigenNormalize(vec3d);
-	eigenNormalize(vec2dZero);
-	eigenNormalize(vec3dZero);
-	EXPECT_DOUBLE_EQ(0.6, vec2d.x());
-	EXPECT_DOUBLE_EQ(0.8, vec2d.y());
-	EXPECT_DOUBLE_EQ(1.2/1.3, vec3d.x());
-	EXPECT_DOUBLE_EQ(0.4/1.3, vec3d.y());
-	EXPECT_DOUBLE_EQ(0.3/1.3, vec3d.z());
-	EXPECT_DOUBLE_EQ(1.0, vec2dZero.x());
-	EXPECT_DOUBLE_EQ(0.0, vec2dZero.y());
-	EXPECT_DOUBLE_EQ(1.0, vec3dZero.x());
-	EXPECT_DOUBLE_EQ(0.0, vec3dZero.y());
-	EXPECT_DOUBLE_EQ(0.0, vec3dZero.z());
+	// Check that we are getting the expected values for eigenNormalizedDefY
+	vec2dUnit = eigenNormalizedDefY(vec2d);
+	vec3dUnit = eigenNormalizedDefY(vec3d);
+	vec2dZeroUnit = eigenNormalizedDefY(vec2dZero);
+	vec3dZeroUnit = eigenNormalizedDefY(vec3dZero);
+	EXPECT_DOUBLE_EQ(0.6, vec2dUnit.x());
+	EXPECT_DOUBLE_EQ(0.8, vec2dUnit.y());
+	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dUnit.x());
+	EXPECT_DOUBLE_EQ(0.4/1.3, vec3dUnit.y());
+	EXPECT_DOUBLE_EQ(0.3/1.3, vec3dUnit.z());
+	EXPECT_DOUBLE_EQ(0.0, vec2dZeroUnit.x());
+	EXPECT_DOUBLE_EQ(1.0, vec2dZeroUnit.y());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroUnit.x());
+	EXPECT_DOUBLE_EQ(1.0, vec3dZeroUnit.y());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroUnit.z());
+
+	// Check that we are getting the expected values for eigenNormalizedDefZ
+	vec3dUnit = eigenNormalizedDefZ(vec3d);
+	vec3dZeroUnit = eigenNormalizedDefZ(vec3dZero);
+	EXPECT_DOUBLE_EQ(1.2/1.3, vec3dUnit.x());
+	EXPECT_DOUBLE_EQ(0.4/1.3, vec3dUnit.y());
+	EXPECT_DOUBLE_EQ(0.3/1.3, vec3dUnit.z());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroUnit.x());
+	EXPECT_DOUBLE_EQ(0.0, vec3dZeroUnit.y());
+	EXPECT_DOUBLE_EQ(1.0, vec3dZeroUnit.z());
+}
+
+// Test: normalized, eigenNormalized, eigenNormalizedDefX, eigenNormalizedDefY, eigenNormalizedDefZ (float)
+TEST(MathVecMatTest, test_eigenNormalizedFloat)
+{
+	// Test cases
+	Eigen::Vector2f vec2f(0.3, 0.4), vec2fUnit;
+	Eigen::Vector3f vec3f(1.2, 0.4, 0.3), vec3fUnit;
+	Eigen::Vector2f vec2fZero(0.0, 0.0), vec2fZeroUnit;
+	Eigen::Vector3f vec3fZero(0.0, 0.0, 0.0), vec3fZeroUnit;
+
+	// Check that we are getting the expected values for normalized
+	vec2fUnit = vec2f.normalized();
+	vec3fUnit = vec3f.normalized();
+	vec2fZeroUnit = vec2fZero.normalized();
+	vec3fZeroUnit = vec3fZero.normalized();
+	EXPECT_FLOAT_EQ(0.6, vec2fUnit.x());
+	EXPECT_FLOAT_EQ(0.8, vec2fUnit.y());
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fUnit.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fUnit.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fUnit.z());
+	EXPECT_TRUE(std::isnan(vec2fZeroUnit.x()));
+	EXPECT_TRUE(std::isnan(vec2fZeroUnit.y()));
+	EXPECT_TRUE(std::isnan(vec3fZeroUnit.x()));
+	EXPECT_TRUE(std::isnan(vec3fZeroUnit.y()));
+	EXPECT_TRUE(std::isnan(vec3fZeroUnit.z()));
+
+	// Check that we are getting the expected values for eigenNormalized (zero)
+	vec2fUnit = eigenNormalized(vec2f);
+	vec3fUnit = eigenNormalized(vec3f);
+	vec2fZeroUnit = eigenNormalized(vec2fZero);
+	vec3fZeroUnit = eigenNormalized(vec3fZero);
+	EXPECT_FLOAT_EQ(0.6, vec2fUnit.x());
+	EXPECT_FLOAT_EQ(0.8, vec2fUnit.y());
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fUnit.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fUnit.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fUnit.z());
+	EXPECT_FLOAT_EQ(0.0, vec2fZeroUnit.x());
+	EXPECT_FLOAT_EQ(0.0, vec2fZeroUnit.y());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroUnit.x());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroUnit.y());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroUnit.z());
+
+	// Check that we are getting the expected values for eigenNormalized (custom)
+	Eigen::Vector2f vec2fCustom(0.7, 0.9);
+	Eigen::Vector3f vec3fCustom(0.7, 0.9, 0.2);
+	vec2fUnit = eigenNormalized(vec2f, vec2fCustom);
+	vec3fUnit = eigenNormalized(vec3f, vec3fCustom);
+	vec2fZeroUnit = eigenNormalized(vec2fZero, vec2fCustom);
+	vec3fZeroUnit = eigenNormalized(vec3fZero, vec3fCustom);
+	EXPECT_FLOAT_EQ(0.6, vec2fUnit.x());
+	EXPECT_FLOAT_EQ(0.8, vec2fUnit.y());
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fUnit.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fUnit.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fUnit.z());
+	EXPECT_FLOAT_EQ(0.7, vec2fZeroUnit.x());
+	EXPECT_FLOAT_EQ(0.9, vec2fZeroUnit.y());
+	EXPECT_FLOAT_EQ(0.7, vec3fZeroUnit.x());
+	EXPECT_FLOAT_EQ(0.9, vec3fZeroUnit.y());
+	EXPECT_FLOAT_EQ(0.2, vec3fZeroUnit.z());
+
+	// Check that we are getting the expected values for eigenNormalizedDefX
+	vec2fUnit = eigenNormalizedDefX(vec2f);
+	vec3fUnit = eigenNormalizedDefX(vec3f);
+	vec2fZeroUnit = eigenNormalizedDefX(vec2fZero);
+	vec3fZeroUnit = eigenNormalizedDefX(vec3fZero);
+	EXPECT_FLOAT_EQ(0.6, vec2fUnit.x());
+	EXPECT_FLOAT_EQ(0.8, vec2fUnit.y());
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fUnit.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fUnit.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fUnit.z());
+	EXPECT_FLOAT_EQ(1.0, vec2fZeroUnit.x());
+	EXPECT_FLOAT_EQ(0.0, vec2fZeroUnit.y());
+	EXPECT_FLOAT_EQ(1.0, vec3fZeroUnit.x());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroUnit.y());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroUnit.z());
+
+	// Check that we are getting the expected values for eigenNormalizedDefY
+	vec2fUnit = eigenNormalizedDefY(vec2f);
+	vec3fUnit = eigenNormalizedDefY(vec3f);
+	vec2fZeroUnit = eigenNormalizedDefY(vec2fZero);
+	vec3fZeroUnit = eigenNormalizedDefY(vec3fZero);
+	EXPECT_FLOAT_EQ(0.6, vec2fUnit.x());
+	EXPECT_FLOAT_EQ(0.8, vec2fUnit.y());
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fUnit.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fUnit.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fUnit.z());
+	EXPECT_FLOAT_EQ(0.0, vec2fZeroUnit.x());
+	EXPECT_FLOAT_EQ(1.0, vec2fZeroUnit.y());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroUnit.x());
+	EXPECT_FLOAT_EQ(1.0, vec3fZeroUnit.y());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroUnit.z());
+
+	// Check that we are getting the expected values for eigenNormalizedDefZ
+	vec3fUnit = eigenNormalizedDefZ(vec3f);
+	vec3fZeroUnit = eigenNormalizedDefZ(vec3fZero);
+	EXPECT_FLOAT_EQ(1.2/1.3, vec3fUnit.x());
+	EXPECT_FLOAT_EQ(0.4/1.3, vec3fUnit.y());
+	EXPECT_FLOAT_EQ(0.3/1.3, vec3fUnit.z());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroUnit.x());
+	EXPECT_FLOAT_EQ(0.0, vec3fZeroUnit.y());
+	EXPECT_FLOAT_EQ(1.0, vec3fZeroUnit.z());
 }
 
 // Test: zeroZ, withZ
@@ -1654,6 +2226,422 @@ TEST(MathVecMatTest, test_eigenRotated90Float)
 	vftmp = eigenRotatedCCW90(vf3);
 	EXPECT_FLOAT_EQ(-0.78, vftmp.x());
 	EXPECT_FLOAT_EQ(-1.52, vftmp.y());
+}
+
+// Test: collapseFlatEllipsoid
+TEST(MathVecMatTest, test_collapseFlatEllipsoid)
+{
+	// Typedefs
+	typedef Eigen::Matrix<double, 2, 1> Vec2;
+	typedef Eigen::Matrix<double, 3, 1> Vec3;
+
+	// Declare variables
+	Vec2 tmp2;
+	Vec3 tmp3;
+
+	// Test a case
+	tmp2 = collapseFlatEllipsoid(Vec2(3.0, 4.0));
+	EXPECT_EQ(3.0, tmp2.x());
+	EXPECT_EQ(4.0, tmp2.y());
+	tmp2 = collapseFlatEllipsoid(Vec2(0.0, 4.0));
+	EXPECT_EQ(0.0, tmp2.x());
+	EXPECT_EQ(0.0, tmp2.y());
+	tmp2 = collapseFlatEllipsoid(Vec2(3.0, 0.0));
+	EXPECT_EQ(0.0, tmp2.x());
+	EXPECT_EQ(0.0, tmp2.y());
+	tmp2 = collapseFlatEllipsoid(Vec2(0.0, 0.0));
+	EXPECT_EQ(0.0, tmp2.x());
+	EXPECT_EQ(0.0, tmp2.y());
+
+	// Test a case
+	tmp2 = collapseFlatEllipsoid(3.0, 4.0);
+	EXPECT_EQ(3.0, tmp2.x());
+	EXPECT_EQ(4.0, tmp2.y());
+	tmp2 = collapseFlatEllipsoid(0.0, 4.0);
+	EXPECT_EQ(0.0, tmp2.x());
+	EXPECT_EQ(0.0, tmp2.y());
+	tmp2 = collapseFlatEllipsoid(3.0, 0.0);
+	EXPECT_EQ(0.0, tmp2.x());
+	EXPECT_EQ(0.0, tmp2.y());
+	tmp2 = collapseFlatEllipsoid(0.0, 0.0);
+	EXPECT_EQ(0.0, tmp2.x());
+	EXPECT_EQ(0.0, tmp2.y());
+
+	// Test a case
+	tmp3 = collapseFlatEllipsoid(Vec3(3.0, 4.0, 5.0));
+	EXPECT_EQ(3.0, tmp3.x());
+	EXPECT_EQ(4.0, tmp3.y());
+	EXPECT_EQ(5.0, tmp3.z());
+	tmp3 = collapseFlatEllipsoid(Vec3(0.0, 4.0, 5.0));
+	EXPECT_EQ(0.0, tmp3.x());
+	EXPECT_EQ(0.0, tmp3.y());
+	EXPECT_EQ(0.0, tmp3.z());
+	tmp3 = collapseFlatEllipsoid(Vec3(3.0, 4.0, 0.0));
+	EXPECT_EQ(0.0, tmp3.x());
+	EXPECT_EQ(0.0, tmp3.y());
+	EXPECT_EQ(0.0, tmp3.z());
+
+	// Test a case
+	tmp3 = collapseFlatEllipsoid(3.0, 4.0, 5.0);
+	EXPECT_EQ(3.0, tmp3.x());
+	EXPECT_EQ(4.0, tmp3.y());
+	EXPECT_EQ(5.0, tmp3.z());
+	tmp3 = collapseFlatEllipsoid(0.0, 4.0, 5.0);
+	EXPECT_EQ(0.0, tmp3.x());
+	EXPECT_EQ(0.0, tmp3.y());
+	EXPECT_EQ(0.0, tmp3.z());
+	tmp3 = collapseFlatEllipsoid(3.0, 4.0, 0.0);
+	EXPECT_EQ(0.0, tmp3.x());
+	EXPECT_EQ(0.0, tmp3.y());
+	EXPECT_EQ(0.0, tmp3.z());
+}
+
+// Test: ellipsoidRadius (double)
+TEST(MathVecMatTest, test_ellipsoidRadius)
+{
+	// Typedefs
+	typedef Eigen::Matrix<double, 1, 1> Vec1;
+	typedef Eigen::Matrix<double, 2, 1> Vec2;
+	typedef Eigen::Matrix<double, 3, 1> Vec3;
+
+	// Test 1D
+	Vec1 semiaxes1d, v1d; // Note: There is no constructor by value for a 'Vector1d'...
+	semiaxes1d << -0.7; v1d << -0.4; EXPECT_DOUBLE_EQ(0.7, ellipsoidRadius(semiaxes1d, v1d));
+	semiaxes1d <<  0.8; v1d << -0.1; EXPECT_DOUBLE_EQ(0.8, ellipsoidRadius(semiaxes1d, v1d));
+	semiaxes1d << -0.5; v1d <<  0.2; EXPECT_DOUBLE_EQ(0.5, ellipsoidRadius(semiaxes1d, v1d));
+	semiaxes1d <<  0.3; v1d <<  0.6; EXPECT_DOUBLE_EQ(0.3, ellipsoidRadius(semiaxes1d, v1d));
+	semiaxes1d <<  0.3; v1d <<  0.0; EXPECT_DOUBLE_EQ(0.3, ellipsoidRadius(semiaxes1d, v1d));
+	semiaxes1d <<  0.0; v1d <<  0.3; EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(semiaxes1d, v1d));
+
+	// Test 2D
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec2(4.0, 6.0), Vec2(0.0, 0.0)));
+	EXPECT_DOUBLE_EQ(4.0, ellipsoidRadius(Vec2(4.0, 6.0), Vec2(2.0, 0.0)));
+	EXPECT_DOUBLE_EQ(6.0, ellipseRadius(4.0, 6.0, 0.0, -0.5));
+	EXPECT_DOUBLE_EQ(4.7067872433164171, ellipsoidRadius(Vec2(4.0, 6.0), Vec2(2.0, 2.0)));
+	EXPECT_DOUBLE_EQ(5.6568542494923806, ellipseRadius(4.0, 6.0, -1.0, 3.0));
+	EXPECT_DOUBLE_EQ(4.1159660434202126, ellipsoidRadius(Vec2(4.0, 6.0), Vec2(3.0, 1.0)));
+	EXPECT_DOUBLE_EQ(4.2426406871192848, ellipseRadius(4.0, -6.0, -2.0, 1.0));
+	EXPECT_DOUBLE_EQ(4.0, ellipsoidRadius(Vec2(4.0, 0.0), Vec2(5.0, 0.0)));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec2(4.0, 0.0), Vec2(5.0, 0.01)));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(4.0, 0.0, 5.0, -0.01));
+	EXPECT_DOUBLE_EQ(6.0, ellipseRadius(0.0, -6.0, 0.0, 0.1));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, -6.0, 0.001, 0.1));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, -6.0, -0.001, 0.1));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec2(0.0, 0.0), Vec2(1.4, 0.7)));
+	EXPECT_DOUBLE_EQ(0.0, ellipseRadius(0.0, 0.0, -0.3, 0.0));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec2(0.0, 0.0), Vec2(0.0, 0.7)));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec2(0.0, 0.0), Vec2(0.0, 0.0)));
+
+	// Test 3D
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec3(3.0, 2.0, 1.0), Vec3(0.0, 0.0, 0.0)));
+	EXPECT_DOUBLE_EQ(3.0, ellipsoidRadius(Vec3(3.0, 2.0, 1.0), Vec3(2.0, 0.0, 0.0)));
+	EXPECT_DOUBLE_EQ(2.0, ellipsoidRadius(Vec3(3.0, -2.0, 1.0), Vec3(0.0, -1.5, 0.0)));
+	EXPECT_DOUBLE_EQ(1.0, ellipsoidRadius(Vec3(3.0, 2.0, 1.0), Vec3(0.0, 0.0, 0.7)));
+	EXPECT_DOUBLE_EQ(1.6619351998747047, ellipsoidRadius(Vec3(-3.0, 2.0, 1.0), Vec3(-0.2, 1.4, 0.6)));
+	EXPECT_DOUBLE_EQ(1.1292776976001264, ellipsoidRadius(Vec3(3.0, 2.0, -1.0), Vec3(0.8, -0.9, 2.0)));
+	EXPECT_DOUBLE_EQ(1.0060790833484312, ellipsoidRadius(Vec3(3.0, 2.0, 1.0), Vec3(0.3, 0.2, -3.0)));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec3(3.0, 2.0, 0.0), Vec3(0.3, 0.2, -3.0)));
+	EXPECT_DOUBLE_EQ(2.5495097567963922, ellipsoidRadius(Vec3(3.0, 2.0, 0.0), Vec3(0.3, 0.2, 0.0)));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec3(0.0, 2.0, 0.0), Vec3(0.3, 0.2, 0.0)));
+	EXPECT_DOUBLE_EQ(2.0, ellipsoidRadius(Vec3(0.0, 2.0, 0.0), Vec3(0.0, -0.2, 0.0)));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec3(0.0, 2.0, 0.0), Vec3(7.0, -0.2, 1.0)));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec3(0.0, 0.0, 0.0), Vec3(0.0, -0.2, 0.0)));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec3(0.0, 0.0, 0.0), Vec3(0.3, -0.2, 5.0)));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 0.0)));
+
+	// Test edge cases
+	double inf = std::numeric_limits<double>::infinity();
+	EXPECT_DOUBLE_EQ(inf, ellipsoidRadius(Vec3(inf, inf, inf), Vec3(1.0, -2.0, 1.5)));
+	EXPECT_DOUBLE_EQ(inf, ellipsoidRadius(Vec3(-inf, inf, -inf), Vec3(-3.0, 0.5, 0.2)));
+	EXPECT_DOUBLE_EQ(1.0, ellipsoidRadius(Vec3(inf, 1.0, inf), Vec3(0.0, 0.5, 0.0)));
+	EXPECT_DOUBLE_EQ(6.0827625302982193, ellipsoidRadius(Vec3(inf, 1.0, inf), Vec3(-3.0, 0.5, 0.0)));
+	EXPECT_DOUBLE_EQ(6.0959002616512681, ellipsoidRadius(Vec3(inf, 1.0, inf), Vec3(-3.0, 0.5, 0.2)));
+	EXPECT_DOUBLE_EQ(inf, ellipsoidRadius(Vec3(inf, 1.0, inf), Vec3(-3.0, 0.0, 0.2)));
+	EXPECT_DOUBLE_EQ(1.0, ellipsoidRadius(Vec3(inf, 1.0, 2.0), Vec3(0.0, 0.5, 0.0)));
+	EXPECT_DOUBLE_EQ(2.0, ellipsoidRadius(Vec3(inf, 1.0, -2.0), Vec3(0.0, 0.0, 0.8)));
+	EXPECT_DOUBLE_EQ(inf, ellipsoidRadius(Vec3(inf, 1.0, 2.0), Vec3(2.0, 0.0, 0.0)));
+	EXPECT_DOUBLE_EQ(8.0622577482985491, ellipsoidRadius(Vec3(inf, 1.0, 2.0), Vec3(2.0, 0.25, 0.0)));
+	EXPECT_DOUBLE_EQ(2.3766885889086624, ellipsoidRadius(Vec3(inf, 1.0, 2.0), Vec3(2.0, 0.25, 3.0)));
+	EXPECT_TRUE(std::isnan(ellipsoidRadius(Vec3(-3.0, 2.0, 1.0), Vec3(-0.2, NAN, 0.6))));
+	EXPECT_TRUE(std::isnan(ellipsoidRadius(Vec3(-3.0, 2.0, NAN), Vec3(-0.2, 1.4, 0.6))));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec3(-3.0, 2.0, 0.0), Vec3(-0.2, 1.4, NAN)));
+	EXPECT_DOUBLE_EQ(0.0, ellipsoidRadius(Vec3(NAN, NAN, 1.0), Vec3(0.0, 0.0, 0.0)));
+}
+
+// Test class
+struct TestCoerceEllCND
+{
+	template<typename T> void testCoerceEllC1D(T exp, bool expcoerced, T x, T maxAbs)
+	{
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, x, maxAbs);
+		typedef Eigen::Matrix<T, 1, 1> Vec1;
+		Vec1 semiaxes, v, ret;
+		bool coerced;
+		semiaxes << maxAbs;
+		v << x;
+		ret = v;
+		coerceEllC(semiaxes, ret);
+		EXPECT_THAT_UTEQ(T, exp, ret.x());
+		ret = v; coerced = !expcoerced;
+		coerceEllC(semiaxes, ret, coerced);
+		EXPECT_THAT_UTEQ(T, exp, ret.x());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+		ret << NAN;
+		coerceEllC(semiaxes, v, ret);
+		EXPECT_THAT_UTEQ(T, exp, ret.x());
+		ret << NAN; coerced = !expcoerced;
+		coerceEllC(semiaxes, v, ret, coerced);
+		EXPECT_THAT_UTEQ(T, exp, ret.x());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceEllC2D(T expX, T expY, bool expcoerced, T x, T y, T maxAbsX, T maxAbsY)
+	{
+		std::string args = argsAsString(typeid(T).name(), expX, expY, expcoerced, x, y, maxAbsX, maxAbsY);
+		typedef Eigen::Matrix<T, 2, 1> Vec2;
+		Vec2 semiaxes(maxAbsX, maxAbsY), v(x, y), ret;
+		bool coerced;
+		ret = v;
+		coerceEllC(semiaxes, ret);
+		EXPECT_THAT_UTEQ(T, expX, ret.x());
+		EXPECT_THAT_UTEQ(T, expY, ret.y());
+		ret = v; coerced = !expcoerced;
+		coerceEllC(semiaxes, ret, coerced);
+		EXPECT_THAT_UTEQ(T, expX, ret.x());
+		EXPECT_THAT_UTEQ(T, expY, ret.y());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+		ret << NAN, NAN;
+		coerceEllC(semiaxes, v, ret);
+		EXPECT_THAT_UTEQ(T, expX, ret.x());
+		EXPECT_THAT_UTEQ(T, expY, ret.y());
+		ret << NAN, NAN; coerced = !expcoerced;
+		coerceEllC(semiaxes, v, ret, coerced);
+		EXPECT_THAT_UTEQ(T, expX, ret.x());
+		EXPECT_THAT_UTEQ(T, expY, ret.y());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceEllC3D(const Eigen::Matrix<T, 3, 1>& exp, bool expcoerced, const Eigen::Matrix<T, 3, 1>& v, const Eigen::Matrix<T, 3, 1>& semiaxes)
+	{
+		std::string args = argsAsString(typeid(T).name(), exp.transpose(), expcoerced, v.transpose(), semiaxes.transpose());
+		typedef Eigen::Matrix<T, 3, 1> Vec3;
+		Vec3 ret;
+		bool coerced;
+		ret = v;
+		coerceEllC(semiaxes, ret);
+		EXPECT_THAT_UTEQ(T, exp.x(), ret.x());
+		EXPECT_THAT_UTEQ(T, exp.y(), ret.y());
+		EXPECT_THAT_UTEQ(T, exp.z(), ret.z());
+		ret = v; coerced = !expcoerced;
+		coerceEllC(semiaxes, ret, coerced);
+		EXPECT_THAT_UTEQ(T, exp.x(), ret.x());
+		EXPECT_THAT_UTEQ(T, exp.y(), ret.y());
+		EXPECT_THAT_UTEQ(T, exp.z(), ret.z());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+		ret << NAN, NAN, NAN;
+		coerceEllC(semiaxes, v, ret);
+		EXPECT_THAT_UTEQ(T, exp.x(), ret.x());
+		EXPECT_THAT_UTEQ(T, exp.y(), ret.y());
+		EXPECT_THAT_UTEQ(T, exp.z(), ret.z());
+		ret << NAN, NAN, NAN; coerced = !expcoerced;
+		coerceEllC(semiaxes, v, ret, coerced);
+		EXPECT_THAT_UTEQ(T, exp.x(), ret.x());
+		EXPECT_THAT_UTEQ(T, exp.y(), ret.y());
+		EXPECT_THAT_UTEQ(T, exp.z(), ret.z());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+};
+
+// Test: coerceEllC (N-dimensional)
+TEST(MathVecMatTest, test_coerceEllCND)
+{
+	// Test class
+	TestCoerceEllCND T;
+
+	// Test coerceEllC (1D)
+	T.testCoerceEllC1D(-8.0, true, -9.0, 8.0);
+	T.testCoerceEllC1D(-8.0, false, -8.0, 8.0);
+	T.testCoerceEllC1D(1.0, false, 1.0, 8.0);
+	T.testCoerceEllC1D(8.0, false, 8.0, 8.0);
+	T.testCoerceEllC1D(8.0, true, 9.0, 8.0);
+	T.testCoerceEllC1D(-8.0, true, -9.0, -8.0);
+	T.testCoerceEllC1D(0.0, false, 0.0, -8.0);
+
+	// Test coerceEllC (2D)
+	T.testCoerceEllC2D(0.7, 1.1, false, 0.7, 1.1, 2.0, 5.0);
+	T.testCoerceEllC2D(-1.2803687993289596, 3.8411063979868789, true, -2.2, 6.6, 2.0, 5.0);
+	T.testCoerceEllC2D(-1.2803687993289596, -3.8411063979868789, true, -3.3, -9.9, 2.0, 5.0);
+	T.testCoerceEllC2D(2.0, 0.0, true, 7.0, 0.0, 2.0, 5.0);
+	T.testCoerceEllC2D(0.0, 5.0, true, 0.0, 7.0, 2.0, 5.0);
+	T.testCoerceEllC2D(-2.0, 0.0, true, -7.0, 0.0, 2.0, 5.0);
+	T.testCoerceEllC2D(0.0, -5.0, true, 0.0, -7.0, 2.0, 5.0);
+	T.testCoerceEllC2D(2.0, 0.0, true, 7.0, 0.0, 2.0, 0.0);
+	T.testCoerceEllC2D(0.0, 0.0, true, 7.0, 0.01, 2.0, 0.0);
+	T.testCoerceEllC2D(0.0, 0.0, true, 7.0, -0.01, 2.0, 0.0);
+	T.testCoerceEllC2D(0.0, 5.0, true, 0.0, 7.0, 0.0, 5.0);
+	T.testCoerceEllC2D(0.0, 0.0, true, 0.01, 7.0, 0.0, 5.0);
+	T.testCoerceEllC2D(0.0, 0.0, true, -0.01, 7.0, 0.0, 5.0);
+	T.testCoerceEllC2D(0.0, 0.0, true, 1.3, 5.4, 0.0, 0.0);
+
+	// Test coerceEllC (3D)
+	typedef Eigen::Vector3d V3;
+	T.testCoerceEllC3D(V3(1.0, 2.0, 0.5), false, V3(1.0, 2.0, 0.5), V3(2.0, 5.0, 3.0));
+	T.testCoerceEllC3D(V3(2.0, 0.0, 0.0), false, V3(2.0, 0.0, 0.0), V3(2.0, 5.0, 3.0));
+	T.testCoerceEllC3D(V3(0.0, 5.0, 0.0), false, V3(0.0, 5.0, 0.0), V3(2.0, 5.0, 3.0));
+	T.testCoerceEllC3D(V3(0.0, 0.0, 3.0), false, V3(0.0, 0.0, 3.0), V3(2.0, 5.0, 3.0));
+	T.testCoerceEllC3D(V3(-1.2601285396669033, 1.6801713862225378, -2.1002142327781721), true, V3(-3.0, 4.0, -5.0), V3(2.0, -5.0, -3.0));
+	T.testCoerceEllC3D(V3( 1.2601285396669033, 1.6801713862225378,  2.1002142327781721), true, V3(3.0, 4.0, 5.0), V3(2.0, 5.0, 3.0));
+	T.testCoerceEllC3D(V3(0.0, 0.0, 0.0), true, V3(3.0, 4.0, 5.0), V3(2.0, 5.0, 0.0));
+	T.testCoerceEllC3D(V3(1.7647058823529413, 2.3529411764705883, 0.0), true, V3(3.0, 4.0, 0.0), V3(2.0, 5.0, 0.0));
+	T.testCoerceEllC3D(V3(0.0, 0.0, 0.0), true, V3(3.0, 4.0, 0.0), V3(0.0, 5.0, 0.0));
+	T.testCoerceEllC3D(V3(0.0, 4.0, 0.0), false, V3(0.0, 4.0, 0.0), V3(0.0, 5.0, 0.0));
+	T.testCoerceEllC3D(V3(0.0, 0.0, 0.0), true, V3(0.0, 4.0, 0.0), V3(0.0, 0.0, 0.0));
+	T.testCoerceEllC3D(V3(0.0, 0.0, 0.0), false, V3(0.0, 0.0, 0.0), V3(0.0, 0.0, 0.0));
+
+	// Test edge cases
+	double inf = std::numeric_limits<double>::infinity();
+	T.testCoerceEllC3D(V3(1000.0, 6.0, -712.0), false, V3(1000.0, 6.0, -712.0), V3(inf, inf, inf));
+	T.testCoerceEllC3D(V3(1000.0, 6.0, -712.0), false, V3(1000.0, 6.0, -712.0), V3(-inf, -inf, inf));
+	T.testCoerceEllC3D(V3(600.0, 3.6, -427.2), true, V3(1000.0, 6.0, -712.0), V3(600.0, inf, -inf));
+	T.testCoerceEllC3D(V3(477.2399890175149153, -2.8634399341050893, -339.7948721804706338), true, V3(1000.0, -6.0, -712.0), V3(1600.0, 3.0, inf));
+	T.testCoerceEllC3D(V3(360.8671414595940519, 2.1652028487575641, -256.9374047192309263), true, V3(1000.0, 6.0, -712.0), V3(600.0, 3.0, 750.0));
+}
+
+// Test class
+struct TestCoerceSoftEllCND
+{
+	template<typename T> void testCoerceSoftEllC1D(T exp, bool expcoerced, T x, T maxAbs, T buffer)
+	{
+		std::string args = argsAsString(typeid(T).name(), exp, expcoerced, x, maxAbs, buffer);
+		typedef Eigen::Matrix<T, 1, 1> Vec1;
+		Vec1 semiaxes, v, ret;
+		bool coerced;
+		semiaxes << maxAbs;
+		v << x;
+		ret = v;
+		coerceSoftEllC(semiaxes, ret, buffer);
+		EXPECT_THAT_UTEQ(T, exp, ret.x());
+		ret = v; coerced = !expcoerced;
+		coerceSoftEllC(semiaxes, ret, buffer, coerced);
+		EXPECT_THAT_UTEQ(T, exp, ret.x());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+		ret << NAN;
+		coerceSoftEllC(semiaxes, v, buffer, ret);
+		EXPECT_THAT_UTEQ(T, exp, ret.x());
+		ret << NAN; coerced = !expcoerced;
+		coerceSoftEllC(semiaxes, v, buffer, ret, coerced);
+		EXPECT_THAT_UTEQ(T, exp, ret.x());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceSoftEllC2D(T expX, T expY, bool expcoerced, T x, T y, T maxAbsX, T maxAbsY, T buffer)
+	{
+		std::string args = argsAsString(typeid(T).name(), expX, expY, expcoerced, x, y, maxAbsX, maxAbsY, buffer);
+		typedef Eigen::Matrix<T, 2, 1> Vec2;
+		Vec2 semiaxes(maxAbsX, maxAbsY), v(x, y), ret;
+		bool coerced;
+		ret = v;
+		coerceSoftEllC(semiaxes, ret, buffer);
+		EXPECT_THAT_UTEQ(T, expX, ret.x());
+		EXPECT_THAT_UTEQ(T, expY, ret.y());
+		ret = v; coerced = !expcoerced;
+		coerceSoftEllC(semiaxes, ret, buffer, coerced);
+		EXPECT_THAT_UTEQ(T, expX, ret.x());
+		EXPECT_THAT_UTEQ(T, expY, ret.y());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+		ret << NAN, NAN;
+		coerceSoftEllC(semiaxes, v, buffer, ret);
+		EXPECT_THAT_UTEQ(T, expX, ret.x());
+		EXPECT_THAT_UTEQ(T, expY, ret.y());
+		ret << NAN, NAN; coerced = !expcoerced;
+		coerceSoftEllC(semiaxes, v, buffer, ret, coerced);
+		EXPECT_THAT_UTEQ(T, expX, ret.x());
+		EXPECT_THAT_UTEQ(T, expY, ret.y());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+	template<typename T> void testCoerceSoftEllC3D(const Eigen::Matrix<T, 3, 1>& exp, bool expcoerced, const Eigen::Matrix<T, 3, 1>& v, const Eigen::Matrix<T, 3, 1>& semiaxes, T buffer)
+	{
+		std::string args = argsAsString(typeid(T).name(), exp.transpose(), expcoerced, v.transpose(), semiaxes.transpose(), buffer);
+		typedef Eigen::Matrix<T, 3, 1> Vec3;
+		Vec3 ret;
+		bool coerced;
+		ret = v;
+		coerceSoftEllC(semiaxes, ret, buffer);
+		EXPECT_THAT_UTEQ(T, exp.x(), ret.x());
+		EXPECT_THAT_UTEQ(T, exp.y(), ret.y());
+		EXPECT_THAT_UTEQ(T, exp.z(), ret.z());
+		ret = v; coerced = !expcoerced;
+		coerceSoftEllC(semiaxes, ret, buffer, coerced);
+		EXPECT_THAT_UTEQ(T, exp.x(), ret.x());
+		EXPECT_THAT_UTEQ(T, exp.y(), ret.y());
+		EXPECT_THAT_UTEQ(T, exp.z(), ret.z());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+		ret << NAN, NAN, NAN;
+		coerceSoftEllC(semiaxes, v, buffer, ret);
+		EXPECT_THAT_UTEQ(T, exp.x(), ret.x());
+		EXPECT_THAT_UTEQ(T, exp.y(), ret.y());
+		EXPECT_THAT_UTEQ(T, exp.z(), ret.z());
+		ret << NAN, NAN, NAN; coerced = !expcoerced;
+		coerceSoftEllC(semiaxes, v, buffer, ret, coerced);
+		EXPECT_THAT_UTEQ(T, exp.x(), ret.x());
+		EXPECT_THAT_UTEQ(T, exp.y(), ret.y());
+		EXPECT_THAT_UTEQ(T, exp.z(), ret.z());
+		EXPECT_THAT_EQ(bool, expcoerced, coerced);
+	}
+};
+
+// Test: coerceSoftEllC (N-dimensional)
+TEST(MathVecMatTest, test_coerceSoftEllCND)
+{
+	// Test class
+	TestCoerceSoftEllCND T;
+
+	// Test coerceSoftEllC (1D)
+	T.testCoerceSoftEllC1D(-7.8646647167633876, true, -9.0, 8.0, 1.0);
+	T.testCoerceSoftEllC1D(-7.0, false, -7.0, 8.0, 1.0);
+	T.testCoerceSoftEllC1D(1.0, false, 1.0, 8.0, 1.0);
+	T.testCoerceSoftEllC1D(7.0, false, 7.0, 8.0, 1.0);
+	T.testCoerceSoftEllC1D(7.8646647167633876, true, 9.0, 8.0, 1.0);
+	T.testCoerceSoftEllC1D(-7.8646647167633876, true, -9.0, -8.0, 1.0);
+	T.testCoerceSoftEllC1D(0.0, false, 0.0, -8.0, 1.0);
+
+	// Test coerceSoftEllC (2D)
+	T.testCoerceSoftEllC2D(0.7, 1.1, false, 0.7, 1.1, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC2D(-1.2740195694222953, 3.8220587082668849, true, -2.2, 6.6, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC2D(-1.2801729034312874, -3.8405187102938623, true, -3.3, -9.9, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC2D(1.9975212478233337, 0.0, true, 7.0, 0.0, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC2D(0.0, 4.9502129316321364, true, 0.0, 7.0, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC2D(-1.9975212478233337, 0.0, true, -7.0, 0.0, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC2D(0.0, -4.9502129316321364, true, 0.0, -7.0, 2.0, 5.0, 1.0);
+	T.testCoerceSoftEllC2D(1.9975212478233337, 0.0, true, 7.0, 0.0, 2.0, 0.0, 1.0);
+	T.testCoerceSoftEllC2D(0.0, 0.0, true, 7.0, 0.01, 2.0, 0.0, 1.0);
+	T.testCoerceSoftEllC2D(0.0, 0.0, true, 7.0, -0.01, 2.0, 0.0, 1.0);
+	T.testCoerceSoftEllC2D(0.0, 4.9502129316321364, true, 0.0, 7.0, 0.0, 5.0, 1.0);
+	T.testCoerceSoftEllC2D(0.0, 0.0, true, 0.01, 7.0, 0.0, 5.0, 1.0);
+	T.testCoerceSoftEllC2D(0.0, 0.0, true, -0.01, 7.0, 0.0, 5.0, 1.0);
+	T.testCoerceSoftEllC2D(0.0, 0.0, true, 1.3, 5.4, 0.0, 0.0, 1.0);
+
+	// Test coerceSoftEllC (3D)
+	typedef Eigen::Vector3d V3;
+	T.testCoerceSoftEllC3D(V3(1.0, 2.0, 0.5), false, V3(1.0, 2.0, 0.5), V3(2.0, 5.0, 3.0), 1.0);
+	T.testCoerceSoftEllC3D(V3(1.0, 0.0, 0.0), false, V3(1.0, 0.0, 0.0), V3(2.0, 5.0, 3.0), 1.0);
+	T.testCoerceSoftEllC3D(V3(0.0, 4.0, 0.0), false, V3(0.0, 4.0, 0.0), V3(2.0, 5.0, 3.0), 1.0);
+	T.testCoerceSoftEllC3D(V3(0.0, 0.0, 2.0), false, V3(0.0, 0.0, 2.0), V3(2.0, 5.0, 3.0), 1.0);
+	T.testCoerceSoftEllC3D(V3(-1.2575442783621078, 1.6767257044828101, -2.0959071306035124), true, V3(-3.0, 4.0, -5.0), V3(2.0, -5.0, -3.0), 1.0);
+	T.testCoerceSoftEllC3D(V3( 1.2575442783621078, 1.6767257044828101,  2.0959071306035124), true, V3(3.0, 4.0, 5.0), V3(2.0, 5.0, 3.0), 1.0);
+	T.testCoerceSoftEllC3D(V3(0.0, 0.0, 0.0), true, V3(3.0, 4.0, 5.0), V3(2.0, 5.0, 0.0), 1.0);
+	T.testCoerceSoftEllC3D(V3(1.7365401485477459, 2.3153868647303280, 0.0), true, V3(3.0, 4.0, 0.0), V3(2.0, 5.0, 0.0), 1.0);
+	T.testCoerceSoftEllC3D(V3(0.0, 0.0, 0.0), true, V3(3.0, 4.0, 0.0), V3(0.0, 5.0, 0.0), 1.0);
+	T.testCoerceSoftEllC3D(V3(0.0, 4.0, 0.0), false, V3(0.0, 4.0, 0.0), V3(0.0, 5.0, 0.0), 1.0);
+	T.testCoerceSoftEllC3D(V3(0.0, 0.0, 0.0), true, V3(0.0, 4.0, 0.0), V3(0.0, 0.0, 0.0), 1.0);
+	T.testCoerceSoftEllC3D(V3(0.0, 0.0, 0.0), false, V3(0.0, 0.0, 0.0), V3(0.0, 0.0, 0.0), 1.0);
+
+	// Test edge cases
+	double inf = std::numeric_limits<double>::infinity();
+	T.testCoerceSoftEllC3D(V3(1000.0, 6.0, -712.0), false, V3(1000.0, 6.0, -712.0), V3(inf, inf, inf), 0.0);
+	T.testCoerceSoftEllC3D(V3(1000.0, 6.0, -712.0), false, V3(1000.0, 6.0, -712.0), V3(inf, -inf, inf), 100000.0);
+	T.testCoerceSoftEllC3D(V3(600.0, 3.6, -427.2), true, V3(1000.0, 6.0, -712.0), V3(600.0, inf, -inf), 0.0);
+	T.testCoerceSoftEllC3D(V3(477.2399890175149153, -2.8634399341050893, -339.7948721804706338), true, V3(1000.0, -6.0, -712.0), V3(1600.0, 3.0, inf), 0.0);
+	T.testCoerceSoftEllC3D(V3(360.8671414595940519, 2.1652028487575641, -256.9374047192309263), true, V3(1000.0, 6.0, -712.0), V3(600.0, 3.0, 750.0), 0.0);
+	T.testCoerceSoftEllC3D(V3(360.8671414595940519, 2.1652028487575641, -256.9374047192309263), true, V3(1000.0, 6.0, -712.0), V3(600.0, 3.0, 750.0), -inf);
+	T.testCoerceSoftEllC3D(V3(230.6663176544479086, 1.3839979059266874, -164.2344181699668866), true, V3(1000.0, 6.0, -712.0), V3(600.0, 3.0, 750.0), inf);
 }
 
 //

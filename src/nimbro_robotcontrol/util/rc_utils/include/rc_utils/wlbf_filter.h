@@ -8,7 +8,7 @@
 
 // Includes
 #include <boost/circular_buffer.hpp>
-#include <boost/circular_buffer/base.hpp>
+#include <cstddef>
 
 // Robotcontrol utilities namespace
 namespace rc_utils
@@ -16,263 +16,268 @@ namespace rc_utils
 	/**
 	* @class WLBFFilter
 	* 
-	* @brief Dynamic weighted line of best fit filter that smooths and calculates the first order derivative.
+	* @brief Weighted line of best fit filter that smooths and calculates the first order derivative.
 	* 
-	* A data point (x,y) with weight w is equivalent to the same data point added w^2 times with weight 1.
-	* As such, using a negative weight is equivalent to using its absolute value.
+	* The supplied weights are effectively squared, so adding a data point with weight w is equivalent to adding the
+	* same data point w^2 times with weight 1. As such, negative weights are effectively treated by absolute value.
+	* 
+	* Unless the buffers are otherwise manually initialised, by default the buffers are initialised with all zeros,
+	* including the weights.
+	* 
+	* Direct analytic formulas are used to compute the line of best fit in this class. This is the most computationally
+	* efficient option, but can lead to numerical issues. If more numerical stability is required, it is recommended
+	* to use a thin/reduced QR decomposition to solve the associated linear least squares problem instead. That is,
+	* if in Matlab the least squares problem is given by `Y = XB`, where Y contains the y data, X contains a column of
+	* ones and the x data, and B contains the line parameters to solve for, then the solution is normally given by
+	* `B = X\Y`, but to be even more numerically stable:
+	* @code
+	* [Q, R] = qr(X, 0)
+	* B = R \ (Q'*Y)
+	* @endcode
 	**/
 	class WLBFFilter
 	{
 	public:
 		// Typedefs
 		typedef boost::circular_buffer<double> Buffer;
-		
+
 		// Constructor
-		explicit WLBFFilter(size_t numPoints = 0) : m_A(0.0), m_B(0.0), m_xMean(0.0), m_yMean(0.0), m_changed(true)
+		explicit WLBFFilter(std::size_t len = 0)
 		{
-			// Initialise the circular buffers
-			resize(numPoints);
+			// Initialise the data buffers
+			resetAll(len);
 		}
-		
-		// Reset function (also zeros the capacity of the circular buffers)
-		void resetAll()
+
+		// Reset function (including data buffer length)
+		void resetAll(std::size_t len = 0)
 		{
 			// Reset all data members
-			resize(0);
+			resize(len);
 			reset();
 		}
-		
-		// Reset function (clears all points out of the circular buffers but does not change their capacity, use resetAll() to also zero the capacity)
+
+		// Reset function
 		void reset()
 		{
 			// Reset all data members
-			m_A = m_B = m_xMean = m_yMean = 0.0;
-			setZero();
+			m_a = m_b = m_xmean = 0.0;
+			zeroBuf();
 		}
-		
-		// Changes the number of data points that is used (the capacity of the internal circular buffers)
-		void resize(size_t numPoints)
+
+		// Change the length of the data buffers
+		void resize(std::size_t len)
 		{
-			// Update the circular buffer capacities (if increasing the size we add zero data points, if decreasing the size we keep the last added data points)
-			m_xBuf.set_capacity(numPoints);
-			m_yBuf.set_capacity(numPoints);
-			m_wBuf.set_capacity(numPoints);
-			m_xBuf.resize(m_xBuf.capacity(), 0.0);
-			m_yBuf.resize(m_yBuf.capacity(), 0.0);
-			m_wBuf.resize(m_wBuf.capacity(), 0.0);
-			m_changed = true;
+			// Update the data buffer lengths (Increase => Add zero data points, Decrease => Keep latest data points)
+			m_xbuf.set_capacity(len);
+			m_ybuf.set_capacity(len);
+			m_wbuf.set_capacity(len);
+			m_xbuf.resize(m_xbuf.capacity(), 0.0);
+			m_ybuf.resize(m_ybuf.capacity(), 0.0);
+			m_wbuf.resize(m_wbuf.capacity(), 0.0);
+			m_len = len;
 		}
-		
-		// Set the data in any of the three buffers, newest data first
+
+		// Zero the data buffers
+		void zeroBuf() { zeroXBuf(); zeroYBuf(); zeroWBuf(); }
+		void zeroXBuf() { std::fill(m_xbuf.begin(), m_xbuf.end(), 0.0); }
+		void zeroYBuf() { std::fill(m_ybuf.begin(), m_ybuf.end(), 0.0); }
+		void zeroWBuf() { std::fill(m_wbuf.begin(), m_wbuf.end(), 0.0); }
+
+		// Set unit weights in the weight buffer
+		void setUnitW() { std::fill(m_wbuf.begin(), m_wbuf.end(), 1.0); }
+
+		// Initialise the data buffers to a constant y, with x values up to and including xinit
+		void initConstY(double xinit, double dx, double y)
+		{
+			// Add regularly spaced data points, all at the desired constant y
+			for(std::size_t i = 0; i < m_xbuf.size(); i++)
+				m_xbuf[i] = xinit - i*dx;
+			std::fill(m_ybuf.begin(), m_ybuf.end(), y);
+		}
+
+		// Initialise the data buffers to a constant y and weight, with x values up to and including xinit
+		void initConstYW(double xinit, double dx, double y, double w = 1.0)
+		{
+			// Add regularly spaced data points, all at the desired constant y and weight
+			initConstY(xinit, dx, y);
+			std::fill(m_wbuf.begin(), m_wbuf.end(), w*w); // Note: Input weights are squared!
+		}
+
+		// Add a weight to the weight buffer (shifts the association of weights to data points by one index)
+		WLBFFilter& addW(double w)
+		{
+			// Add the required weight
+			m_wbuf.push_front(w*w); // Note: Input weights are squared!
+			return *this;
+		}
+
+		// Add a data point to the x and y buffers (shifts the association of weights to data points by one index)
+		WLBFFilter& addY(double x, double y)
+		{
+			// Add the required data point
+			m_xbuf.push_front(x);
+			m_ybuf.push_front(y);
+			return *this;
+		}
+
+		// Add a data point and weight to the data buffers
+		WLBFFilter& addYW(double x, double y, double w = 1.0)
+		{
+			// Add the required data point and weight
+			addY(x, y);
+			addW(w);
+			return *this;
+		}
+
+		// Modify a weight in the weight buffer (0 = Newest data, N-1 = Oldest data)
+		void setW(std::size_t index, double w)
+		{
+			// Modify the required weight
+			if(index < m_len)
+				m_wbuf[index] = w*w; // Note: Input weights are squared!
+		}
+
+		// Modify a data point in the x and y buffers (0 = Newest data, N-1 = Oldest data)
+		void setY(std::size_t index, double x, double y)
+		{
+			// Modify the required data point
+			if(index < m_len)
+			{
+				m_xbuf[index] = x;
+				m_ybuf[index] = y;
+			}
+		}
+
+		// Modify a data point and weight in the data buffers (0 = Newest data, N-1 = Oldest data)
+		void setYW(std::size_t index, double x, double y, double w = 1.0)
+		{
+			// Modify the required data point and weight
+			setY(index, x, y);
+			setW(index, w);
+		}
+
+		// Set the data in the x buffer (newest data first)
 		template<typename Iterator> void setXBuf(Iterator first, Iterator last)
 		{
 			// Set the data in the buffer and fill in the rest with zeros
-			size_t i = 0;
-			for(; first != last; ++first, ++i)
-			{
-				if(i >= m_xBuf.size()) break;
-				m_xBuf[i] = *first;
-			}
-			for(; i < m_xBuf.size(); ++i)
-				m_xBuf[i] = 0.0;
-			m_changed = true;
+			std::size_t i = 0;
+			for(; first != last && i < m_xbuf.size(); ++first, ++i)
+				m_xbuf[i] = *first;
+			for(; i < m_xbuf.size(); ++i)
+				m_xbuf[i] = 0.0;
 		}
+
+		// Set the data in the y buffer (newest data first)
 		template<typename Iterator> void setYBuf(Iterator first, Iterator last)
 		{
 			// Set the data in the buffer and fill in the rest with zeros
-			size_t i = 0;
-			for(; first != last; ++first, ++i)
-			{
-				if(i >= m_yBuf.size()) break;
-				m_yBuf[i] = *first;
-			}
-			for(; i < m_yBuf.size(); ++i)
-				m_yBuf[i] = 0.0;
-			m_changed = true;
+			std::size_t i = 0;
+			for(; first != last && i < m_ybuf.size(); ++first, ++i)
+				m_ybuf[i] = *first;
+			for(; i < m_ybuf.size(); ++i)
+				m_ybuf[i] = 0.0;
 		}
-		template<typename Iterator> void setWBuf(Iterator first, Iterator last) // Note: The weights are squared, so a negative weight is equivalent to a positive one!
+
+		// Set the data in the w buffer (newest data first)
+		template<typename Iterator> void setWBuf(Iterator first, Iterator last)
 		{
 			// Set the data in the buffer and fill in the rest with zeros
-			size_t i = 0;
-			for(; first != last; ++first, ++i)
-			{
-				if(i >= m_wBuf.size()) break;
-				m_wBuf[i] = (*first) * (*first);
-			}
-			for(; i < m_wBuf.size(); ++i)
-				m_wBuf[i] = 0.0;
-			m_changed = true;
+			std::size_t i = 0;
+			for(; first != last && i < m_wbuf.size(); ++first, ++i)
+				m_wbuf[i] = (*first) * (*first); // Note: Input weights are squared!
+			for(; i < m_wbuf.size(); ++i)
+				m_wbuf[i] = 0.0;
 		}
-		
-		// Reset the contents of a buffer to all zero
-		void setZero() { setZeroX(); setZeroY(); setZeroW(); }
-		void setZeroX() { std::fill(m_xBuf.begin(), m_xBuf.end(), 0.0); m_changed = true; }
-		void setZeroY() { std::fill(m_yBuf.begin(), m_yBuf.end(), 0.0); m_changed = true; }
-		void setZeroW() { std::fill(m_wBuf.begin(), m_wBuf.end(), 0.0); m_changed = true; }
-		
-		// Set all weights to be equal
-		void setEqualW() { std::fill(m_wBuf.begin(), m_wBuf.end(), 1.0); m_changed = true; }
-		
-		// Set an initial XY state of the filter (set all internal data points to be this state, leaving weights untouched)
-		void setInitXY(double x, double y)
-		{
-			std::fill(m_xBuf.begin(), m_xBuf.end(), x);
-			std::fill(m_yBuf.begin(), m_yBuf.end(), y);
-			m_changed = true;
-		}
-		
-		// Set an initial XYW state of the filter (set all internal data points to be this state)
-		void setInitXYW(double x, double y, double w = 1.0)
-		{
-			std::fill(m_xBuf.begin(), m_xBuf.end(), x);
-			std::fill(m_yBuf.begin(), m_yBuf.end(), y);
-			std::fill(m_wBuf.begin(), m_wBuf.end(), w*w);
-			m_changed = true;
-		}
-		
-		// Add a weight (this keeps the buffer of (x,y) data points fixed and only adds the weight w for the existing newest data, every other point thereby receives a new weight, shifted by one place)
-		void addW(double w) // Note: The weight w is squared, so a negative weight is equivalent to a positive one!
-		{
-			// Add the required weight to the w buffer
-			m_wBuf.push_front(w*w);
-			m_changed = true;
-		}
-		
-		// Add a data point (this keeps the buffer of weights fixed and only adds a new (x,y) data point, every other point thereby receives a new weight, shifted by one place)
-		void addXY(double x, double y)
-		{
-			// Add the required data point to the x and y buffers
-			m_xBuf.push_front(x);
-			m_yBuf.push_front(y);
-			m_changed = true;
-		}
-		
-		// Add a data point (this keeps (x,y) pairs locked with their corresponding weights w)
-		void addXYW(double x, double y, double w = 1.0) // Note: The weight w is squared, so a negative weight is equivalent to a positive one!
-		{
-			// Add the required data point to all of the buffers
-			m_xBuf.push_front(x);
-			m_yBuf.push_front(y);
-			m_wBuf.push_front(w*w);
-			m_changed = true;
-		}
-		
-		// Set the weight of an existing data point in the circular buffer (an index of zero corresponds to the newest data point in the buffer)
-		void setW(size_t index, double w) // Note: The weight w is squared, so a negative weight is equivalent to a positive one!
-		{
-			// Modify the required data point
-			if(index < m_wBuf.size())
-			{
-				m_wBuf[index] = w*w;
-				m_changed = true;
-			}
-		}
-		
-		// Set the x and y values of an existing data point in the circular buffer (an index of zero corresponds to the newest data point in the buffer)
-		void setXY(size_t index, double x, double y)
-		{
-			// Modify the required data point
-			if(index < m_xBuf.size() && index < m_yBuf.size())
-			{
-				m_xBuf[index] = x;
-				m_yBuf[index] = y;
-				m_changed = true;
-			}
-		}
-		
-		// Set the values of an existing data point in the circular buffer (an index of zero corresponds to the newest data point in the buffer)
-		void setXYW(size_t index, double x, double y, double w = 1.0) // Note: The weight w is squared, so a negative weight is equivalent to a positive one!
-		{
-			// Modify the required data point
-			if(index < m_xBuf.size() && index < m_yBuf.size() && index < m_wBuf.size())
-			{
-				m_xBuf[index] = x;
-				m_yBuf[index] = y;
-				m_wBuf[index] = w*w;
-				m_changed = true;
-			}
-		}
-		
-		// Get functions
-		bool empty() const { return (m_xBuf.capacity() == 0); }
-		size_t size() const { return m_xBuf.capacity(); }
-		double valueAt(double x) { if(m_changed) calculateWLBF(); return (m_A + m_yMean) + m_B*(x - m_xMean); }
-		double value() { return valueAt(m_xBuf.front()); }
-		double centreValue() { if(m_changed) calculateWLBF(); return m_A + m_yMean; }
-		double deriv() { if(m_changed) calculateWLBF(); return m_B; }
-		double getA() const { return m_A + m_yMean - m_B*m_xMean; }
-		double getB() const { return m_B; }
-		void updateAB() { calculateWLBF(); }
-		const Buffer& xBuf() const { return m_xBuf; }
-		const Buffer& yBuf() const { return m_yBuf; }
-		const Buffer& wBuf() const { return m_wBuf; } // Note: The weights are the square of whatever was fed into the buffer
-		
+
+		// Get data buffers
+		const Buffer& XBuf() const { return m_xbuf; }
+		const Buffer& YBuf() const { return m_ybuf; }
+		const Buffer& WBuf() const { return m_wbuf; } // Note: The weights in the buffer are the squares of the weights that were provided!
+
+		// Get filter properties
+		std::size_t len() const { return m_len; }
+		bool lenZero() const { return (m_len == 0); }
+
+		// Get line parameters: y = A + B*(x - X)
+		double getA() const { return m_a; }
+		double getB() const { return m_b; }
+		double getX() const { return m_xmean; }
+
+		// Get filtered outputs
+		double value() const { return (m_xbuf.empty() ? m_a : m_a + m_b*(m_xbuf.front() - m_xmean)); }
+		double valueAt(double x) const { return m_a + m_b*(x - m_xmean); }
+		double deriv() const { return m_b; }
+		double centreValue() const { return m_a; }
+		double centreX() const { return m_xmean; }
+
+		// Update functions
+		WLBFFilter& update() { calculateWLBF(); return *this; }
+		double updatedValue() { calculateWLBF(); return value(); }
+		double updatedDeriv() { calculateWLBF(); return deriv(); }
+
 	private:
-		// Calculate the parameters of the weighted line of best fit y - yMean = m_A + m_B*(x - xMean) (i.e. externally seen as y = getA() + getB()*x)
+		// Calculate the weighted line of best fit from the data buffers
 		void calculateWLBF()
 		{
-			// Retrieve the size and check it's not empty
-			size_t N = m_xBuf.size();
-			if(N == 0)
+			// Calculate the weighted means of the x and y data
+			double xmean = 0.0, ymean = 0.0, sumw = 0.0;
+			for(std::size_t i = 0; i < m_len; i++)
 			{
-				m_A = m_B = m_xMean = m_yMean = 0.0;
-				m_changed = false;
+				double w = m_wbuf[i];
+				xmean += w*m_xbuf[i];
+				ymean += w*m_ybuf[i];
+				sumw += w;
+			}
+			if(sumw == 0.0) // Should only happen if every weight is zero...
+			{
+				m_a = m_b = m_xmean = 0.0;
 				return;
 			}
-			
-			// Calculate the mean x and y
-			m_xMean = 0.0;
-			m_yMean = 0.0;
-			for(size_t i = 0; i < N; i++)
+			else
 			{
-				m_xMean += m_xBuf[i];
-				m_yMean += m_yBuf[i];
+				xmean /= sumw;
+				ymean /= sumw;
 			}
-			m_xMean /= N;
-			m_yMean /= N;
-			
+
 			// Precalculate terms
-			double sumw = 0.0, sumwx = 0.0, sumwy = 0.0, sumwxx = 0.0, sumwxy = 0.0;
-			for(size_t i = 0; i < N; i++)
+			double sumwx = 0.0, sumwy = 0.0, sumwxx = 0.0, sumwxy = 0.0;
+			for(std::size_t i = 0; i < m_len; i++)
 			{
-				double x = m_xBuf[i] - m_xMean;
-				double y = m_yBuf[i] - m_yMean;
-				double w = m_wBuf[i];
+				double x = m_xbuf[i] - xmean;
+				double y = m_ybuf[i] - ymean;
+				double w = m_wbuf[i];
 				double wx = w*x;
-				sumw += w;
 				sumwx += wx;
 				sumwy += w*y;
 				sumwxx += wx*x;
 				sumwxy += wx*y;
 			}
-			
-			// Calculate the slope and offset of the weighted line of best fit
+
+			// Calculate the parameters of the weighted line of best fit
 			double denom = sumw*sumwxx - sumwx*sumwx;
-			if(denom == 0.0)
-				m_A = m_B = m_xMean = m_yMean = 0.0;
+			if(denom == 0.0) // Should only happen if all x values with non-zero weight are identical...
+			{
+				m_a = ymean;
+				m_b = 0.0;
+			}
 			else
 			{
-				m_A = (sumwy*sumwxx - sumwxy*sumwx) / denom;
-				m_B = (sumw*sumwxy - sumwx*sumwy) / denom;
+				m_a = (sumwy*sumwxx - sumwxy*sumwx) / denom + ymean;
+				m_b = (sumw*sumwxy - sumwx*sumwy) / denom;
 			}
-			
-			// Reset the changed flag
-			m_changed = false;
+			m_xmean = xmean;
 		}
-		
-		// Line of best fit parameters
-		double m_A;
-		double m_B;
-		double m_xMean;
-		double m_yMean;
-		
-		// Flag whether the buffer has changed
-		bool m_changed;
-		
-		// Circular buffers for data history ([0] = Newest data, [N-1] = Oldest data)
-		Buffer m_xBuf;
-		Buffer m_yBuf;
-		Buffer m_wBuf;
+
+		// Line parameters: y = m_a + m_b*(x - m_xmean)
+		double m_a;
+		double m_b;
+		double m_xmean;
+
+		// Data buffers (0 = Newest data, N-1 = Oldest data)
+		Buffer m_xbuf;
+		Buffer m_ybuf;
+		Buffer m_wbuf;
+		std::size_t m_len;
 	};
 }
 

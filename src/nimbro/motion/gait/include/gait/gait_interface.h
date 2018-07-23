@@ -88,6 +88,7 @@ namespace gait
 				odomOrientation[i+1] = 0.0;
 			}
 			odomOrientation[0] = 1.0;
+			odomJump = false;
 		}
 
 		// Joint commands
@@ -105,6 +106,7 @@ namespace gait
 		// Robot odometry transform
 		double odomPosition[3];          //!< @brief Position `(x,y,z)` of the robot's body-fixed base transform (i.e. the origin of the trunk link) in global odometry coordinates.
 		double odomOrientation[4];       //!< @brief Orientation `(w,x,y,z)` of the robot's body-fixed base transform (i.e. the origin of the trunk link) relative to the global odometry frame.
+		bool odomJump;                   //!< @brief Boolean flag whether the returned odometry was changed in a way that could be discontinuous
 	};
 }
 

@@ -326,6 +326,10 @@ void Gait::step()
 // Finalise a step of the gait motion module
 void Gait::finaliseStep()
 {
+	// Plotting
+	if(m_PM.getEnabled())
+		m_PM.plotScalar((ros::Time::now() - m_now).toSec(), PM_EXEC_TIME);
+
 	// Publish the data stored in the plot manager
 	m_PM.publish();
 	m_PM.clear();
@@ -406,6 +410,13 @@ void Gait::updateTransforms()
 	m_gait_odom.odom.orientation.x = m_engine->out.odomOrientation[1];
 	m_gait_odom.odom.orientation.y = m_engine->out.odomOrientation[2];
 	m_gait_odom.odom.orientation.z = m_engine->out.odomOrientation[3];
+
+	// Increment the gait odometry ID if the gait engine has indicated a possible jump in odometry
+	if(m_engine->out.odomJump)
+	{
+		m_gait_odom.ID++;
+		m_engine->out.odomJump = false;
+	}
 }
 
 // Load the required gait engine dynamically via pluginlib
@@ -580,6 +591,7 @@ void Gait::plotGaitEngineOutputs(const GaitEngineOutput& out)
 	m_PM.plotScalar(out.odomPosition[0],      PM_GAIT_ODOM_X);
 	m_PM.plotScalar(out.odomPosition[1],      PM_GAIT_ODOM_Y);
 	m_PM.plotScalar(out.odomPosition[2],      PM_GAIT_ODOM_Z);
+	m_PM.plotScalar(out.odomJump,             PM_GAIT_ODOM_JUMP);
 	m_PM.plotScalar(0.1*(((m_gait_odom.ID - 1) % 10) + 1), PM_GAIT_ODOM_ID);
 }
 
@@ -1008,6 +1020,9 @@ void Gait::plotGaitStateEvent()
 // Configure the plot manager
 void Gait::configurePlotManager()
 {
+	// Gait execution time
+	m_PM.setName(PM_EXEC_TIME, "execTime");
+
 	// Gait engine inputs
 	m_PM.setName(PM_NOMINAL_DT,        "nominaldT");
 	m_PM.setName(PM_TRUE_DT,           "truedT");
@@ -1029,6 +1044,7 @@ void Gait::configurePlotManager()
 	m_PM.setName(PM_GAIT_ODOM_X,         "gaitOdom/X");
 	m_PM.setName(PM_GAIT_ODOM_Y,         "gaitOdom/Y");
 	m_PM.setName(PM_GAIT_ODOM_Z,         "gaitOdom/Z");
+	m_PM.setName(PM_GAIT_ODOM_JUMP,      "gaitOdom/jump");
 	m_PM.setName(PM_GAIT_ODOM_ID,        "gaitOdom/ID");
 
 	// Raw gait command

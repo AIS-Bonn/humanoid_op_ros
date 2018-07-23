@@ -1,12 +1,14 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(cap_gait)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
 #######################
 ## Find dependencies ##
 #######################
 
 ## Find catkin macros and libraries
-find_package(catkin REQUIRED COMPONENTS roscpp gait config_server rc_utils vis_utils plot_msgs cmake_modules robotcontrol rqt_gui_cpp)
+find_package(catkin REQUIRED COMPONENTS roscpp gait config_server rc_utils rot_conv vis_utils plot_msgs cmake_modules robotcontrol rqt_gui_cpp feed_gait)
 find_package(Eigen REQUIRED)
 
 # Decide on a Qt version

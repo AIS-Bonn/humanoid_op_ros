@@ -9,6 +9,7 @@
 #include <rc_utils/slope_limiter.h>
 #include <rc_utils/lin_sin_fillet.h>
 #include <rc_utils/smooth_deadband.h>
+#include <rot_conv/rot_conv.h>
 #include <cap_gait/cap_gait.h> // This is last because it contains Qt includes that break the Boost signals library... (used by TF)
 #include <cap_gait/contrib/Globals.h>
 
@@ -181,6 +182,10 @@ void CapGait::resetCaptureSteps(bool resetRobotModel)
 	gyroXFeed = 0.0;
 	gyroYFeed = 0.0;
 	
+	// Reset step size adaptation
+	resetStepSize();
+	configStepSize();
+	
 	// Reset capture step objects
 	m_rxVis.init();
 	m_rxVis.setVisOffset(config.visOffsetX(), config.visOffsetY(), config.visOffsetZ());
@@ -189,6 +194,8 @@ void CapGait::resetCaptureSteps(bool resetRobotModel)
 		rxRobotModel.reset(resetRobotModel);
 		rxRobotModel.setSupportLeg(m_leftLegFirst ? 1 : -1); // Left leg first in the air means that the first support leg is the right leg, 1 in the margait/contrib sign convention
 		rxRobotModel.supportExchangeLock = true;
+		m_PM.plotEvent("Odometry Reset");
+		out.odomJump = true;
 	}
 	rxModel.reset();
 	mxModel.reset();
@@ -244,6 +251,8 @@ void CapGait::setOdometry(double posX, double posY, double rotZ)
 {
 	// Update the odometry of the internal robot model object
 	rxRobotModel.setOdom(posX, posY, rotZ); // Note: rotZ is interpreted as a fused yaw angle relative to the global fixed frame
+	m_PM.plotEvent("Odometry Set");
+	out.odomJump = true;
 }
 
 // Update the CoM odometry to the current RobotModel state
@@ -540,7 +549,7 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 
 	// The LimpState ms concludes the estimation of the "CoM" state using direct sensor input and the kinematic model.
 	// Let's set the rx limp model.
-	rxModel.setState(ms, gcvInput); // TODO: Should this be gcvInput or m_gcv?
+	rxModel.setState(ms, gcvInput);
 
 	//
 	// Adaptation gate
@@ -566,7 +575,7 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 		ls.y  = (1.0 - adapty)*mx.y  + adapty*rx.y;
 		ls.vy = (1.0 - adapty)*mx.vy + adapty*rx.vy;
 	}
-	mxModel.setState(ls, gcvInput); // TODO: Should this be gcvInput or m_gcv?
+	mxModel.setState(ls, gcvInput);
 
 	// Latency preview (beyond here we are working config.mgLatency() seconds into the future with all our calculations!)
 	txModel = mxModel;
@@ -657,18 +666,16 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	double deviationGyroY = model->robotAngularVelocity().y() - expectedGyroY;
 	
 	// Calculate basic fused angle deviation feedback values
-	fusedXFeedFilter.put(deviationFusedX);
-	fusedYFeedFilter.put(deviationFusedY);
-	fusedXFeed = config.basicFusedGainAllLat() * SmoothDeadband::eval(fusedXFeedFilter.value(), config.basicFusedDeadRadiusX());
-	fusedYFeed = config.basicFusedGainAllSag() * SmoothDeadband::eval(fusedYFeedFilter.value(), config.basicFusedDeadRadiusY());
+	fusedXFeed = config.basicFusedGainAllLat() * SmoothDeadband::eval(fusedXFeedFilter.update(deviationFusedX), config.basicFusedDeadRadiusX());
+	fusedYFeed = config.basicFusedGainAllSag() * SmoothDeadband::eval(fusedYFeedFilter.update(deviationFusedY), config.basicFusedDeadRadiusY());
 	if(!config.basicFusedEnabledLat()) fusedXFeed = 0.0;
 	if(!config.basicFusedEnabledSag()) fusedYFeed = 0.0;
 	
 	// Calculate basic fused angle deviation derivative feedback values
-	dFusedXFeedFilter.addXYW(in.timestamp, deviationFusedX, 1.0); // TODO: Modify the weighting based on gait phase to reject known fused angle bumps
-	dFusedYFeedFilter.addXYW(in.timestamp, deviationFusedY, 1.0); // TODO: Modify the weighting based on gait phase to reject known fused angle bumps
-	dFusedXFeed = config.basicDFusedGainAllLat() * SmoothDeadband::eval(dFusedXFeedFilter.deriv(), config.basicDFusedDeadRadiusX());
-	dFusedYFeed = config.basicDFusedGainAllSag() * SmoothDeadband::eval(dFusedYFeedFilter.deriv(), config.basicDFusedDeadRadiusY());
+	dFusedXFeedFilter.addYW(in.timestamp, deviationFusedX, 1.0);
+	dFusedYFeedFilter.addYW(in.timestamp, deviationFusedY, 1.0);
+	dFusedXFeed = config.basicDFusedGainAllLat() * SmoothDeadband::eval(dFusedXFeedFilter.updatedDeriv(), config.basicDFusedDeadRadiusX());
+	dFusedYFeed = config.basicDFusedGainAllSag() * SmoothDeadband::eval(dFusedYFeedFilter.updatedDeriv(), config.basicDFusedDeadRadiusY());
 	if(!config.basicDFusedEnabledLat()) dFusedXFeed = 0.0;
 	if(!config.basicDFusedEnabledSag()) dFusedYFeed = 0.0;
 	
@@ -692,26 +699,24 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 		iFusedYFeedIntegrator.integrate(0.0);
 	
 	// Calculate a basic fused angle deviation integral feedback value
-	iFusedXFeedFilter.put(iFusedXFeedIntegrator.integral());
-	iFusedYFeedFilter.put(iFusedYFeedIntegrator.integral());
-	iFusedXFeed = 1e-3 * config.basicIFusedGainAllLat() * iFusedXFeedFilter.value();
-	iFusedYFeed = 1e-3 * config.basicIFusedGainAllSag() * iFusedYFeedFilter.value();
+	iFusedXFeed = 1e-3 * config.basicIFusedGainAllLat() * iFusedXFeedFilter.update(iFusedXFeedIntegrator.integral());
+	iFusedYFeed = 1e-3 * config.basicIFusedGainAllSag() * iFusedYFeedFilter.update(iFusedYFeedIntegrator.integral());
 	if(!config.basicIFusedEnabledLat()) iFusedXFeed = 0.0;
 	if(!config.basicIFusedEnabledSag()) iFusedYFeed = 0.0;
 	haveIFusedXFeed = (config.basicIFusedGainAllLat() != 0.0 && config.basicIFusedEnabledLat());
 	haveIFusedYFeed = (config.basicIFusedGainAllSag() != 0.0 && config.basicIFusedEnabledSag());
 	
 	// Calculate basic gyro deviation feedback values
-	gyroXFeedFilter.addXYW(in.timestamp, deviationGyroX, 1.0); // TODO: Modify the weighting based on gait phase to reject known gyro bumps
-	gyroYFeedFilter.addXYW(in.timestamp, deviationGyroY, 1.0); // TODO: Modify the weighting based on gait phase to reject known gyro bumps
-	gyroXFeed = config.basicGyroGainAllLat() * SmoothDeadband::eval(gyroXFeedFilter.value(), config.basicGyroDeadRadiusX());
-	gyroYFeed = config.basicGyroGainAllSag() * SmoothDeadband::eval(gyroYFeedFilter.value(), config.basicGyroDeadRadiusY());
+	gyroXFeedFilter.addYW(in.timestamp, deviationGyroX, 1.0);
+	gyroYFeedFilter.addYW(in.timestamp, deviationGyroY, 1.0);
+	gyroXFeed = config.basicGyroGainAllLat() * SmoothDeadband::eval(gyroXFeedFilter.updatedValue(), config.basicGyroDeadRadiusX());
+	gyroYFeed = config.basicGyroGainAllSag() * SmoothDeadband::eval(gyroYFeedFilter.updatedValue(), config.basicGyroDeadRadiusY());
 	if(!config.basicGyroEnabledLat()) gyroXFeed = 0.0;
 	if(!config.basicGyroEnabledSag()) gyroYFeed = 0.0;
 	
 	// Calculate a modification to the gait phase frequency based on basic feedback terms
 	double timingFeedWeight = coerce(-config.basicTimingWeightFactor()*sin(m_gaitPhase - 0.5*config.doubleSupportPhaseLen()), -1.0, 1.0);
-	double timingFeed = SmoothDeadband::eval(fusedXFeedFilter.value() * timingFeedWeight, config.basicTimingFeedDeadRad());
+	double timingFeed = SmoothDeadband::eval(fusedXFeedFilter.mean() * timingFeedWeight, config.basicTimingFeedDeadRad());
 	double timingFreqDelta = (timingFeed >= 0.0 ? config.basicTimingGainSpeedUp()*timingFeed : config.basicTimingGainSlowDown()*timingFeed);
 	if(!(config.basicEnableTiming() && config.basicGlobalEnable())) timingFreqDelta = 0.0;
 
@@ -725,6 +730,10 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 		if(absdev > config.virtualSlopeMinAngle())
 			virtualSlope += sign(dev) * (dev * config.gcvPrescalerLinVelX() * m_gcv.x() > 0 ? config.virtualSlopeGainAsc() : config.virtualSlopeGainDsc()) * (absdev - config.virtualSlopeMinAngle());
 	}
+
+	// Step size adaptation
+	double stepSizeXFeed = updateStepSize(fusedX, fusedY);
+	if(!config.basicEnableStepSizeX()) stepSizeXFeed = 0.0;
 
 	//
 	// Gait phase update
@@ -802,7 +811,7 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	if(supportLegSign * gcvInput.y >= 0)
 		gcvTarget.y() = supportLegSign * coerceAbs((fabs(sex.y) - delta) / (omega - delta), 1.0);
 	else
-		gcvTarget.y() = oldGcvTargetY; // TODO: This looks relatively unsafe
+		gcvTarget.y() = oldGcvTargetY;
 	gcvTarget.z() = sex.z;
 	oldGcvTargetY = gcvTarget.y();
 	if(!config.cmdAllowCLStepSizeX())
@@ -810,10 +819,14 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	if(!config.cmdAllowCLStepSizeY())
 		gcvTarget.y() = 0.0;
 
+	// Use pure step size X feedback if required (gcv input is ignored in this case, the aim is then just to stay walking on the spot)
+	if(config.basicEnableStepSizeX() && config.basicGlobalEnable())
+		gcvTarget << stepSizeXFeed, 0.0, 0.0;
+
 	// Move the current gcv smoothly to the target gcv in timeToStep amount of time
 	Eigen::Vector3d CLGcv = gcvTarget;
 	if(timeToStep > systemIterationTime)
-		CLGcv = m_gcv + (systemIterationTime / timeToStep) * (gcvTarget - m_gcv); // TODO: Build some kind of protection into this update strategy to avoid increasingly explosive GCV updates super-close to the end of the step, causing sharp joint curves.
+		CLGcv = m_gcv + (systemIterationTime / timeToStep) * (gcvTarget - m_gcv);
 
 	// Handle the situation differently depending on whether we are using CL step sizes or not
 	double D = config.gcvDecToAccRatio();
@@ -861,12 +874,9 @@ void CapGait::updateRobot(const Eigen::Vector3d& gcvBias)
 	// Calculate and filter the gait command acceleration
 	m_gcvDeriv.put(m_gcv);
 	Eigen::Vector3d gcvAccRaw = m_gcvDeriv.value() / systemIterationTime;
-	m_gcvAccSmoothX.put(SlopeLimiter::eval(gcvAccRaw.x(), m_gcvAcc.x(), config.gcvAccJerkLimitX()*systemIterationTime));
-	m_gcvAccSmoothY.put(SlopeLimiter::eval(gcvAccRaw.y(), m_gcvAcc.y(), config.gcvAccJerkLimitY()*systemIterationTime));
-	m_gcvAccSmoothZ.put(SlopeLimiter::eval(gcvAccRaw.z(), m_gcvAcc.z(), config.gcvAccJerkLimitZ()*systemIterationTime));
-	m_gcvAcc.x() = m_gcvAccSmoothX.value();
-	m_gcvAcc.y() = m_gcvAccSmoothY.value();
-	m_gcvAcc.z() = m_gcvAccSmoothZ.value();
+	m_gcvAcc.x() = m_gcvAccSmoothX.update(SlopeLimiter::eval(gcvAccRaw.x(), m_gcvAcc.x(), config.gcvAccJerkLimitX()*systemIterationTime));
+	m_gcvAcc.y() = m_gcvAccSmoothY.update(SlopeLimiter::eval(gcvAccRaw.y(), m_gcvAcc.y(), config.gcvAccJerkLimitY()*systemIterationTime));
+	m_gcvAcc.z() = m_gcvAccSmoothZ.update(SlopeLimiter::eval(gcvAccRaw.z(), m_gcvAcc.z(), config.gcvAccJerkLimitZ()*systemIterationTime));
 
 	//
 	// Motion stance control
@@ -1046,6 +1056,95 @@ void CapGait::updateHaltPose()
 	// Set the halt pose support coefficients
 	haltSupportCoeffLeftLeg = m_jointHaltPose.leftLeg.cld.supportCoeff;
 	haltSupportCoeffRightLeg = m_jointHaltPose.rightLeg.cld.supportCoeff;
+}
+
+// Reset the step size adaptation
+void CapGait::resetStepSize()
+{
+	// Reset the step size adaptation
+	syncPhaseFilter.resetAll();
+	stepTriPendModelSag.resetParam();
+	stepGcvXBHoldFilter.resetAll();
+	stepGcvXFHoldFilter.resetAll();
+}
+
+// Configure the step size adaptation
+void CapGait::configStepSize()
+{
+	// Resize the synchronised tilt phase filter
+	std::size_t syncPhaseFilterN = rc_utils::coerceMin(config.syncPhaseFilterN(), 1);
+	if(syncPhaseFilter.len() != syncPhaseFilterN) syncPhaseFilter.resize(syncPhaseFilterN);
+
+	// Set the parameters of the sagittal tripendulum model
+	double Cbfsq = config.stepSTPMCsqConstBF() / config.legScaleTip();
+	double Cmsq = config.stepSTPMCsqConstM() / config.legScaleTip();
+	double thm = config.basicFusedExpYSinOffset();
+	double thb = rc_utils::coerceMax<double>(config.stepSTPMCrossingPhaseB(), thm);
+	double thf = rc_utils::coerceMin<double>(config.stepSTPMCrossingPhaseF(), thm);
+	stepTriPendModelSag.setParam(thb, thm, thf, Cbfsq, Cmsq, Cbfsq);
+
+	// Resize the step size hold filters
+	std::size_t stepGcvXHoldFilterN = rc_utils::coerceMin(config.stepGcvXHoldFilterN(), 1);
+	if(stepGcvXBHoldFilter.numPoints() != stepGcvXHoldFilterN) stepGcvXBHoldFilter.resize(stepGcvXHoldFilterN);
+	if(stepGcvXFHoldFilter.numPoints() != stepGcvXHoldFilterN) stepGcvXFHoldFilter.resize(stepGcvXHoldFilterN);
+}
+
+// Update the step size adaptation
+double CapGait::updateStepSize(double fusedX, double fusedY)
+{
+	// Reconfigure the step size adaptation
+	configStepSize();
+
+	// Calculate the time-synchronised filtered tilt phase value and derivative
+	rot_conv::TiltPhase2D phase = rot_conv::PhaseFromFused(fusedY, fusedX);
+	syncPhaseFilter.addPW(in.timestamp, phase.px, phase.py, 1.0).update();
+	Eigen::Vector2d syncPhase = syncPhaseFilter.centreValue();
+	Eigen::Vector2d syncPhaseD = syncPhaseFilter.deriv();
+
+	// Data aliases
+	double th = syncPhase.y();
+	double thdot = syncPhaseD.y();
+
+	// Calculate the sagittal crossing energies of the current state, normalised by the pendulum constants
+	tripendulum::CrossingEnergy CE = stepTriPendModelSag.crossingEnergy(th, thdot);
+	CE.B /= stepTriPendModelSag.Cbsq;
+	CE.F /= stepTriPendModelSag.Cfsq;
+
+	// Calculate the backwards crossing sagittal gait command vector adjustment
+	double gcvDeltaXB = 0.0;
+	if(CE.B >= config.stepSCrossingEMinB())
+		gcvDeltaXB = -config.stepSCrossingEToGcvX() * rc_utils::SmoothDeadband::eval(CE.B, config.stepSCrossingEDeadRadB(), config.stepSCrossingEMinB());
+	gcvDeltaXB = rc_utils::interpolateCoerced(stepTriPendModelSag.ths, stepTriPendModelSag.thm, 0.0, gcvDeltaXB, th);
+
+	// Calculate the forwards crossing sagittal gait command vector adjustment
+	double gcvDeltaXF = 0.0;
+	if(CE.F >= config.stepSCrossingEMinF())
+		gcvDeltaXF = config.stepSCrossingEToGcvX() * rc_utils::SmoothDeadband::eval(CE.F, config.stepSCrossingEDeadRadF(), config.stepSCrossingEMinF());
+	gcvDeltaXF = rc_utils::interpolateCoerced(stepTriPendModelSag.tht, stepTriPendModelSag.thm, 0.0, gcvDeltaXF, th);
+
+	// Hold the sagittal gait command vector adjustments for some time to give them a chance to take effect
+	double gcvDeltaXBH = stepGcvXBHoldFilter.update(gcvDeltaXB);
+	double gcvDeltaXFH = stepGcvXFHoldFilter.update(gcvDeltaXF);
+
+	// Combine the forwards and backwards components into a total sagittal gait command vector adjustment
+	double gcvDeltaX = rc_utils::coerceSoftAbs<double>(gcvDeltaXBH + gcvDeltaXFH, config.stepGcvDeltaXMaxAbs(), config.stepGcvDeltaXBuf());
+
+	// Plotting
+	if(m_PM.getEnabled())
+	{
+		m_PM.plotScalar(th, PM_STEPSIZE_SYNCPHASEY);
+		m_PM.plotScalar(thdot, PM_STEPSIZE_SYNCDERIVY);
+		m_PM.plotScalar(stepTriPendModelSag.tht, PM_STEPSIZE_THETABM);
+		m_PM.plotScalar(stepTriPendModelSag.ths, PM_STEPSIZE_THETAMF);
+		m_PM.plotScalar(CE.B, PM_STEPSIZE_CROSSENERGY_B);
+		m_PM.plotScalar(CE.F, PM_STEPSIZE_CROSSENERGY_F);
+		m_PM.plotScalar(gcvDeltaXB, PM_STEPSIZE_GCVDELTAX_B);
+		m_PM.plotScalar(gcvDeltaXF, PM_STEPSIZE_GCVDELTAX_F);
+		m_PM.plotScalar(gcvDeltaX, PM_STEPSIZE_GCVDELTAX);
+	}
+
+	// Return the required step size adaptation
+	return gcvDeltaX;
 }
 
 // Calculate common motion data
@@ -1803,6 +1902,15 @@ void CapGait::configurePlotManager()
 	m_PM.setName(PM_FEEDBACK_GYRO_Y, "basicFeedback/gyroYFeed");
 	m_PM.setName(PM_TIMING_FEED_WEIGHT, "basicFeedback/timingWeight");
 	m_PM.setName(PM_TIMING_FREQ_DELTA, "basicFeedback/timingFreqDelta");
+	m_PM.setName(PM_STEPSIZE_SYNCPHASEY, "basicFeedback/stepSize/syncPhaseY");
+	m_PM.setName(PM_STEPSIZE_SYNCDERIVY, "basicFeedback/stepSize/syncDerivY");
+	m_PM.setName(PM_STEPSIZE_THETABM, "basicFeedback/stepSize/thetaBM");
+	m_PM.setName(PM_STEPSIZE_THETAMF, "basicFeedback/stepSize/thetaMF");
+	m_PM.setName(PM_STEPSIZE_CROSSENERGY_B, "basicFeedback/stepSize/crossingEnergyB");
+	m_PM.setName(PM_STEPSIZE_CROSSENERGY_F, "basicFeedback/stepSize/crossingEnergyF");
+	m_PM.setName(PM_STEPSIZE_GCVDELTAX_B, "basicFeedback/stepSize/gcvDeltaX/B");
+	m_PM.setName(PM_STEPSIZE_GCVDELTAX_F, "basicFeedback/stepSize/gcvDeltaX/F");
+	m_PM.setName(PM_STEPSIZE_GCVDELTAX, "basicFeedback/stepSize/gcvDeltaX/final");
 	m_PM.setName(PM_GAIT_FREQUENCY, "cmd/gaitFrequency");
 	m_PM.setName(PM_REM_GAIT_PHASE, "cmd/remainingGaitPhase");
 	m_PM.setName(PM_TIMETOSTEP, "cmd/timeToStep");

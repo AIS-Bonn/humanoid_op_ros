@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package>
+	<name>feed_gait</name>
+	<version>1.0.0</version>
+	<description>The feedback gait package</description>
+	<maintainer email="pallgeuer@ais.uni-bonn.de">Philipp Allgeuer</maintainer>
+	<license>BSD-3</license>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<build_depend>config_server</build_depend>
+	<build_depend>gait</build_depend>
+	<build_depend>humanoid_kinematics</build_depend>
+	<build_depend>rot_conv</build_depend>
+	<build_depend>test_utilities</build_depend>
+	<build_depend>roscpp</build_depend>
+	<run_depend>config_server</run_depend>
+	<run_depend>gait</run_depend>
+	<run_depend>humanoid_kinematics</run_depend>
+	<run_depend>rot_conv</run_depend>
+	<run_depend>test_utilities</run_depend>
+
+	<export>
+		<gait plugin="${prefix}/plugin_gait.xml" />
+	</export>
+</package>

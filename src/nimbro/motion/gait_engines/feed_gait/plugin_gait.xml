@@ -1,0 +1,7 @@
+<library path="lib/libfeed_gait">
+	<class type="feed_gait::FeedGait" base_class_type="gait::GaitEngine">
+		<description>
+			Feedback gait engine
+		</description>
+	</class>
+</library>

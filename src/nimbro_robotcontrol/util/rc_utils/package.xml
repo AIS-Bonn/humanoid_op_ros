@@ -42,7 +42,9 @@
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>cmake_modules</build_depend>
   <build_depend>tf</build_depend>
+  <build_depend>test_utilities</build_depend>
   <run_depend>tf</run_depend>
+  <run_depend>test_utilities</run_depend>
   <test_depend>gtest</test_depend>
 
   <!-- The export tag contains other, unspecified, tags -->

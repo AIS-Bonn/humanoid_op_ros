@@ -205,7 +205,7 @@ bool parseCSV(const std::string& csvname, RDataArr& arr)
 		bool haveposdata = false;
 
 		// Back up the current robot data struct
-		oldd = d; // TODO: It is a problem that d is not zeroed in between output rows, and so missing data gets duplicated...
+		oldd = d;
 		
 		// Split the line up by comma delimiters
 		std::stringstream liness(line);

@@ -264,9 +264,9 @@ TEST(RotConvTest, testEulerAnglesStruct)
 	EXPECT_EQ(0.0, ea.yaw);
 	EXPECT_EQ(0.0, ea.pitch);
 	EXPECT_EQ(0.0, ea.roll);
-	EXPECT_EQ(0.0, EulerAngles::Identity.yaw);
-	EXPECT_EQ(0.0, EulerAngles::Identity.pitch);
-	EXPECT_EQ(0.0, EulerAngles::Identity.roll);
+	EXPECT_EQ(0.0, EulerAngles::Identity().yaw);
+	EXPECT_EQ(0.0, EulerAngles::Identity().pitch);
+	EXPECT_EQ(0.0, EulerAngles::Identity().roll);
 }
 
 // Test the FusedAngles struct
@@ -319,10 +319,10 @@ TEST(RotConvTest, testFusedAnglesStruct)
 	EXPECT_EQ(0.0, fe.fusedPitch);
 	EXPECT_EQ(0.0, fe.fusedRoll);
 	EXPECT_TRUE(true == fe.hemi);
-	EXPECT_EQ(0.0, FusedAngles::Identity.fusedYaw);
-	EXPECT_EQ(0.0, FusedAngles::Identity.fusedPitch);
-	EXPECT_EQ(0.0, FusedAngles::Identity.fusedRoll);
-	EXPECT_TRUE(true == FusedAngles::Identity.hemi);
+	EXPECT_EQ(0.0, FusedAngles::Identity().fusedYaw);
+	EXPECT_EQ(0.0, FusedAngles::Identity().fusedPitch);
+	EXPECT_EQ(0.0, FusedAngles::Identity().fusedRoll);
+	EXPECT_TRUE(true == FusedAngles::Identity().hemi);
 }
 
 // Test the TiltAngles struct
@@ -354,9 +354,9 @@ TEST(RotConvTest, testTiltAnglesStruct)
 	EXPECT_EQ(-2.0, td.fusedYaw);
 	EXPECT_EQ(0.0, td.tiltAxisAngle);
 	EXPECT_EQ(0.0, td.tiltAngle);
-	EXPECT_EQ(0.0, TiltAngles::Identity.fusedYaw);
-	EXPECT_EQ(0.0, TiltAngles::Identity.tiltAxisAngle);
-	EXPECT_EQ(0.0, TiltAngles::Identity.tiltAngle);
+	EXPECT_EQ(0.0, TiltAngles::Identity().fusedYaw);
+	EXPECT_EQ(0.0, TiltAngles::Identity().tiltAxisAngle);
+	EXPECT_EQ(0.0, TiltAngles::Identity().tiltAngle);
 }
 
 // ##########################################
@@ -383,7 +383,7 @@ TEST(RotConvTest, testCheckValidateRotmat)
 	EXPECT_FALSE(ValidateRotmat(Rtmp));
 	ExpectNear(Rao, Rtmp, TOL_HIGH);
 	Rtmp = Ra;
-	double tol = ROT_CONV_DEF_TOL*10.0;
+	double tol = ROT_CONV_DEFAULT_TOL*10.0;
 	EXPECT_TRUE(CheckRotmat(Rtmp, tol));
 	EXPECT_TRUE(CheckRotmat(Rtmp, Rout, tol));
 	ExpectNear(Rao, Rout, TOL_HIGH);
@@ -424,7 +424,7 @@ TEST(RotConvTest, testCheckValidateQuat)
 	EXPECT_FALSE(ValidateQuat(qtmp));
 	ExpectNear(qao, qtmp, TOL_HIGH);
 	qtmp = qa;
-	double tol = ROT_CONV_DEF_TOL*10.0;
+	double tol = ROT_CONV_DEFAULT_TOL*10.0;
 	EXPECT_TRUE(CheckQuat(qtmp, tol));
 	EXPECT_TRUE(CheckQuat(qtmp, qout, tol));
 	ExpectNear(qao, qout, TOL_HIGH);
@@ -439,9 +439,9 @@ TEST(RotConvTest, testCheckValidateQuat)
 	EXPECT_FALSE(ValidateQuat(qtmp));
 	ExpectNear(qbo, qtmp, TOL_HIGH);
 	qtmp = qb;
-	EXPECT_FALSE(CheckQuat(qtmp, qout, ROT_CONV_DEF_TOL, true));
+	EXPECT_FALSE(CheckQuat(qtmp, qout, ROT_CONV_DEFAULT_TOL, true));
 	ExpectNear(qbu, qout, TOL_HIGH);
-	EXPECT_FALSE(ValidateQuat(qtmp, ROT_CONV_DEF_TOL, true));
+	EXPECT_FALSE(ValidateQuat(qtmp, ROT_CONV_DEFAULT_TOL, true));
 	ExpectNear(qbu, qtmp, TOL_HIGH);
 }
 
@@ -465,28 +465,28 @@ TEST(RotConvTest, testCheckValidateEuler)
 
 	// Test tolerances and uniqueness
 	etmp = eb;
-	EXPECT_TRUE(CheckEuler(etmp, ROT_CONV_DEF_TOL));
-	EXPECT_TRUE(CheckEuler(etmp, ROT_CONV_DEF_TOL*10.0));
-	EXPECT_TRUE(CheckEuler(etmp, eout, ROT_CONV_DEF_TOL));
+	EXPECT_TRUE(CheckEuler(etmp, ROT_CONV_DEFAULT_TOL));
+	EXPECT_TRUE(CheckEuler(etmp, ROT_CONV_DEFAULT_TOL*10.0));
+	EXPECT_TRUE(CheckEuler(etmp, eout, ROT_CONV_DEFAULT_TOL));
 	ExpectNear(eb, eout, TOL_HIGH);
-	EXPECT_TRUE(CheckEuler(etmp, eout, ROT_CONV_DEF_TOL*10.0));
+	EXPECT_TRUE(CheckEuler(etmp, eout, ROT_CONV_DEFAULT_TOL*10.0));
 	ExpectNear(eb, eout, TOL_HIGH);
-	EXPECT_TRUE(ValidateEuler(etmp, ROT_CONV_DEF_TOL));
+	EXPECT_TRUE(ValidateEuler(etmp, ROT_CONV_DEFAULT_TOL));
 	ExpectNear(eb, etmp, TOL_HIGH);
 	etmp = eb;
-	EXPECT_TRUE(ValidateEuler(etmp, ROT_CONV_DEF_TOL*10.0));
+	EXPECT_TRUE(ValidateEuler(etmp, ROT_CONV_DEFAULT_TOL*10.0));
 	ExpectNear(eb, etmp, TOL_HIGH);
 	etmp = eb;
-	EXPECT_TRUE(CheckEuler(etmp, ROT_CONV_DEF_TOL, true));
-	EXPECT_FALSE(CheckEuler(etmp, ROT_CONV_DEF_TOL*10.0, true));
-	EXPECT_TRUE(CheckEuler(etmp, eout, ROT_CONV_DEF_TOL, true));
+	EXPECT_TRUE(CheckEuler(etmp, ROT_CONV_DEFAULT_TOL, true));
+	EXPECT_FALSE(CheckEuler(etmp, ROT_CONV_DEFAULT_TOL*10.0, true));
+	EXPECT_TRUE(CheckEuler(etmp, eout, ROT_CONV_DEFAULT_TOL, true));
 	ExpectNear(eb, eout, TOL_HIGH);
-	EXPECT_FALSE(CheckEuler(etmp, eout, ROT_CONV_DEF_TOL*10.0, true));
+	EXPECT_FALSE(CheckEuler(etmp, eout, ROT_CONV_DEFAULT_TOL*10.0, true));
 	ExpectNear(ebu, eout, TOL_HIGH);
-	EXPECT_TRUE(ValidateEuler(etmp, ROT_CONV_DEF_TOL, true));
+	EXPECT_TRUE(ValidateEuler(etmp, ROT_CONV_DEFAULT_TOL, true));
 	ExpectNear(eb, etmp, TOL_HIGH);
 	etmp = eb;
-	EXPECT_FALSE(ValidateEuler(etmp, ROT_CONV_DEF_TOL*10.0, true));
+	EXPECT_FALSE(ValidateEuler(etmp, ROT_CONV_DEFAULT_TOL*10.0, true));
 	ExpectNear(ebu, etmp, TOL_HIGH);
 }
 
@@ -496,10 +496,10 @@ TEST(RotConvTest, testCheckValidateFused)
 	// Define rotations
 	FusedAngles ftmp, fout;
 	FusedAngles fa(12.8212600967838668, 7.1925287664956974, 10.2649509332849362, true);
-	FusedAngles fao(0.2548894824246943, 0.4448765926455277, -1.1259197341493687, true);
-	FusedAngles fb(-0.1923242743652673, -1.0225495882399438, -0.5482467388549528, false);
-	FusedAngles fbo(-0.1923242743652671, -1.0225495880446509, -0.5482467387502455, false);
-	FusedAngles fbu(-0.1923242743652671, -1.0225495880446509, -0.5482467387502455, true);
+	FusedAngles fao(0.2548894824246943, 0.8142989341783859, -0.7564973926165107, true);
+	FusedAngles fb (-0.1923242743652673, -1.0225495882399438, -0.5482467388549528, false);
+	FusedAngles fbo(-0.1923242743652673, -1.0225495880214359, -0.5482467387734605, false);
+	FusedAngles fbu(-0.1923242743652673, -1.0225495880214359, -0.5482467387734605, true);
 
 	// Test some invalid fused angles
 	ftmp = fa;
@@ -511,28 +511,28 @@ TEST(RotConvTest, testCheckValidateFused)
 
 	// Test tolerances and uniqueness
 	ftmp = fb;
-	EXPECT_FALSE(CheckFused(ftmp, ROT_CONV_DEF_TOL));
-	EXPECT_TRUE(CheckFused(ftmp, ROT_CONV_DEF_TOL*10.0));
-	EXPECT_FALSE(CheckFused(ftmp, fout, ROT_CONV_DEF_TOL));
+	EXPECT_FALSE(CheckFused(ftmp, ROT_CONV_DEFAULT_TOL));
+	EXPECT_TRUE(CheckFused(ftmp, ROT_CONV_DEFAULT_TOL*10.0));
+	EXPECT_FALSE(CheckFused(ftmp, fout, ROT_CONV_DEFAULT_TOL));
 	ExpectNear(fbo, fout, TOL_HIGH);
-	EXPECT_TRUE(CheckFused(ftmp, fout, ROT_CONV_DEF_TOL*10.0));
+	EXPECT_TRUE(CheckFused(ftmp, fout, ROT_CONV_DEFAULT_TOL*10.0));
 	ExpectNear(fbo, fout, TOL_HIGH);
-	EXPECT_FALSE(ValidateFused(ftmp, ROT_CONV_DEF_TOL));
+	EXPECT_FALSE(ValidateFused(ftmp, ROT_CONV_DEFAULT_TOL));
 	ExpectNear(fbo, ftmp, TOL_HIGH);
 	ftmp = fb;
-	EXPECT_TRUE(ValidateFused(ftmp, ROT_CONV_DEF_TOL*10.0));
+	EXPECT_TRUE(ValidateFused(ftmp, ROT_CONV_DEFAULT_TOL*10.0));
 	ExpectNear(fbo, ftmp, TOL_HIGH);
 	ftmp = fb;
-	EXPECT_FALSE(CheckFused(ftmp, ROT_CONV_DEF_TOL, true));
-	EXPECT_FALSE(CheckFused(ftmp, ROT_CONV_DEF_TOL*10.0, true));
-	EXPECT_FALSE(CheckFused(ftmp, fout, ROT_CONV_DEF_TOL, true));
+	EXPECT_FALSE(CheckFused(ftmp, ROT_CONV_DEFAULT_TOL, true));
+	EXPECT_FALSE(CheckFused(ftmp, ROT_CONV_DEFAULT_TOL*10.0, true));
+	EXPECT_FALSE(CheckFused(ftmp, fout, ROT_CONV_DEFAULT_TOL, true));
 	ExpectNear(fbu, fout, TOL_HIGH);
-	EXPECT_FALSE(CheckFused(ftmp, fout, ROT_CONV_DEF_TOL*10.0, true));
+	EXPECT_FALSE(CheckFused(ftmp, fout, ROT_CONV_DEFAULT_TOL*10.0, true));
 	ExpectNear(fbu, fout, TOL_HIGH);
-	EXPECT_FALSE(ValidateFused(ftmp, ROT_CONV_DEF_TOL, true));
+	EXPECT_FALSE(ValidateFused(ftmp, ROT_CONV_DEFAULT_TOL, true));
 	ExpectNear(fbu, ftmp, TOL_HIGH);
 	ftmp = fb;
-	EXPECT_FALSE(ValidateFused(ftmp, ROT_CONV_DEF_TOL*10.0, true));
+	EXPECT_FALSE(ValidateFused(ftmp, ROT_CONV_DEFAULT_TOL*10.0, true));
 	ExpectNear(fbu, ftmp, TOL_HIGH);
 }
 
@@ -556,28 +556,28 @@ TEST(RotConvTest, testCheckValidateTilt)
 
 	// Test tolerances and uniqueness
 	ttmp = tb;
-	EXPECT_TRUE(CheckTilt(ttmp, ROT_CONV_DEF_TOL));
-	EXPECT_TRUE(CheckTilt(ttmp, ROT_CONV_DEF_TOL*10.0));
-	EXPECT_TRUE(CheckTilt(ttmp, tout, ROT_CONV_DEF_TOL));
+	EXPECT_TRUE(CheckTilt(ttmp, ROT_CONV_DEFAULT_TOL));
+	EXPECT_TRUE(CheckTilt(ttmp, ROT_CONV_DEFAULT_TOL*10.0));
+	EXPECT_TRUE(CheckTilt(ttmp, tout, ROT_CONV_DEFAULT_TOL));
 	ExpectNear(tb, tout, TOL_HIGH);
-	EXPECT_TRUE(CheckTilt(ttmp, tout, ROT_CONV_DEF_TOL*10.0));
+	EXPECT_TRUE(CheckTilt(ttmp, tout, ROT_CONV_DEFAULT_TOL*10.0));
 	ExpectNear(tb, tout, TOL_HIGH);
-	EXPECT_TRUE(ValidateTilt(ttmp, ROT_CONV_DEF_TOL));
+	EXPECT_TRUE(ValidateTilt(ttmp, ROT_CONV_DEFAULT_TOL));
 	ExpectNear(tb, ttmp, TOL_HIGH);
 	ttmp = tb;
-	EXPECT_TRUE(ValidateTilt(ttmp, ROT_CONV_DEF_TOL*10.0));
+	EXPECT_TRUE(ValidateTilt(ttmp, ROT_CONV_DEFAULT_TOL*10.0));
 	ExpectNear(tb, ttmp, TOL_HIGH);
 	ttmp = tb;
-	EXPECT_TRUE(CheckTilt(ttmp, ROT_CONV_DEF_TOL, true));
-	EXPECT_FALSE(CheckTilt(ttmp, ROT_CONV_DEF_TOL*10.0, true));
-	EXPECT_TRUE(CheckTilt(ttmp, tout, ROT_CONV_DEF_TOL, true));
+	EXPECT_TRUE(CheckTilt(ttmp, ROT_CONV_DEFAULT_TOL, true));
+	EXPECT_FALSE(CheckTilt(ttmp, ROT_CONV_DEFAULT_TOL*10.0, true));
+	EXPECT_TRUE(CheckTilt(ttmp, tout, ROT_CONV_DEFAULT_TOL, true));
 	ExpectNear(tb, tout, TOL_HIGH);
-	EXPECT_FALSE(CheckTilt(ttmp, tout, ROT_CONV_DEF_TOL*10.0, true));
+	EXPECT_FALSE(CheckTilt(ttmp, tout, ROT_CONV_DEFAULT_TOL*10.0, true));
 	ExpectNear(tbu, tout, TOL_HIGH);
-	EXPECT_TRUE(ValidateTilt(ttmp, ROT_CONV_DEF_TOL, true));
+	EXPECT_TRUE(ValidateTilt(ttmp, ROT_CONV_DEFAULT_TOL, true));
 	ExpectNear(tb, ttmp, TOL_HIGH);
 	ttmp = tb;
-	EXPECT_FALSE(ValidateTilt(ttmp, ROT_CONV_DEF_TOL*10.0, true));
+	EXPECT_FALSE(ValidateTilt(ttmp, ROT_CONV_DEFAULT_TOL*10.0, true));
 	ExpectNear(tbu, ttmp, TOL_HIGH);
 }
 
@@ -594,8 +594,8 @@ TEST(RotConvTest, testEqualRotmat)
 	Ran << 0.9363335934610981, 0.3427190708801889, -0.0763088447681474, 0.0813118148006876, -0.0002299890245560, 0.9966886853989279, 0.3415666702352431, -0.9394379093955393, -0.0280824562380714;
 
 	// Test rotation equality
-	EXPECT_FALSE(RotmatEqual(Ra, Ran, ROT_CONV_DEF_TOL));
-	EXPECT_TRUE(RotmatEqual(Ra, Ran, ROT_CONV_DEF_TOL*10.0));
+	EXPECT_FALSE(RotmatEqual(Ra, Ran, ROT_CONV_DEFAULT_TOL));
+	EXPECT_TRUE(RotmatEqual(Ra, Ran, ROT_CONV_DEFAULT_TOL*10.0));
 }
 
 // Test the equality of quaternions
@@ -607,10 +607,10 @@ TEST(RotConvTest, testEqualQuat)
 	Quat qann(0.5146724491254694, 0.4234184381793953, 0.1347086659603537, 0.7332684851920812);
 
 	// Test rotation equality
-	EXPECT_FALSE(QuatEqual(qa, qan, ROT_CONV_DEF_TOL));
-	EXPECT_TRUE(QuatEqual(qa, qan, ROT_CONV_DEF_TOL*10.0));
-	EXPECT_FALSE(QuatEqual(qa, qann, ROT_CONV_DEF_TOL));
-	EXPECT_TRUE(QuatEqual(qa, qann, ROT_CONV_DEF_TOL*10.0));
+	EXPECT_FALSE(QuatEqual(qa, qan, ROT_CONV_DEFAULT_TOL));
+	EXPECT_TRUE(QuatEqual(qa, qan, ROT_CONV_DEFAULT_TOL*10.0));
+	EXPECT_FALSE(QuatEqual(qa, qann, ROT_CONV_DEFAULT_TOL));
+	EXPECT_TRUE(QuatEqual(qa, qann, ROT_CONV_DEFAULT_TOL*10.0));
 }
 
 // Test the equality of Euler angles
@@ -621,8 +621,8 @@ TEST(RotConvTest, testEqualEuler)
 	EulerAngles ea(2.7774857769905843, 1.4329889206345048, 0.4725495395706337);
 
 	// Test rotation equality
-	double eps = ROT_CONV_DEF_TOL*3.0;
-	double tol = ROT_CONV_DEF_TOL*10.0;
+	double eps = ROT_CONV_DEFAULT_TOL*3.0;
+	double tol = ROT_CONV_DEFAULT_TOL*10.0;
 	EXPECT_TRUE(EulerEqual(ea, ea));
 	etmp = EulerAngles(ea.yaw + eps, ea.pitch - eps, ea.roll + eps);
 	EXPECT_FALSE(EulerEqual(ea, etmp));
@@ -657,8 +657,8 @@ TEST(RotConvTest, testEqualFused)
 	FusedAngles fa(-2.7659867076743128, -0.6472647148125336, -0.1859487609211632, true);
 
 	// Test rotation equality
-	double eps = ROT_CONV_DEF_TOL*3.0;
-	double tol = ROT_CONV_DEF_TOL*10.0;
+	double eps = ROT_CONV_DEFAULT_TOL*3.0;
+	double tol = ROT_CONV_DEFAULT_TOL*10.0;
 	EXPECT_TRUE(FusedEqual(fa, fa));
 	ftmp = FusedAngles(fa.fusedYaw + eps, fa.fusedPitch + eps, fa.fusedRoll - eps, fa.hemi);
 	EXPECT_FALSE(FusedEqual(fa, ftmp));
@@ -666,9 +666,10 @@ TEST(RotConvTest, testEqualFused)
 	ftmp = FusedAngles(fa.fusedYaw + M_2PI + eps, fa.fusedPitch - M_2PI + eps, fa.fusedRoll + M_2PI - eps, fa.hemi);
 	EXPECT_FALSE(FusedEqual(fa, ftmp));
 	EXPECT_TRUE(FusedEqual(fa, ftmp, tol));
-	double scale = M_PI_2 / (fabs(fa.fusedPitch) + fabs(fa.fusedRoll));
-	fatmp = FusedAngles(fa.fusedYaw, fa.fusedPitch*scale, fa.fusedRoll*scale, true);
-	ftmp = FusedAngles(fa.fusedYaw + eps, fa.fusedPitch*scale*1.5 + eps, fa.fusedRoll*scale*1.5 - eps, false);
+	double sth = sin(fa.fusedPitch), sphi = sin(fa.fusedRoll);
+	double scale = 1.0 / sqrt(sth*sth + sphi*sphi);
+	fatmp = FusedAngles(fa.fusedYaw, asin(sth*scale), asin(sphi*scale), true);
+	ftmp = FusedAngles(fa.fusedYaw + eps, asin(sth*scale*1.04) + eps, asin(sphi*scale*1.04) - eps, false);
 	EXPECT_FALSE(FusedEqual(fatmp, ftmp));
 	EXPECT_TRUE(FusedEqual(fatmp, ftmp, tol));
 	fatmp = FusedAngles(fa.fusedYaw, eps, -eps, false);
@@ -701,8 +702,8 @@ TEST(RotConvTest, testEqualTilt)
 	TiltAngles ta(1.5374502501808673, -1.9543532794194114, 2.1575686561264202);
 
 	// Test rotation equality
-	double eps = ROT_CONV_DEF_TOL*3.0;
-	double tol = ROT_CONV_DEF_TOL*10.0;
+	double eps = ROT_CONV_DEFAULT_TOL*3.0;
+	double tol = ROT_CONV_DEFAULT_TOL*10.0;
 	EXPECT_TRUE(TiltEqual(ta, ta));
 	ttmp = TiltAngles(ta.fusedYaw + eps, ta.tiltAxisAngle + eps, ta.tiltAngle - eps);
 	EXPECT_FALSE(TiltEqual(ta, ttmp));
@@ -1304,46 +1305,6 @@ TEST(RotConvTest, testTiltRotVec)
 	// Test the vector rotation
 	ExpectNear(vao, TiltRotVec(ta, va), TOL_HIGH);
 	ExpectNear(vbo, TiltRotVec(tb, vb), TOL_HIGH);
-}
-
-// ##############################
-// #### Pure yaw conversions ####
-// ##############################
-
-// Test conversion: Pure yaw --> Rotation matrix
-TEST(RotConvTest, testRotmatFromYaw)
-{
-	// Define rotations
-	double yawa = 2.6, yawb = -1.9;
-	Rotmat Ra, Rb, Ryaw;
-	Ra << -0.8568887533689473, -0.5155013718214642, 0.0000000000000000, 0.5155013718214642, -0.8568887533689473, 0.0000000000000000, 0.0000000000000000, 0.0000000000000000, 1.0000000000000000;
-	Rb << -0.3232895668635034, 0.9463000876874145, 0.0000000000000000, -0.9463000876874145, -0.3232895668635034, 0.0000000000000000, 0.0000000000000000, 0.0000000000000000, 1.0000000000000000;
-
-	// Test the conversions
-	ExpectNear(Ra, RotmatFromYaw(yawa), TOL_HIGH);
-	ExpectNear(Rb, RotmatFromYaw(yawb), TOL_HIGH);
-	RotmatFromYaw(yawa, Ryaw);
-	ExpectNear(Ra, Ryaw, TOL_HIGH);
-	EXPECT_NEAR(yawa, EYawOfRotmat(Ryaw), TOL_HIGH);
-	EXPECT_NEAR(yawa, FYawOfRotmat(Ryaw), TOL_HIGH);
-}
-
-// Test conversion: Pure yaw --> Quaternion
-TEST(RotConvTest, testQuatFromYaw)
-{
-	// Define rotations
-	double yawa = 1.7, yawb = -0.4;
-	Quat qa(0.6599831458849822, 0.0000000000000000, 0.0000000000000000, 0.7512804051402927);
-	Quat qb(0.9800665778412416, 0.0000000000000000, 0.0000000000000000, -0.1986693307950612);
-	Quat qyaw;
-
-	// Test the conversions
-	ExpectNear(qa, QuatFromYaw(yawa), TOL_HIGH);
-	ExpectNear(qb, QuatFromYaw(yawb), TOL_HIGH);
-	QuatFromYaw(yawa, qyaw);
-	ExpectNear(qa, qyaw, TOL_HIGH);
-	EXPECT_NEAR(yawa, EYawOfQuat(qyaw), TOL_HIGH);
-	EXPECT_NEAR(yawa, FYawOfQuat(qyaw), TOL_HIGH);
 }
 
 // ############################################

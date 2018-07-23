@@ -93,8 +93,18 @@ namespace gait
 		MID_DIVE_LEFT,
 		MID_DIVE_RIGHT,
 		MID_DIVE_SIT,
+		MID_HIGH_KICK_LEFT,
+		MID_HIGH_KICK_RIGHT,
+		MID_HIGH_KICK_ALT_LEFT,
+		MID_HIGH_KICK_ALT_RIGHT,
+		MID_SHORT_KICK_LEFT,
+		MID_SHORT_KICK_RIGHT,
+		MID_SHORT_KICK_ALT_LEFT,
+		MID_SHORT_KICK_ALT_RIGHT,
 		MID_COUNT
 	};
+	inline bool motionIDValid(int id) { return (id >= MID_NONE && id < MID_COUNT); }
+	inline bool motionIDValid(MotionID id) { return motionIDValid((int) id); }
 
 	//! List of names corresponding to the gait motion IDs
 	static const std::string motionName[MID_COUNT] = {
@@ -103,7 +113,15 @@ namespace gait
 		"kick_right",
 		"left_dive",
 		"right_dive",
-		"sit_dive"
+		"sit_dive",
+		"high_kick_left",
+		"high_kick_right",
+		"high_kick_alt_left",
+		"high_kick_alt_right",
+		"short_kick_left",
+		"short_kick_right",
+		"short_kick_alt_left",
+		"short_kick_alt_right"
 	};
 
 	//! Enumeration of motion stances that can be commanded to a gait engine

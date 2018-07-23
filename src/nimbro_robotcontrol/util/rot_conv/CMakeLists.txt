@@ -1,16 +1,23 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(rot_conv)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-address")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-address -std=c++11")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS cmake_modules)
 
-# Find and include Eigen
-find_package(Eigen REQUIRED)
-include_directories(${Eigen_INCLUDE_DIRS})
+# Find Eigen
+find_package(PkgConfig)
+pkg_search_module(Eigen3 REQUIRED eigen3)
+if(EIGEN3_FOUND)
+	set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
+else()
+	find_package(Eigen REQUIRED)
+	set(EIGEN3_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
+endif()
+include_directories(${EIGEN3_INCLUDE_DIRS})
 
 ###################################################
 ## Declare things to be passed to other projects ##
@@ -21,10 +28,10 @@ include_directories(${Eigen_INCLUDE_DIRS})
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-	INCLUDE_DIRS include
+	INCLUDE_DIRS include ${EIGEN3_INCLUDE_DIRS}
 	LIBRARIES rot_conv
 #	CATKIN_DEPENDS
-	DEPENDS Eigen
+# 	DEPENDS
 )
 
 ###########
@@ -39,6 +46,7 @@ include_directories(include
 ## Build the rot_conv library
 add_library(rot_conv
 	src/rot_conv.cpp
+	src/rot_conv_extras.cpp
 )
 target_link_libraries(rot_conv
 	${catkin_LIBRARIES}

@@ -2,24 +2,18 @@
 // Author: Philipp Allgeuer <pallgeuer@ais.uni-bonn.de>
 
 // Includes
-#include <Eigen/Core>
-#include <boost/circular_buffer.hpp>
-#include <boost/circular_buffer/base.hpp>
+#include <Eigen/Core> // Needs to be before low_pass_filter.h
 #include <rc_utils/cyclicwarp.h>
 #include <rc_utils/ew_integrator.h>
+#include <rc_utils/ell_bnd_integrator.h>
 #include <rc_utils/limited_low_pass.h>
 #include <rc_utils/lin_sin_fillet.h>
 #include <rc_utils/low_pass_filter.h>
 #include <rc_utils/hold_filter.h>
-#include <rc_utils/mean_filter.h>
 #include <rc_utils/slope_limiter.h>
-#include <rc_utils/smooth_deadband.h>
 #include <rc_utils/spike_filter.h>
-#include <rc_utils/wlbf_filter.h>
+#include <test_utilities/test_eigen.h>
 #include <gtest/gtest.h>
-
-// Defines
-#define PRINT_TESTING 0
 
 // Namespaces
 using namespace rc_utils;
@@ -203,6 +197,89 @@ TEST(RCUtilsMiscTest, testEWIntegrator)
 	EXPECT_EQ(1.364, EWI.integral());
 }
 
+// Test the EllBndIntegrator class
+TEST(RCUtilsMiscTest, testEllBndIntegrator)
+{
+	// Typedefs
+	typedef Eigen::Vector2d V;
+	
+	// Constants
+	V zero(0.0, 0.0);
+	double inf = std::numeric_limits<double>::infinity();
+	
+	// Test construction
+	EllBndIntegrator2D I;
+	EXPECT_EIGEQ(2, V(inf, inf), I.semiaxes());
+	EXPECT_EQ(0.0, I.buffer());
+	EXPECT_EIGEQ(2, zero, I.integral());
+	
+	// Test setting ellipsoid parameters
+	I.setEllBound(V(2.0, 3.0), 0.3);
+	EXPECT_EIGEQ(2, V(2.0, 3.0), I.semiaxes());
+	EXPECT_EQ(0.3, I.buffer());
+	I.setEllBound(V(4.0, -5.0));
+	EXPECT_EIGEQ(2, V(4.0, -5.0), I.semiaxes());
+	EXPECT_EQ(0.0, I.buffer());
+	I.setBuffer(20.0);
+	EXPECT_EQ(20.0, I.buffer());
+	I.unsetEllBound();
+	EXPECT_EIGEQ(2, V(inf, inf), I.semiaxes());
+	EXPECT_EQ(0.0, I.buffer());
+	
+	// Test setting integral
+	I.setIntegral(V(0.3, -0.5));
+	EXPECT_EIGEQ(2, V(0.3, -0.5), I.integral());
+	I.setIntegralZero();
+	EXPECT_EIGEQ(2, zero, I.integral());
+	I.setIntegral(V(0.3, -0.5));
+	EXPECT_EIGEQ(2, V(0.3, -0.5), I.integral());
+	I.setIntegralXZero();
+	EXPECT_EIGEQ(2, V(0.0, -0.5), I.integral());
+	I.setIntegral(V(0.3, -0.5));
+	EXPECT_EIGEQ(2, V(0.3, -0.5), I.integral());
+	I.setIntegralYZero();
+	EXPECT_EIGEQ(2, V(0.3, 0.0), I.integral());
+	
+	// Test reset
+	I.setEllBound(V(2.5, 6.0), 0.2);
+	I.setIntegral(V(-2.0, 1.5));
+	EXPECT_EIGEQ(2, V(2.5, 6.0), I.semiaxes());
+	EXPECT_EQ(0.2, I.buffer());
+	EXPECT_EIGEQ(2, V(-2.0, 1.5), I.integral());
+	I.resetAll();
+	EXPECT_EIGEQ(2, V(inf, inf), I.semiaxes());
+	EXPECT_EQ(0.0, I.buffer());
+	EXPECT_EIGEQ(2, zero, I.integral());
+	I.setEllBound(V(2.5, 6.0), 0.2);
+	I.setIntegral(V(-2.0, 1.5));
+	EXPECT_EIGEQ(2, V(2.5, 6.0), I.semiaxes());
+	EXPECT_EQ(0.2, I.buffer());
+	EXPECT_EIGEQ(2, V(-2.0, 1.5), I.integral());
+	I.reset();
+	EXPECT_EIGEQ(2, V(2.5, 6.0), I.semiaxes());
+	EXPECT_EQ(0.2, I.buffer());
+	EXPECT_EIGEQ(2, zero, I.integral());
+	
+	// Test integration
+	I.resetAll();
+	I.setEllBound(V(1.0, 2.0), 0.1);
+	EXPECT_EIGEQ(2, V(1.0, 2.0), I.semiaxes());
+	EXPECT_EQ(0.1, I.buffer());
+	EXPECT_EIGEQ(2, zero, I.integral());
+	EXPECT_EIGEQ_UT(2, V(0.15, -0.10), I.integrate(V(3.0, -2.0), 0.1));
+	EXPECT_EIGEQ_UT(2, V(0.55, -0.40), I.integrate(V(1.0, -1.0), 0.2));
+	EXPECT_EIGEQ_UT(2, V(0.55, -0.40), I.integral());
+	I.clearLastInput();
+	EXPECT_EIGEQ_UT(2, V(0.50, -0.35), I.integrate(V(-1.0, 1.0), 0.1));
+	EXPECT_EIGEQ_UT(2, V(0.30, -0.30), I.integrate(V(-3.0, 0.0), 0.1));
+	EXPECT_EIGEQ_UT(2, V(0.30, -0.30), I.integral());
+	I.setEllBound(V(0.1, 0.2), 0.05);
+	EXPECT_EIGEQ_UT(2, V(0.30, -0.30), I.integral());
+	EXPECT_EIGEQ_UT(2, V(0.0727972877604889, -0.1368589009897192), I.integrate(V(1.5, -0.7), 0.15));
+	I.clearLastInput();
+	EXPECT_EIGEQ_UT(2, V(0.0642005969430037, -0.1206971222528470), I.integrate(zero, 3.7));
+}
+
 // Test the LimitedLowPass class
 TEST(RCUtilsMiscTest, testLimitedLowPass)
 {
@@ -243,12 +320,13 @@ TEST(RCUtilsMiscTest, testLimitedLowPass)
 	EXPECT_EQ(1.0, LLP2.getAlpha());
 	LLP2.resetAll(10.0);
 	LLP2.setValue(-23.3);
-	EXPECT_EQ(0.0, LLP2.maxDelta());
+	LLP2.setMaxDelta(-0.3);
+	EXPECT_EQ(0.3, LLP2.maxDelta());
 	EXPECT_EQ(-23.3, LLP2.value());
 	EXPECT_EQ(10.0, LLP2.getTs());
 	EXPECT_DOUBLE_EQ(0.20567176527571851, LLP2.getAlpha());
 	LLP2.reset();
-	EXPECT_EQ(0.0, LLP2.maxDelta());
+	EXPECT_EQ(0.3, LLP2.maxDelta());
 	EXPECT_EQ(0.0, LLP2.value());
 	EXPECT_EQ(10.0, LLP2.getTs());
 	EXPECT_DOUBLE_EQ(0.20567176527571851, LLP2.getAlpha());
@@ -400,6 +478,9 @@ TEST(RCUtilsMiscTest, testLinSinFillet)
 // Test the LowPassFilter class
 TEST(RCUtilsMiscTest, testLowPassFilter)
 {
+	// Constants
+	double inf = std::numeric_limits<double>::infinity();
+
 	// Test construction
 	LowPassFilter LPF1;
 	EXPECT_EQ(0.0, LPF1.value());
@@ -453,15 +534,15 @@ TEST(RCUtilsMiscTest, testLowPassFilter)
 	EXPECT_EQ(1.0, LPF3.value());
 	LPF3.setTs(1.0/0.0); // +Inf
 	EXPECT_EQ(1.0, LPF3.value());
-	EXPECT_EQ(INFINITY, LPF3.getTs());
+	EXPECT_EQ(inf, LPF3.getTs());
 	EXPECT_EQ(0.0, LPF3.getAlpha());
 	LPF3.setTs(-1.0/0.0); // -Inf
 	EXPECT_EQ(1.0, LPF3.value());
-	EXPECT_EQ(INFINITY, LPF3.getTs());
+	EXPECT_EQ(inf, LPF3.getTs());
 	EXPECT_EQ(0.0, LPF3.getAlpha());
 	LPF3.setTs(0.0/0.0); // NaN
 	EXPECT_EQ(1.0, LPF3.value());
-	EXPECT_EQ(INFINITY, LPF3.getTs());
+	EXPECT_EQ(inf, LPF3.getTs());
 	EXPECT_EQ(0.0, LPF3.getAlpha());
 	LPF3.setTs(0.0);
 	EXPECT_EQ(1.0, LPF3.value());
@@ -644,256 +725,6 @@ TEST(RCUtilsMiscTest, testHoldFilter)
 	EXPECT_EQ(0.2, HMF2.update(-0.7));
 }
 
-// Test the MeanFilter class
-TEST(RCUtilsMiscTest, testMeanFilter)
-{
-	// Declare variables
-	const MeanFilter::Buffer* buf;
-	
-	// Test construction
-	MeanFilter MF1;
-	buf = &MF1.buf();
-	EXPECT_EQ(0, MF1.numPoints());
-	EXPECT_EQ(0, buf->capacity());
-	EXPECT_EQ(0, buf->size());
-	EXPECT_EQ(0.0, MF1.value());
-	MF1.put(5.0);
-	EXPECT_EQ(0, MF1.numPoints());
-	EXPECT_EQ(0, buf->capacity());
-	EXPECT_EQ(0, buf->size());
-	EXPECT_EQ(0.0, MF1.value());
-	MeanFilter MF2(5);
-	buf = &MF2.buf();
-	EXPECT_EQ(5, MF2.numPoints());
-	EXPECT_EQ(5, buf->capacity());
-	EXPECT_EQ(5, buf->size());
-	EXPECT_EQ(0.0, MF2.value());
-	for(size_t i = 0; i < buf->size(); i++)
-		EXPECT_EQ(0.0, buf->at(i));
-	
-	// Test reset all
-	MF2.resetAll();
-	EXPECT_EQ(0, MF2.numPoints());
-	EXPECT_EQ(0, buf->capacity());
-	EXPECT_EQ(0, buf->size());
-	EXPECT_EQ(0.0, MF2.value());
-	
-	// Test resizing and putting
-	MF2.resize(5, 3.0);            // 3 3 3 3 3 NOW
-	EXPECT_EQ(5, MF2.numPoints());
-	EXPECT_EQ(5, buf->capacity());
-	EXPECT_EQ(5, buf->size());
-	EXPECT_EQ(3.0, MF2.value());
-	for(size_t i = 0; i < buf->size(); i++)
-		EXPECT_EQ(3.0, buf->at(i));
-	MF2.resize(8);                 // 0 0 0 3 3 3 3 3 NOW
-	EXPECT_EQ(8, MF2.numPoints());
-	EXPECT_EQ(8, buf->capacity());
-	EXPECT_EQ(8, buf->size());
-	EXPECT_EQ(1.875, MF2.value());
-	for(size_t i = 0; i < 5; i++)
-		EXPECT_EQ(3.0, buf->at(i));
-	for(size_t i = 5; i < buf->size(); i++)
-		EXPECT_EQ(0.0, buf->at(i));
-	MF2.put(5.0);
-	EXPECT_EQ(2.5, MF2.value());   // 0 0 3 3 3 3 3 5 NOW
-	MF2.put(5.0);
-	EXPECT_EQ(3.125, MF2.value()); // 0 3 3 3 3 3 5 5 NOW
-	MF2.put(5.0);
-	EXPECT_EQ(3.75, MF2.value());  // 3 3 3 3 3 5 5 5 NOW
-	MF2.put(5.0);
-	EXPECT_EQ(4.0, MF2.value());   // 3 3 3 3 5 5 5 5 NOW
-	MF2.resize(2);                 // 5 5 NOW
-	EXPECT_EQ(2, MF2.numPoints());
-	EXPECT_EQ(2, buf->capacity());
-	EXPECT_EQ(2, buf->size());
-	EXPECT_EQ(5.0, MF2.value());
-	EXPECT_EQ(5.0, buf->at(0));
-	EXPECT_EQ(5.0, buf->at(1));
-	
-	// Test reset
-	MF2.reset();
-	EXPECT_EQ(2, MF2.numPoints());
-	EXPECT_EQ(2, buf->capacity());
-	EXPECT_EQ(2, buf->size());
-	EXPECT_EQ(0.0, MF2.value());
-	
-	// Test setting the buffer
-	std::vector<double> data;
-	data.push_back(1.0);
-	data.push_back(3.0);
-	data.push_back(2.0);
-	data.push_back(5.0);
-	data.push_back(4.0);
-	MF2.setBuf(data.begin(), data.end()); // 3 1 NOW
-	EXPECT_EQ(2, MF2.numPoints());
-	EXPECT_EQ(2, buf->capacity());
-	EXPECT_EQ(2, buf->size());
-	EXPECT_EQ(2.0, MF2.value());
-	MF2.resize(8);
-	MF2.setBuf(data.begin(), data.end()); // 0 0 0 4 5 2 3 1 NOW
-	EXPECT_EQ(8, MF2.numPoints());
-	EXPECT_EQ(8, buf->capacity());
-	EXPECT_EQ(8, buf->size());
-	EXPECT_EQ(1.875, MF2.value());
-	MF2.put(9.0);                         // 0 0 4 5 2 3 1 9 NOW
-	EXPECT_EQ(3.0, MF2.value());
-	MF2.resize(5);
-	MF2.setBuf(data.begin(), data.end()); // 4 5 2 3 1 NOW
-	EXPECT_EQ(5, MF2.numPoints());
-	EXPECT_EQ(5, buf->capacity());
-	EXPECT_EQ(5, buf->size());
-	EXPECT_EQ(3.0, MF2.value());
-	MF2.put(9.0);                         // 5 2 3 1 9 NOW
-	EXPECT_EQ(4.0, MF2.value());
-	MF2.setZero();
-	EXPECT_EQ(5, MF2.numPoints());
-	EXPECT_EQ(5, buf->capacity());
-	EXPECT_EQ(5, buf->size());
-	EXPECT_EQ(0.0, MF2.value());
-	for(size_t i = 0; i < buf->size(); i++)
-		EXPECT_EQ(0.0, buf->at(i));
-	MF2.setValue(-1.0);
-	EXPECT_EQ(5, MF2.numPoints());
-	EXPECT_EQ(5, buf->capacity());
-	EXPECT_EQ(5, buf->size());
-	EXPECT_EQ(-1.0, MF2.value());
-	for(size_t i = 0; i < buf->size(); i++)
-		EXPECT_EQ(-1.0, buf->at(i));
-}
-
-// Test the SharpDeadband class
-TEST(RCUtilsMiscTest, testSharpDeadband)
-{
-	// Test construction, set and reset
-	SharpDeadband DB;
-	EXPECT_EQ( 0.0, DB.centre());
-	EXPECT_EQ( 0.0, DB.radius());
-	EXPECT_EQ(-1.0, DB.eval(-1.0));
-	EXPECT_EQ( 0.0, DB.eval( 0.0));
-	EXPECT_EQ( 1.0, DB.eval( 1.0));
-	DB.set(0.3, 0.7);
-	EXPECT_EQ( 0.7, DB.centre());
-	EXPECT_EQ( 0.3, DB.radius());
-	EXPECT_NE(-1.0, DB.eval(-1.0));
-	EXPECT_NE( 0.0, DB.eval( 0.0));
-	EXPECT_NE( 1.0, DB.eval( 1.0));
-	DB.reset();
-	EXPECT_EQ( 0.0, DB.centre());
-	EXPECT_EQ( 0.0, DB.radius());
-	EXPECT_EQ(-1.0, DB.eval(-1.0));
-	EXPECT_EQ( 0.0, DB.eval( 0.0));
-	EXPECT_EQ( 1.0, DB.eval( 1.0));
-	SharpDeadband DBtmp(0.2, 0.4);
-	EXPECT_EQ( 0.4, DBtmp.centre());
-	EXPECT_EQ( 0.2, DBtmp.radius());
-	
-	// Test a normal case
-	DB.set(0.4, 0.6);
-	EXPECT_DOUBLE_EQ(-0.7, DB.eval(-0.5));
-	EXPECT_DOUBLE_EQ(-0.2, DB.eval( 0.0));
-	EXPECT_DOUBLE_EQ( 0.0, DB.eval( 0.5));
-	EXPECT_DOUBLE_EQ( 0.0, DB.eval( 1.0));
-	EXPECT_DOUBLE_EQ( 0.5, DB.eval( 1.5));
-	EXPECT_DOUBLE_EQ(-0.7, SharpDeadband::eval(-0.5, 0.4, 0.6));
-	EXPECT_DOUBLE_EQ(-0.2, SharpDeadband::eval( 0.0, 0.4, 0.6));
-	EXPECT_DOUBLE_EQ( 0.0, SharpDeadband::eval( 0.5, 0.4, 0.6));
-	EXPECT_DOUBLE_EQ( 0.0, SharpDeadband::eval( 1.0, 0.4, 0.6));
-	EXPECT_DOUBLE_EQ( 0.5, SharpDeadband::eval( 1.5, 0.4, 0.6));
-}
-
-// Test the SmoothDeadband class
-TEST(RCUtilsMiscTest, testSmoothDeadband)
-{
-	// Test construction, set and reset
-	SmoothDeadband DB;
-	EXPECT_EQ( 0.0, DB.centre());
-	EXPECT_EQ( 0.0, DB.radius());
-	EXPECT_EQ(-1.0, DB.eval(-1.0));
-	EXPECT_EQ( 0.0, DB.eval( 0.0));
-	EXPECT_EQ( 1.0, DB.eval( 1.0));
-	DB.set(0.3, 0.7);
-	EXPECT_EQ( 0.7, DB.centre());
-	EXPECT_EQ( 0.3, DB.radius());
-	EXPECT_NE(-1.0, DB.eval(-1.0));
-	EXPECT_NE( 0.0, DB.eval( 0.0));
-	EXPECT_NE( 1.0, DB.eval( 1.0));
-	DB.reset();
-	EXPECT_EQ( 0.0, DB.centre());
-	EXPECT_EQ( 0.0, DB.radius());
-	EXPECT_EQ(-1.0, DB.eval(-1.0));
-	EXPECT_EQ( 0.0, DB.eval( 0.0));
-	EXPECT_EQ( 1.0, DB.eval( 1.0));
-	SmoothDeadband DBtmp(0.2, 0.4);
-	EXPECT_EQ( 0.4, DBtmp.centre());
-	EXPECT_EQ( 0.2, DBtmp.radius());
-	
-	// Test a normal case
-	DB.set(0.4, 0.6);
-	EXPECT_DOUBLE_EQ(-0.70000, DB.eval(-0.5));
-	EXPECT_DOUBLE_EQ(-0.22500, DB.eval( 0.0));
-	EXPECT_DOUBLE_EQ(-0.00625, DB.eval( 0.5));
-	EXPECT_DOUBLE_EQ( 0.10000, DB.eval( 1.0));
-	EXPECT_DOUBLE_EQ( 0.50000, DB.eval( 1.5));
-	EXPECT_DOUBLE_EQ(-0.70000, SmoothDeadband::eval(-0.5, 0.4, 0.6));
-	EXPECT_DOUBLE_EQ(-0.22500, SmoothDeadband::eval( 0.0, 0.4, 0.6));
-	EXPECT_DOUBLE_EQ(-0.00625, SmoothDeadband::eval( 0.5, 0.4, 0.6));
-	EXPECT_DOUBLE_EQ( 0.10000, SmoothDeadband::eval( 1.0, 0.4, 0.6));
-	EXPECT_DOUBLE_EQ( 0.50000, SmoothDeadband::eval( 1.5, 0.4, 0.6));
-}
-
-// Test the DeadSmoothDeadband class
-TEST(RCUtilsMiscTest, testDeadSmoothDeadband)
-{
-	// Test construction, set and reset
-	DeadSmoothDeadband DB;
-	EXPECT_EQ( 0.0, DB.centre());
-	EXPECT_EQ( 0.0, DB.zeroRadius());
-	EXPECT_EQ( 0.0, DB.deadRadius());
-	EXPECT_EQ(-1.0, DB.eval(-1.0));
-	EXPECT_EQ( 0.0, DB.eval( 0.0));
-	EXPECT_EQ( 1.0, DB.eval( 1.0));
-	DB.set(0.3, 0.7, 0.5);
-	EXPECT_EQ( 0.5, DB.centre());
-	EXPECT_EQ( 0.3, DB.zeroRadius());
-	EXPECT_EQ( 0.7, DB.deadRadius());
-	EXPECT_NE(-1.0, DB.eval(-1.0));
-	EXPECT_NE( 0.0, DB.eval( 0.0));
-	EXPECT_NE( 1.0, DB.eval( 1.0));
-	DB.reset();
-	EXPECT_EQ( 0.0, DB.centre());
-	EXPECT_EQ( 0.0, DB.zeroRadius());
-	EXPECT_EQ( 0.0, DB.deadRadius());
-	EXPECT_EQ(-1.0, DB.eval(-1.0));
-	EXPECT_EQ( 0.0, DB.eval( 0.0));
-	EXPECT_EQ( 1.0, DB.eval( 1.0));
-	DeadSmoothDeadband DBtmp(0.2, 0.4);
-	EXPECT_EQ( 0.0, DBtmp.centre());
-	EXPECT_EQ( 0.2, DBtmp.zeroRadius());
-	EXPECT_EQ( 0.4, DBtmp.deadRadius());
-	
-	// Test a normal case
-	DB.set(0.4, 0.6, 3.0);
-	EXPECT_DOUBLE_EQ(-1.00, DB.eval(1.0));
-	EXPECT_DOUBLE_EQ(-0.60, DB.eval(1.4));
-	EXPECT_DOUBLE_EQ(-0.15, DB.eval(2.0));
-	EXPECT_DOUBLE_EQ( 0.00, DB.eval(2.6));
-	EXPECT_DOUBLE_EQ( 0.00, DB.eval(3.0));
-	EXPECT_DOUBLE_EQ( 0.00, DB.eval(3.4));
-	EXPECT_DOUBLE_EQ( 0.15, DB.eval(4.0));
-	EXPECT_DOUBLE_EQ( 0.60, DB.eval(4.6));
-	EXPECT_DOUBLE_EQ( 1.20, DB.eval(5.2));
-	EXPECT_DOUBLE_EQ(-1.00, DeadSmoothDeadband::eval(1.0, 0.4, 0.6, 3.0));
-	EXPECT_DOUBLE_EQ(-0.60, DeadSmoothDeadband::eval(1.4, 0.4, 0.6, 3.0));
-	EXPECT_DOUBLE_EQ(-0.15, DeadSmoothDeadband::eval(2.0, 0.4, 0.6, 3.0));
-	EXPECT_DOUBLE_EQ( 0.00, DeadSmoothDeadband::eval(2.6, 0.4, 0.6, 3.0));
-	EXPECT_DOUBLE_EQ( 0.00, DeadSmoothDeadband::eval(3.0, 0.4, 0.6, 3.0));
-	EXPECT_DOUBLE_EQ( 0.00, DeadSmoothDeadband::eval(3.4, 0.4, 0.6, 3.0));
-	EXPECT_DOUBLE_EQ( 0.15, DeadSmoothDeadband::eval(4.0, 0.4, 0.6, 3.0));
-	EXPECT_DOUBLE_EQ( 0.60, DeadSmoothDeadband::eval(4.6, 0.4, 0.6, 3.0));
-	EXPECT_DOUBLE_EQ( 1.20, DeadSmoothDeadband::eval(5.2, 0.4, 0.6, 3.0));
-}
-
 // Test the SlopeLimiter class
 TEST(RCUtilsMiscTest, testSlopeLimiter)
 {
@@ -1012,426 +843,6 @@ TEST(RCUtilsMiscTest, testSpikeFilter)
 	SF.put(1.8);
 	EXPECT_EQ( 1.8, SF.value());
 	EXPECT_EQ( 0, SF.holdCount());
-}
-
-// Test the WLBFFilter class
-TEST(RCUtilsMiscTest, testWLBFFilter)
-{
-	// Create WLBF filter
-	WLBFFilter WF(5);
-	
-	// Add some data points
-	WF.addXYW(1.0, 2.0, 0.0);
-	WF.addXYW(-1.0, 2.0, 0.5);
-	WF.addXYW(-3.0, 2.0, 1.0);
-	WF.addXYW(1.0, 4.0, 1.5);
-	WF.addXYW(2.0, 2.0, 2.0);
-	WF.addXYW(1.0, 7.0, 2.5);
-	WF.addXYW(-4.0, 2.0, 3.0);
-	WF.updateAB();
-	
-	// Testing
-	EXPECT_EQ(5, WF.size());
-	EXPECT_EQ(WF.xBuf().capacity(), WF.xBuf().size());
-	EXPECT_EQ(WF.yBuf().capacity(), WF.yBuf().size());
-	EXPECT_EQ(WF.wBuf().capacity(), WF.wBuf().size());
-	EXPECT_EQ(-4.0, WF.xBuf()[0]);
-	EXPECT_EQ( 2.0, WF.xBuf()[2]);
-	EXPECT_EQ(-3.0, WF.xBuf()[4]);
-	EXPECT_EQ( 7.0, WF.yBuf()[1]);
-	EXPECT_EQ( 4.0, WF.yBuf()[3]);
-	EXPECT_EQ( 9.0, WF.wBuf()[0]);
-	EXPECT_EQ( 6.25, WF.wBuf()[1]);
-	EXPECT_EQ( 1.0, WF.wBuf()[4]);
-	EXPECT_DOUBLE_EQ(4.0501792114695343, WF.getA());
-	EXPECT_DOUBLE_EQ(0.4612903225806452, WF.getB());
-	EXPECT_DOUBLE_EQ(2.2050179211469536, WF.value());
-	EXPECT_DOUBLE_EQ(0.4612903225806452, WF.deriv());
-	
-	// Print testing
-#if PRINT_TESTING
-	std::cout << "PRINTING" << std::endl;
-	for(size_t i = 0; i < WF.size(); i++)
-		std::cout << "[" << i << "] = (" << WF.xBuf()[i] << ", " << WF.yBuf()[i] << ", " << WF.wBuf()[i] << ")" << std::endl;
-	std::cout << "A = " << WF.getA() << ", B = " << WF.getB() << ", Value = " << WF.value() << ", Deriv = " << WF.deriv() << std::endl;
-#endif
-	
-	// Truncate some elements
-	WF.resize(3);
-	WF.updateAB();
-	
-	// Testing
-	EXPECT_EQ(3, WF.size());
-	EXPECT_EQ(WF.xBuf().capacity(), WF.xBuf().size());
-	EXPECT_EQ(WF.yBuf().capacity(), WF.yBuf().size());
-	EXPECT_EQ(WF.wBuf().capacity(), WF.wBuf().size());
-	EXPECT_EQ(-4.0, WF.xBuf()[0]);
-	EXPECT_EQ( 2.0, WF.xBuf()[2]);
-	EXPECT_EQ( 7.0, WF.yBuf()[1]);
-	EXPECT_EQ( 9.0, WF.wBuf()[0]);
-	EXPECT_EQ( 6.25, WF.wBuf()[1]);
-	EXPECT_DOUBLE_EQ(4.1541846182051518, WF.getA());
-	EXPECT_DOUBLE_EQ(0.4697955816298469, WF.getB());
-	EXPECT_DOUBLE_EQ(2.2750022916857642, WF.value());
-	EXPECT_DOUBLE_EQ(0.4697955816298469, WF.deriv());
-	
-	// Print testing
-#if PRINT_TESTING
-	std::cout << "PRINTING" << std::endl;
-	for(size_t i = 0; i < WF.size(); i++)
-		std::cout << "[" << i << "] = (" << WF.xBuf()[i] << ", " << WF.yBuf()[i] << ", " << WF.wBuf()[i] << ")" << std::endl;
-	std::cout << "A = " << WF.getA() << ", B = " << WF.getB() << ", Value = " << WF.value() << ", Deriv = " << WF.deriv() << std::endl;
-#endif
-	
-	// Pad out some elements
-	WF.resize(6);
-	WF.updateAB();
-	
-	// Testing
-	EXPECT_EQ(6, WF.size());
-	EXPECT_EQ(WF.xBuf().capacity(), WF.xBuf().size());
-	EXPECT_EQ(WF.yBuf().capacity(), WF.yBuf().size());
-	EXPECT_EQ(WF.wBuf().capacity(), WF.wBuf().size());
-	EXPECT_EQ(-4.0, WF.xBuf()[0]);
-	EXPECT_EQ( 2.0, WF.xBuf()[2]);
-	EXPECT_EQ( 0.0, WF.xBuf()[4]);
-	EXPECT_EQ( 7.0, WF.yBuf()[1]);
-	EXPECT_EQ( 0.0, WF.yBuf()[3]);
-	EXPECT_EQ( 9.0, WF.wBuf()[0]);
-	EXPECT_EQ( 6.25, WF.wBuf()[1]);
-	EXPECT_EQ( 0.0, WF.wBuf()[5]);
-	EXPECT_DOUBLE_EQ(4.1541846182051518, WF.getA());
-	EXPECT_DOUBLE_EQ(0.4697955816298469, WF.getB());
-	EXPECT_DOUBLE_EQ(2.2750022916857642, WF.value());
-	EXPECT_DOUBLE_EQ(0.4697955816298469, WF.deriv());
-	
-	// Print testing
-#if PRINT_TESTING
-	std::cout << "PRINTING" << std::endl;
-	for(size_t i = 0; i < WF.size(); i++)
-		std::cout << "[" << i << "] = (" << WF.xBuf()[i] << ", " << WF.yBuf()[i] << ", " << WF.wBuf()[i] << ")" << std::endl;
-	std::cout << "A = " << WF.getA() << ", B = " << WF.getB() << ", Value = " << WF.value() << ", Deriv = " << WF.deriv() << std::endl;
-#endif
-	
-	// Add some data back in again
-	WF.addXYW(1.0, 2.0, 0.0);
-	WF.addXYW(-1.0, 2.0, 0.5);
-	WF.addXYW(-3.0, 2.0, 1.0);
-	WF.setZeroY();
-	WF.updateAB();
-	
-	// Testing
-	EXPECT_EQ(6, WF.size());
-	EXPECT_EQ(WF.xBuf().capacity(), WF.xBuf().size());
-	EXPECT_EQ(WF.yBuf().capacity(), WF.yBuf().size());
-	EXPECT_EQ(WF.wBuf().capacity(), WF.wBuf().size());
-	EXPECT_EQ(-3.0, WF.xBuf()[0]);
-	EXPECT_EQ( 1.0, WF.xBuf()[2]);
-	EXPECT_EQ( 1.0, WF.xBuf()[4]);
-	EXPECT_EQ( 0.0, WF.yBuf()[1]);
-	EXPECT_EQ( 0.0, WF.yBuf()[2]);
-	EXPECT_EQ( 0.0, WF.yBuf()[3]);
-	EXPECT_EQ( 1.0, WF.wBuf()[0]);
-	EXPECT_EQ( 0.25, WF.wBuf()[1]);
-	EXPECT_EQ( 4.0, WF.wBuf()[5]);
-	EXPECT_DOUBLE_EQ(0.0, WF.getA());
-	EXPECT_DOUBLE_EQ(0.0, WF.getB());
-	EXPECT_DOUBLE_EQ(0.0, WF.value());
-	EXPECT_DOUBLE_EQ(0.0, WF.deriv());
-	
-	// Print testing
-#if PRINT_TESTING
-	std::cout << "PRINTING" << std::endl;
-	for(size_t i = 0; i < WF.size(); i++)
-		std::cout << "[" << i << "] = (" << WF.xBuf()[i] << ", " << WF.yBuf()[i] << ", " << WF.wBuf()[i] << ")" << std::endl;
-	std::cout << "A = " << WF.getA() << ", B = " << WF.getB() << ", Value = " << WF.value() << ", Deriv = " << WF.deriv() << std::endl;
-#endif
-	
-	// Set the buffers manually
-	double tmpx[3] = {0.2, 0.7, 0.3};
-	double tmpy[3] = {100, -42, 17};
-	double tmpw[3] = {0.666, 0.777, 0.333};
-	WF.setXBuf(tmpx, tmpx + 3);
-	WF.setYBuf(tmpy, tmpy + 2);
-	WF.setWBuf(tmpw, tmpw + 3);
-	WF.updateAB();
-	
-	// Testing
-	EXPECT_EQ(6, WF.size());
-	EXPECT_EQ(WF.xBuf().capacity(), WF.xBuf().size());
-	EXPECT_EQ(WF.yBuf().capacity(), WF.yBuf().size());
-	EXPECT_EQ(WF.wBuf().capacity(), WF.wBuf().size());
-	EXPECT_EQ( 0.2, WF.xBuf()[0]);
-	EXPECT_EQ( 0.3, WF.xBuf()[2]);
-	EXPECT_EQ( 0.0, WF.xBuf()[4]);
-	EXPECT_EQ( -42, WF.yBuf()[1]);
-	EXPECT_EQ( 0.0, WF.yBuf()[2]);
-	EXPECT_EQ( 0.0, WF.yBuf()[3]);
-	EXPECT_EQ( 0.666*0.666, WF.wBuf()[0]);
-	EXPECT_EQ( 0.777*0.777, WF.wBuf()[1]);
-	EXPECT_EQ( 0.0, WF.wBuf()[5]);
-	EXPECT_NEAR( 140.5272727272729, WF.getA(), 1e-12);
-	EXPECT_NEAR(-263.9720279720282, WF.getB(), 1e-12);
-	EXPECT_NEAR(  87.7328671328672, WF.value(), 1e-12);
-	EXPECT_NEAR(-263.9720279720282, WF.deriv(), 1e-12);
-	
-	// Print testing
-#if PRINT_TESTING
-	std::cout << "PRINTING" << std::endl;
-	for(size_t i = 0; i < WF.size(); i++)
-		std::cout << "[" << i << "] = (" << WF.xBuf()[i] << ", " << WF.yBuf()[i] << ", " << WF.wBuf()[i] << ")" << std::endl;
-	std::cout << "A = " << WF.getA() << ", B = " << WF.getB() << ", Value = " << WF.value() << ", Deriv = " << WF.deriv() << std::endl;
-#endif
-	
-	// Set the x and w buffers
-	WF.setZeroX();
-	WF.setEqualW();
-	WF.updateAB();
-	
-	// Testing
-	EXPECT_EQ(6, WF.size());
-	EXPECT_EQ(WF.xBuf().capacity(), WF.xBuf().size());
-	EXPECT_EQ(WF.yBuf().capacity(), WF.yBuf().size());
-	EXPECT_EQ(WF.wBuf().capacity(), WF.wBuf().size());
-	EXPECT_EQ( 0.0, WF.xBuf()[0]);
-	EXPECT_EQ( 0.0, WF.xBuf()[2]);
-	EXPECT_EQ( 0.0, WF.xBuf()[4]);
-	EXPECT_EQ( -42, WF.yBuf()[1]);
-	EXPECT_EQ( 0.0, WF.yBuf()[2]);
-	EXPECT_EQ( 0.0, WF.yBuf()[3]);
-	EXPECT_EQ( 1.0, WF.wBuf()[0]);
-	EXPECT_EQ( 1.0, WF.wBuf()[1]);
-	EXPECT_EQ( 1.0, WF.wBuf()[5]);
-	EXPECT_DOUBLE_EQ(0.0, WF.getA());
-	EXPECT_DOUBLE_EQ(0.0, WF.getB());
-	EXPECT_DOUBLE_EQ(0.0, WF.value());
-	EXPECT_DOUBLE_EQ(0.0, WF.deriv());
-	
-	// Print testing
-#if PRINT_TESTING
-	std::cout << "PRINTING" << std::endl;
-	for(size_t i = 0; i < WF.size(); i++)
-		std::cout << "[" << i << "] = (" << WF.xBuf()[i] << ", " << WF.yBuf()[i] << ", " << WF.wBuf()[i] << ")" << std::endl;
-	std::cout << "A = " << WF.getA() << ", B = " << WF.getB() << ", Value = " << WF.value() << ", Deriv = " << WF.deriv() << std::endl;
-#endif
-	
-	// Reduce the size and push back elements
-	WF.resize(4);
-	WF.addXYW(1.0, 2.0, 0.0);
-	WF.addXYW(-1.0, 7.0, 0.5);
-	WF.addXYW(-3.0, 1.0, 1.0);
-	WF.addXYW(2.0, 3.0, 0.0);
-	WF.addXYW(-2.0, 1.0, 0.5);
-	WF.addXYW(-4.0, 4.0, 1.0);
-	WF.updateAB();
-	
-	// Testing
-	EXPECT_EQ(4, WF.size());
-	EXPECT_EQ(WF.xBuf().capacity(), WF.xBuf().size());
-	EXPECT_EQ(WF.yBuf().capacity(), WF.yBuf().size());
-	EXPECT_EQ(WF.wBuf().capacity(), WF.wBuf().size());
-	EXPECT_EQ(-4.0, WF.xBuf()[0]);
-	EXPECT_EQ( 2.0, WF.xBuf()[2]);
-	EXPECT_EQ(-3.0, WF.xBuf()[3]);
-	EXPECT_EQ( 1.0, WF.yBuf()[1]);
-	EXPECT_EQ( 3.0, WF.yBuf()[2]);
-	EXPECT_EQ( 1.0, WF.yBuf()[3]);
-	EXPECT_EQ( 1.0, WF.wBuf()[0]);
-	EXPECT_EQ(0.25, WF.wBuf()[1]);
-	EXPECT_EQ( 1.0, WF.wBuf()[3]);
-	
-	// Print testing
-#if PRINT_TESTING
-	std::cout << "PRINTING" << std::endl;
-	for(size_t i = 0; i < WF.size(); i++)
-		std::cout << "[" << i << "] = (" << WF.xBuf()[i] << ", " << WF.yBuf()[i] << ", " << WF.wBuf()[i] << ")" << std::endl;
-	std::cout << "A = " << WF.getA() << ", B = " << WF.getB() << ", Value = " << WF.value() << ", Deriv = " << WF.deriv() << std::endl;
-#endif
-	
-	// Set the init XY
-	WF.resize(5);
-	WF.setInitXY(0.3, 0.7);
-	WF.updateAB();
-	
-	// Testing
-	EXPECT_EQ(5, WF.size());
-	EXPECT_EQ(WF.xBuf().capacity(), WF.xBuf().size());
-	EXPECT_EQ(WF.yBuf().capacity(), WF.yBuf().size());
-	EXPECT_EQ(WF.wBuf().capacity(), WF.wBuf().size());
-	EXPECT_EQ( 0.3, WF.xBuf()[0]);
-	EXPECT_EQ( 0.3, WF.xBuf()[2]);
-	EXPECT_EQ( 0.3, WF.xBuf()[3]);
-	EXPECT_EQ( 0.7, WF.yBuf()[1]);
-	EXPECT_EQ( 0.7, WF.yBuf()[2]);
-	EXPECT_EQ( 0.7, WF.yBuf()[4]);
-	EXPECT_EQ( 1.0, WF.wBuf()[0]);
-	EXPECT_EQ(0.25, WF.wBuf()[1]);
-	EXPECT_EQ( 1.0, WF.wBuf()[3]);
-	EXPECT_DOUBLE_EQ(0.0, WF.getA());
-	EXPECT_DOUBLE_EQ(0.0, WF.getB());
-	EXPECT_DOUBLE_EQ(0.0, WF.value());
-	EXPECT_DOUBLE_EQ(0.0, WF.deriv());
-	
-	// Print testing
-#if PRINT_TESTING
-	std::cout << "PRINTING" << std::endl;
-	for(size_t i = 0; i < WF.size(); i++)
-		std::cout << "[" << i << "] = (" << WF.xBuf()[i] << ", " << WF.yBuf()[i] << ", " << WF.wBuf()[i] << ")" << std::endl;
-	std::cout << "A = " << WF.getA() << ", B = " << WF.getB() << ", Value = " << WF.value() << ", Deriv = " << WF.deriv() << std::endl;
-#endif
-	
-	// Set the init XYW
-	WF.resize(5);
-	WF.setInitXYW(0.5, 0.1, 2.0);
-	WF.updateAB();
-	
-	// Testing
-	EXPECT_EQ(5, WF.size());
-	EXPECT_EQ(WF.xBuf().capacity(), WF.xBuf().size());
-	EXPECT_EQ(WF.yBuf().capacity(), WF.yBuf().size());
-	EXPECT_EQ(WF.wBuf().capacity(), WF.wBuf().size());
-	EXPECT_EQ( 0.5, WF.xBuf()[0]);
-	EXPECT_EQ( 0.5, WF.xBuf()[2]);
-	EXPECT_EQ( 0.5, WF.xBuf()[3]);
-	EXPECT_EQ( 0.1, WF.yBuf()[1]);
-	EXPECT_EQ( 0.1, WF.yBuf()[2]);
-	EXPECT_EQ( 0.1, WF.yBuf()[4]);
-	EXPECT_EQ( 4.0, WF.wBuf()[0]);
-	EXPECT_EQ( 4.0, WF.wBuf()[1]);
-	EXPECT_EQ( 4.0, WF.wBuf()[4]);
-	EXPECT_DOUBLE_EQ(0.0, WF.getA());
-	EXPECT_DOUBLE_EQ(0.0, WF.getB());
-	EXPECT_DOUBLE_EQ(0.0, WF.value());
-	EXPECT_DOUBLE_EQ(0.0, WF.deriv());
-	
-	// Print testing
-#if PRINT_TESTING
-	std::cout << "PRINTING" << std::endl;
-	for(size_t i = 0; i < WF.size(); i++)
-		std::cout << "[" << i << "] = (" << WF.xBuf()[i] << ", " << WF.yBuf()[i] << ", " << WF.wBuf()[i] << ")" << std::endl;
-	std::cout << "A = " << WF.getA() << ", B = " << WF.getB() << ", Value = " << WF.value() << ", Deriv = " << WF.deriv() << std::endl;
-#endif
-	
-	// Reset the filter
-	WF.reset();
-	
-	// Testing
-	EXPECT_EQ(5, WF.size());
-	EXPECT_EQ(WF.xBuf().capacity(), WF.xBuf().size());
-	EXPECT_EQ(WF.yBuf().capacity(), WF.yBuf().size());
-	EXPECT_EQ(WF.wBuf().capacity(), WF.wBuf().size());
-	EXPECT_EQ( 0.0, WF.xBuf()[0]);
-	EXPECT_EQ( 0.0, WF.xBuf()[2]);
-	EXPECT_EQ( 0.0, WF.xBuf()[3]);
-	EXPECT_EQ( 0.0, WF.yBuf()[1]);
-	EXPECT_EQ( 0.0, WF.yBuf()[2]);
-	EXPECT_EQ( 0.0, WF.yBuf()[4]);
-	EXPECT_EQ( 0.0, WF.wBuf()[0]);
-	EXPECT_EQ( 0.0, WF.wBuf()[1]);
-	EXPECT_EQ( 0.0, WF.wBuf()[4]);
-	EXPECT_DOUBLE_EQ(0.0, WF.getA());
-	EXPECT_DOUBLE_EQ(0.0, WF.getB());
-	EXPECT_DOUBLE_EQ(0.0, WF.value());
-	EXPECT_DOUBLE_EQ(0.0, WF.deriv());
-	
-	// Print testing
-#if PRINT_TESTING
-	std::cout << "PRINTING" << std::endl;
-	for(size_t i = 0; i < WF.size(); i++)
-		std::cout << "[" << i << "] = (" << WF.xBuf()[i] << ", " << WF.yBuf()[i] << ", " << WF.wBuf()[i] << ")" << std::endl;
-	std::cout << "A = " << WF.getA() << ", B = " << WF.getB() << ", Value = " << WF.value() << ", Deriv = " << WF.deriv() << std::endl;
-#endif
-}
-
-// Test the Boost circular buffer class for an important property
-TEST(RCUtilsMiscTest, testBoostCircularBuffer)
-{
-	// Declare variables
-	boost::circular_buffer<int> buf;
-	
-	// Test push_back/rset_capacity behaviour
-	buf.clear();
-	buf.rset_capacity(5);
-	EXPECT_EQ(0, buf.size());
-	EXPECT_EQ(5, buf.capacity());
-	buf.push_back(1);
-	EXPECT_EQ(1, buf.size());
-	EXPECT_EQ(5, buf.capacity());
-	EXPECT_EQ(1, buf[0]);
-	buf.push_back(2);
-	buf.push_back(3);
-	buf.push_back(4);
-	buf.push_back(5);
-	EXPECT_EQ(5, buf.size());
-	EXPECT_EQ(5, buf.capacity());
-	EXPECT_EQ(1, buf[0]);
-	EXPECT_EQ(2, buf[1]);
-	EXPECT_EQ(3, buf[2]);
-	EXPECT_EQ(4, buf[3]);
-	EXPECT_EQ(5, buf[4]);
-	buf.push_back(6);
-	buf.push_back(7);
-	EXPECT_EQ(5, buf.size());
-	EXPECT_EQ(5, buf.capacity());
-	EXPECT_EQ(3, buf[0]);
-	EXPECT_EQ(4, buf[1]);
-	EXPECT_EQ(5, buf[2]);
-	EXPECT_EQ(6, buf[3]);
-	EXPECT_EQ(7, buf[4]);
-	buf.rset_capacity(3); // Note: This should retain the three most recent values pushed back
-	EXPECT_EQ(3, buf.size());
-	EXPECT_EQ(3, buf.capacity());
-	EXPECT_EQ(5, buf[0]);
-	EXPECT_EQ(6, buf[1]);
-	EXPECT_EQ(7, buf[2]);
-	buf.rset_capacity(5);
-	EXPECT_EQ(3, buf.size());
-	EXPECT_EQ(5, buf.capacity());
-	EXPECT_EQ(5, buf[0]);
-	EXPECT_EQ(6, buf[1]);
-	EXPECT_EQ(7, buf[2]);
-	
-	// Test push_front/set_capacity behaviour
-	buf.clear();
-	buf.set_capacity(5);
-	EXPECT_EQ(0, buf.size());
-	EXPECT_EQ(5, buf.capacity());
-	buf.push_front(1);
-	EXPECT_EQ(1, buf.size());
-	EXPECT_EQ(5, buf.capacity());
-	EXPECT_EQ(1, buf[0]);
-	buf.push_front(2);
-	buf.push_front(3);
-	buf.push_front(4);
-	buf.push_front(5);
-	EXPECT_EQ(5, buf.size());
-	EXPECT_EQ(5, buf.capacity());
-	EXPECT_EQ(5, buf[0]);
-	EXPECT_EQ(4, buf[1]);
-	EXPECT_EQ(3, buf[2]);
-	EXPECT_EQ(2, buf[3]);
-	EXPECT_EQ(1, buf[4]);
-	buf.push_front(6);
-	buf.push_front(7);
-	EXPECT_EQ(5, buf.size());
-	EXPECT_EQ(5, buf.capacity());
-	EXPECT_EQ(7, buf[0]);
-	EXPECT_EQ(6, buf[1]);
-	EXPECT_EQ(5, buf[2]);
-	EXPECT_EQ(4, buf[3]);
-	EXPECT_EQ(3, buf[4]);
-	buf.set_capacity(3); // Note: This should retain the three most recent values pushed front
-	EXPECT_EQ(3, buf.size());
-	EXPECT_EQ(3, buf.capacity());
-	EXPECT_EQ(7, buf[0]);
-	EXPECT_EQ(6, buf[1]);
-	EXPECT_EQ(5, buf[2]);
-	buf.set_capacity(5);
-	EXPECT_EQ(3, buf.size());
-	EXPECT_EQ(5, buf.capacity());
-	EXPECT_EQ(7, buf[0]);
-	EXPECT_EQ(6, buf[1]);
-	EXPECT_EQ(5, buf[2]);
 }
 
 // Main function

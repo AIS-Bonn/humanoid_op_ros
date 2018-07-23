@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(gait)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
 #######################
 ## Find dependencies ##
 #######################
@@ -20,7 +22,7 @@ catkin_package(
 	INCLUDE_DIRS include
 	LIBRARIES gait gait_util
 	CATKIN_DEPENDS robotcontrol rc_utils
-# 	DEPENDS
+ 	DEPENDS gait_msgs
 )
 
 ###########

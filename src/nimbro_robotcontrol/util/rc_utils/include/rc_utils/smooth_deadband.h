@@ -24,29 +24,28 @@ namespace rc_utils
 		// Constructor
 		SharpDeadband() { reset(); }
 		explicit SharpDeadband(double radius, double centre = 0.0) : m_radius(radius), m_centre(centre) {}
-		
+
 		// Reset function
 		void reset() { m_radius = m_centre = 0.0; }
-		
+
 		// Set function
 		void set(double radius, double centre = 0.0) { m_radius = radius; m_centre = centre; }
-		
+
 		// Get functions
 		double radius() const { return m_radius; }
 		double centre() const { return m_centre; }
 
 		// Evaluate functions
 		double eval(double x) const { return eval(x, m_radius, m_centre); }
-		static double eval(double x, double radius, double centre = 0.0)
+		static double eval(double x, double radius, double centre) { return eval(x - centre, radius); }
+		static double eval(double x, double radius)
 		{
-			double relx = x - centre;
-			double relxsign = sign(relx);
-			if(fabs(relx) >= radius)
-				return relx - relxsign*radius;
-			else
+			if(fabs(x) <= radius)
 				return 0.0;
+			int xsign = sign0(x);
+			return x - xsign*radius;
 		}
-		
+
 	private:
 		// Data members
 		double m_radius;
@@ -67,29 +66,29 @@ namespace rc_utils
 		// Constructor
 		SmoothDeadband() { reset(); }
 		explicit SmoothDeadband(double radius, double centre = 0.0) : m_radius(radius), m_centre(centre) {}
-		
+
 		// Reset function
 		void reset() { m_radius = m_centre = 0.0; }
-		
+
 		// Set function
 		void set(double radius, double centre = 0.0) { m_radius = radius; m_centre = centre; }
-		
+
 		// Get functions
 		double radius() const { return m_radius; }
 		double centre() const { return m_centre; }
 
 		// Evaluate functions
 		double eval(double x) const { return eval(x, m_radius, m_centre); }
-		static double eval(double x, double radius, double centre = 0.0)
+		static double eval(double x, double radius, double centre) { return eval(x - centre, radius); }
+		static double eval(double x, double radius)
 		{
-			double relx = x - centre;
-			double relxsign = sign(relx);
-			if(fabs(relx) >= 2.0*radius)
-				return relx - relxsign*radius;
+			int xsign = sign0(x);
+			if(fabs(x) >= 2.0*radius)
+				return x - xsign*radius;
 			else
-				return relxsign*relx*relx / (4.0*radius);
+				return xsign*x*x / (4.0*radius);
 		}
-		
+
 	private:
 		// Data members
 		double m_radius;
@@ -99,7 +98,7 @@ namespace rc_utils
 	/**
 	* @class DeadSmoothDeadband
 	* 
-	* @brief Add deadband that is continuous in the first derivative, and with non-zero dead zone, to a signal.
+	* @brief Add deadband that is continuous in the first derivative, and with a zero zone, to a signal.
 	* 
 	* At the centre and up to @p zeroRadius either side of it the throughput is 0. @p deadRadius beyond that
 	* the throughput is `0.25*deadRadius`, and @p deadRadius further beyond that the throughput is `deadRadius`
@@ -111,13 +110,13 @@ namespace rc_utils
 		// Constructor
 		DeadSmoothDeadband() { reset(); }
 		explicit DeadSmoothDeadband(double zeroRadius, double deadRadius, double centre = 0.0) : m_zeroRadius(zeroRadius), m_deadRadius(deadRadius), m_centre(centre) {}
-		
+
 		// Reset function
 		void reset() { m_zeroRadius = m_deadRadius = m_centre = 0.0; }
-		
+
 		// Set function
 		void set(double zeroRadius, double deadRadius, double centre = 0.0) { m_zeroRadius = zeroRadius; m_deadRadius = deadRadius; m_centre = centre; }
-		
+
 		// Get functions
 		double zeroRadius() const { return m_zeroRadius; }
 		double deadRadius() const { return m_deadRadius; }
@@ -125,19 +124,19 @@ namespace rc_utils
 
 		// Evaluate functions
 		double eval(double x) const { return eval(x, m_zeroRadius, m_deadRadius, m_centre); }
-		static double eval(double x, double zeroRadius, double deadRadius, double centre = 0.0)
+		static double eval(double x, double zeroRadius, double deadRadius, double centre) { return eval(x - centre, zeroRadius, deadRadius); }
+		static double eval(double x, double zeroRadius, double deadRadius)
 		{
-			double relx = x - centre;
-			if(fabs(relx) <= zeroRadius)
+			if(fabs(x) <= zeroRadius)
 				return 0.0;
-			double relxsign = sign(relx);
-			double relxdead = relx - relxsign*zeroRadius;
-			if(fabs(relxdead) >= 2.0*deadRadius)
-				return relxdead - relxsign*deadRadius;
+			int xsign = sign0(x);
+			double xdead = x - xsign*zeroRadius;
+			if(fabs(xdead) >= 2.0*deadRadius)
+				return xdead - xsign*deadRadius;
 			else
-				return relxsign*relxdead*relxdead / (4.0*deadRadius);
+				return xsign*xdead*xdead / (4.0*deadRadius);
 		}
-		
+
 	private:
 		// Data members
 		double m_zeroRadius;
