@@ -16,9 +16,11 @@ sudo apt-get install linux-generic-lts-xenial
 * [ROS Indigo](http://www.ros.org/wiki/indigo/Installation/Ubuntu):
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
-sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net --recv-key 0xB01FA116
+sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116
 sudo apt-get update
 sudo apt-get install ros-indigo-desktop-full
+sudo apt-get install libcholmod2.1.2 libsuitesparse-metis-dev
+sudo apt-get install ros-indigo-libg2o
 sudo rosdep init
 rosdep update
 sudo apt-get install ros-indigo-rqt-rviz
@@ -37,6 +39,14 @@ sudo apt-get install libgsl0-dev
 
 * Controllers for Gazebo:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.sh}
+sudo sh -c 'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list'
+wget http://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install libsdformat1 libsdformat-dev
+sudo apt-get install libsdformat-dev
+sudo apt-get install gazebo2
+sudo apt-get install ros-indigo-gazebo-ros
+sudo apt-get install ros-indigo-gazebo-ros-pkgs ros-indigo-gazebo-ros-control
 sudo apt-get install ros-indigo-gazebo-ros-control
 sudo apt-get install ros-indigo-ros-controllers
 sudo apt-get install ros-indigo-controller-manager
