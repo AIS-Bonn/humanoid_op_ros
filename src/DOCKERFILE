@@ -1,0 +1,33 @@
+RUN sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+RUN sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116
+
+RUN apt-get update && apt-get install -y
+                    linux-generic-lts-xenial \
+                    ros-indigo-desktop-full \
+RUN sudo rosdep init
+RUN rosdep update
+RUN sudo apt-get install ros-indigo-rqt-rviz \
+                          ros-indigo-joy \
+                          libqglviewer-dev \
+                          libgsl0-dev \
+                          ros-indigo-gazebo-ros-control \
+                          ros-indigo-ros-controllers \
+                          ros-indigo-controller-manager \
+                          ros-indigo-rqt-controller-manager \
+                          v4l-utils v4l2ucp v4l-conf \
+                          sshpass python-pip python-dev build-essential
+
+RUN sudo add-apt-repository ppa:pj-assis/ppa && sudo apt-get update \
+                            && sudo apt-get install guvcview
+
+RUN sudo pip install --upgrade pip && sudo pip install --upgrade virtualenv &&  sudo pip install termcolor
+
+RUN sudo apt-get install libncurses5-dev libx264-dev gcc-arm-none-eabi install doxygen \
+                          curl tshark ssh screen \
+                          git vim nano kwrite kdiff3 \
+                          valgrind tree htop \
+                          libcholmod2.1.2 libsuitesparse-metis-dev \
+                          ros-indigo-libg2o
+RUN git clone https://github.com/AIS-Bonn/humanoid_op_ros ~/NimbRo-OP
+
+RUN source /opt/ros/indigo/setup.bash && source ~/NimbRo-OP/src/nimbro/scripts/env.sh && export NIMBRO_ROBOT_TYPE=P1 && export NIMBRO_ROBOT_NAME=xs0 && export NIMBRO_ROBOT_VARIANT=nimbro_op_hull
