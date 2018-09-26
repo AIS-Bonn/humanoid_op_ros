@@ -112,8 +112,6 @@ RobotInterface::DXLJoint::DXLJoint(const std::string& _name)
 }
 
 // Scaling constants
-const double RobotInterface::FULL_TORQUE = 1023.0; // The torque limit value that corresponds to full torque
-const double RobotInterface::FULL_EFFORT = 32.0; // The P gain value that an effort of 1.0 corresponds to
 const double RobotInterface::INT_TO_VOLTS = 0.1; // Multiply a voltage value read from the CM730 by this to convert it into volts (see 'cm730/firmware/CM730_HW/src/adc.c')
 const double RobotInterface::GYRO_SCALE = (M_PI / 180) * (2 * 250) / 65536; // From control register CTRL_REG4 in "cm730/firmware/CM730_HW/src/gyro_acc.c": +-250dps is 65536 LSb
 const double RobotInterface::ACC_SCALE = (2 * (4 * 9.81)) / 65536; // From control register CTRL_REG4 in "cm730/firmware/CM730_HW/src/gyro_acc.c": +-4g is 65536 LSb
@@ -130,6 +128,7 @@ RobotInterface::RobotInterface()
  , m_buttonPress1(CONFIG_PARAM_PATH + "button/pressButton1", false)
  , m_buttonPress2(CONFIG_PARAM_PATH + "button/pressButton2", false)
  , m_relaxed(true)
+ , m_enableTorque(false)
  , m_statIndex(0)
  , m_statVoltage(-1.0)
  , m_resetGyroAccOffset(CONFIG_PARAM_PATH + "imuOffsets/resetGyroAccOffset", false)
@@ -173,8 +172,8 @@ RobotInterface::RobotInterface()
  , m_gyroEnableAutoCalib(CONFIG_PARAM_PATH + "gyroAutoCalib/enable", false)
  , m_gyroScaleFactorHT(CONFIG_PARAM_PATH + "gyro/scaleFactorHT", 0.5, 0.01, 2.0, 1.0)
  , m_gyroScaleFactorLT(CONFIG_PARAM_PATH + "gyro/scaleFactorLT", 0.5, 0.01, 2.0, 1.0)
- , m_gyroTemperatureHigh(CONFIG_PARAM_PATH + "gyro/temperatureHigh", 15.0, 0.5, 60.0, 50.0)
- , m_gyroTemperatureLow(CONFIG_PARAM_PATH + "gyro/temperatureLow", 15.0, 0.5, 60.0, 30.0)
+ , m_gyroTemperatureHigh(CONFIG_PARAM_PATH + "gyro/temperatureHigh", 15.0, 0.5, 80.0, 50.0)
+ , m_gyroTemperatureLow(CONFIG_PARAM_PATH + "gyro/temperatureLow", 15.0, 0.5, 80.0, 30.0)
  , m_gyroLowPassMeanTs(CONFIG_PARAM_PATH + "gyro/lowPassMeanTs", 0.05, 0.05, 10.0, 2.0)
  , m_gyroLowPassMeanTsHigh(CONFIG_PARAM_PATH + "gyro/lowPassMeanTsHigh", 2.0, 0.2, 20.0, 8.0)
  , m_gyroStabilityBound(CONFIG_PARAM_PATH + "gyroAutoCalib/stabilityBound", 0.0, 0.0005, 0.04, 0.02)
@@ -635,6 +634,48 @@ bool RobotInterface::init(RobotModel* model)
 	}
 	m_servoData.resize(max_addr);
 
+	// Deduce the type of the servos (must all be of the same servo type, e.g. MX series, or X series)
+	int isMX = 0, isX = 0, isNone = 0, isOther = 0;
+	for(size_t i = 0; i < m_model->numJoints(); i++)
+	{
+		const DXLJoint* joint = dxlJoint(i);
+		std::string jointType = joint->type();
+		if(jointType == "NONE")
+			isNone++;
+		else if(jointType.compare(0, 2, "MX") == 0)
+			isMX++;
+		else if(jointType.compare(0, 2, "XL") == 0 || jointType.compare(0, 2, "XM") == 0 || jointType.compare(0, 2, "XH") == 0)
+			isX++;
+		else
+			isOther++;
+	}
+	if(isOther > 0)
+	{
+		ROS_ERROR("Found %d joints that are neither MX nor X series (nor 'NONE') => Not sure what servo hardware to target!", isOther);
+		return false;
+	}
+	else if(isMX > 0 && isX == 0)
+		m_servos = boost::make_shared<DynamixelMX>();
+	else if(isX > 0 && isMX == 0)
+		m_servos = boost::make_shared<DynamixelX>();
+	else if(isMX == 0 && isX == 0)
+	{
+		ROS_ERROR("Found neither MX nor X servo joints => Not sure what servo hardware to target!");
+		return false;
+	}
+	else
+	{
+		ROS_ERROR("Found a mix of %d MX and %d X servo joints => Not sure what servo hardware to target!", isMX, isX);
+		return false;
+	}
+	if(m_servos)
+		ROS_INFO("Targeting the %s servo hardware", m_servos->name().c_str());
+	else
+	{
+		ROS_ERROR("Something went wrong when deducing the servo hardware to target!");
+		return false;
+	}
+
 	// Sort the queryset (nice for debugging)
 	std::sort(m_cm730_queryset.begin(), m_cm730_queryset.end());
 
@@ -675,7 +716,7 @@ bool RobotInterface::init(RobotModel* model)
 bool RobotInterface::initCM730()
 {
 	// Initialise the CM730
-	m_board.reset(new CM730(RESOURCE_PATH, CONFIG_PARAM_PATH));
+	m_board.reset(new CM730(RESOURCE_PATH, CONFIG_PARAM_PATH, m_servos));
 	m_board->updateTxBRPacket(m_cm730_queryset);
 
 	// Stop here if connecting to the CM730 was unsuccessful
@@ -847,7 +888,7 @@ void RobotInterface::waitForRelaxedServos()
 			if(joint->enabled() && servoID >= CM730::ID_MIN && servoID <= CM730::ID_MAX && servoID != CM730::ID_CM730)
 			{
 				int value = 0;
-				if(m_board->readByte(servoID, DynamixelMX::P_TORQUE_ENABLE, &value) == CM730::RET_SUCCESS)
+				if(m_board->readByte(servoID, m_servos->addressTorqueEnable(), &value) == CM730::RET_SUCCESS)
 				{
 					numHeard[i]++;
 					readAtLeastOneServo = true;
@@ -1047,14 +1088,14 @@ bool RobotInterface::readJointStates()
 				{
 					if(m_showServoFailures())
 						ROS_ERROR("Servo death cycle (ID %d) => Prodding preceding servo ID %d with a write!", id, previd);
-					m_board->writeByte(previd, DynamixelMX::P_ALARM_LED, 0x24); // Note: 0x24 is the default value of this register, and corresponds to the overheating and overload error bits (if these errors occur the servo LED lights up)
+					m_board->writeByte(previd, m_servos->prodAddress(), m_servos->prodValue());
 				}
 				else
 #endif
 				{
 					if(m_showServoFailures())
 						ROS_ERROR("Servo death cycle (ID %d) => Prodding servo with a write!", id);
-					m_board->writeByte(id, DynamixelMX::P_ALARM_LED, 0x24); // Note: 0x24 is the default value of this register, and corresponds to the overheating and overload error bits (if these errors occur the servo LED lights up)
+					m_board->writeByte(id, m_servos->prodAddress(), m_servos->prodValue());
 				}
 			}
 #endif /* PROD_DEATH_CYCLES */
@@ -1107,7 +1148,7 @@ bool RobotInterface::readJointStates()
 					ROS_WARN("Dynamic servo reordering triggered on ID %d => Prodding servo with a write!", id);
 				
 				// Prod the servo that has been moved to the back of the list to avoid the subsequent servo in the bulk read packet (before re-ordering) failing in the next bulk read and never receiving a packet from the reordered servo because failure always happens before it's the reordered servo's turn
-				m_board->writeByte(id, DynamixelMX::P_ALARM_LED, 0x24); // Note: 0x24 is the default value of this register, and corresponds to the overheating and overload error bits (if these errors occur the servo LED lights up)
+				m_board->writeByte(id, m_servos->prodAddress(), m_servos->prodValue());
 
 				// Move the ID to the back of the query set
 				std::vector<int>::iterator it = std::find(m_cm730_queryset.begin(), m_cm730_queryset.end(), id);
@@ -1208,7 +1249,7 @@ bool RobotInterface::readJointStates()
 					joint->feedback.pos = -joint->feedback.pos;
 
 				// Give the command generator the information it needs
-				int pValue = joint->realEffort * FULL_EFFORT;
+				int pValue = (int)(joint->realEffort * m_servos->fullEffort());
 				if(pValue < 2) pValue = 2;
 				joint->commandGenerator->setPValue(pValue);
 				joint->commandGenerator->setVoltage(m_voltage); // Note: This could use m_statVoltage (check if >0.0 before using it), but as statistics are disabled this is a decent drop-in replacement
@@ -1930,12 +1971,8 @@ bool RobotInterface::sendJointTargets()
 	// Communications are occurring PC --> CM730
 	m_hadTX = true;
 
-	// Allocate memory for the packet data and map an array of JointCmdSyncWriteData structs onto it
-	std::vector<uint8_t> params(m_model->numJoints() * sizeof(JointCmdSyncWriteData));
-	JointCmdSyncWriteData* paramData = (JointCmdSyncWriteData*) &params[0];
-
-	// Fill in the sync write buffer with the servo commands
-	size_t count = 0;
+	// Compile the required joint commands
+	std::vector<JointCmdData> jointCmdData;
 	for(size_t i = 0; i < m_model->numJoints(); i++)
 	{
 		// Retrieve a pointer to the corresponding DXL joint
@@ -1944,16 +1981,13 @@ bool RobotInterface::sendJointTargets()
 		// Do not sync write to servos that are not enabled
 		if(!joint->enabled()) continue;
 
-		// Retrieve a pointer to the required JointCmdSyncWriteData in the array
-		JointCmdSyncWriteData* data = &paramData[count++];
-
 		// Slope-limit the servo effort to avoid large instantaneous steps
 		joint->realEffort = rc_utils::slopeLimited<double>(joint->realEffort, joint->cmd.effort, m_effortSlopeLimit());
 		if(joint->realEffort < 0.0) joint->realEffort = 0.0;
 		else if(joint->realEffort > 4.0) joint->realEffort = 4.0;
 
 		// Convert effort to a P gain of the servos
-		uint8_t realpValue = (uint8_t)(joint->realEffort * FULL_EFFORT);
+		int realpValue = (int)(joint->realEffort * m_servos->fullEffort());
 
 		// Give the command generator the information it needs
 		int pValue = realpValue;
@@ -1989,33 +2023,102 @@ bool RobotInterface::sendJointTargets()
 		else if(goal < minTicks)
 			goal = minTicks;
 
-		// Write the calculated values into the required JointCmdSyncWriteData struct
-		data->id = joint->id();
-		data->p_gain = realpValue;
-		data->goal_position = (uint16_t) goal;
+		// Save the required joint command
+		jointCmdData.push_back(JointCmdData(joint->id(), realpValue, goal));
 	}
 
-	// Sync write the required joint targets
-	if(!syncWriteJointTargets(count, &params[0]))
+	// Sync write the generated joint commands via the CM730
+	if(!syncWriteJointTargets(jointCmdData))
 		return false;
-	
+
 	// Return success
 	return true;
 }
 
-// Perform the actual sync write of a JointCmdSyncWriteData to the CM730
-bool RobotInterface::syncWriteJointTargets(size_t numDevices, const uint8_t* data)
+// Sync write the required joint commands via the CM730
+bool RobotInterface::syncWriteJointTargets(const std::vector<JointCmdData>& jointCmdData)
 {
 	// Relaxed robots won't do anything. They are lazy.
 	if(m_relaxed || m_board->isSuspended()) return true;
 
-	// Sync write the joint commands to the servos via the CM730
-	if(m_board->syncWrite(DynamixelMX::P_P_GAIN, sizeof(JointCmdSyncWriteData)-1, numDevices, data) != CM730::RET_SUCCESS) // Note: Size minus 1 as the id byte doesn't count as a write data byte
+	// Enable the torque on the servos if required
+	if(m_enableTorque && m_servos->type == DynamixelBase::X_SERVOS)
 	{
-		ROS_ERROR("SyncWrite of joint commands failed!");
-		return false;
+		// Allocate memory for the packet data and map an array of TorqueEnableSyncWriteData structs onto it
+		std::vector<uint8_t> params(m_model->numJoints() * sizeof(TorqueEnableSyncWriteData));
+		TorqueEnableSyncWriteData* paramData = (TorqueEnableSyncWriteData*) &params[0];
+
+		// Populate the struct array with the required data
+		size_t count = 0;
+		for(size_t i = 0; i < m_model->numJoints(); i++)
+		{
+			const DXLJoint* joint = dxlJoint(i);
+			if(!joint->enabled()) continue;
+			paramData[count].id = joint->id();
+			paramData[count].torque_enable = 1; // 0 => Off, 1 => On
+			count++;
+		}
+
+		// Perform a sync write of the generated packet to the servos via the CM730
+		if(syncWriteTorqueEnable(count, &params[0]))
+			m_enableTorque = false;
 	}
-	else return true;
+
+	// Sync write the required joint commands
+	if(m_servos->type == DynamixelBase::MX_SERVOS)
+	{
+		// Allocate memory for the packet data and map an array of structs onto it
+		std::vector<uint8_t> params(jointCmdData.size() * sizeof(DynamixelMX::JointCmdSyncWriteData));
+		DynamixelMX::JointCmdSyncWriteData* paramData = (DynamixelMX::JointCmdSyncWriteData*) &params[0];
+
+		// Populate the sync write data as required
+		for(size_t i = 0; i < jointCmdData.size(); i++)
+		{
+			paramData[i].id = (uint8_t) jointCmdData[i].id;
+			paramData[i].p_gain = (uint8_t) jointCmdData[i].p_gain;
+			paramData[i].goal_position = (uint16_t) jointCmdData[i].goal_position;
+		}
+
+		// Sync write the required joint commands
+		if(m_board->syncWrite(DynamixelMX::P_P_GAIN, sizeof(DynamixelMX::JointCmdSyncWriteData)-1, jointCmdData.size(), &params[0]) != CM730::RET_SUCCESS) // Note: Size minus 1 as the id byte doesn't count as a write data byte
+		{
+			ROS_ERROR("SyncWrite of MX servo joint commands failed!");
+			return false;
+		}
+	}
+	else if(m_servos->type == DynamixelBase::X_SERVOS)
+	{
+		// Allocate memory for the packet data and map arrays of structs onto it
+		std::vector<uint8_t> paramsPG(jointCmdData.size() * sizeof(DynamixelX::JointCmdSyncWriteDataPG));
+		std::vector<uint8_t> paramsGP(jointCmdData.size() * sizeof(DynamixelX::JointCmdSyncWriteDataGP));
+		DynamixelX::JointCmdSyncWriteDataPG* paramDataPG = (DynamixelX::JointCmdSyncWriteDataPG*) &paramsPG[0];
+		DynamixelX::JointCmdSyncWriteDataGP* paramDataGP = (DynamixelX::JointCmdSyncWriteDataGP*) &paramsGP[0];
+
+		// Populate the sync write data as required
+		for(size_t i = 0; i < jointCmdData.size(); i++)
+		{
+			paramDataPG[i].id = paramDataGP[i].id = (uint8_t) jointCmdData[i].id;
+			paramDataPG[i].p_gain = (uint16_t) jointCmdData[i].p_gain;
+			paramDataGP[i].goal_position = (uint32_t) jointCmdData[i].goal_position;
+		}
+
+		// Sync write the required joint commands
+		if(m_board->syncWrite(DynamixelX::P_POSITION_P_GAIN_L, sizeof(DynamixelX::JointCmdSyncWriteDataPG)-1, jointCmdData.size(), &paramsPG[0]) != CM730::RET_SUCCESS) // Note: Size minus 1 as the id byte doesn't count as a write data byte
+		{
+			ROS_ERROR("SyncWrite of X servo P gain joint commands failed!");
+			return false;
+		}
+		if(m_board->syncWrite(DynamixelX::P_GOAL_POSITION_0, sizeof(DynamixelX::JointCmdSyncWriteDataGP)-1, jointCmdData.size(), &paramsGP[0]) != CM730::RET_SUCCESS) // Note: Size minus 1 as the id byte doesn't count as a write data byte
+		{
+			ROS_ERROR("SyncWrite of X servo goal position joint commands failed!");
+			return false;
+		}
+	}
+	else
+		return false;
+
+	// Return success
+	return true;
 }
 
 /**
@@ -2049,14 +2152,39 @@ bool RobotInterface::setStiffness(float torque)
 		}
 
 		// Perform a sync write of the generated packet to the servos via the CM730
-		if(!syncWriteTorqueEnable(count, &params[0]))
-			return false;
+		syncWriteTorqueEnable(count, &params[0]);
 
 		// Update the relaxed flag
 		m_relaxed = true;
+		m_enableTorque = false;
 	}
 	else
 	{
+		// Write the status return level of X servos at the beginning of fade in
+		if(m_relaxed && m_servos->type == DynamixelBase::X_SERVOS)
+		{
+			// Allocate memory for the packet data and map an array of ReturnLevelSyncWriteData structs onto it
+			std::vector<uint8_t> params(m_model->numJoints() * sizeof(ReturnLevelSyncWriteData));
+			ReturnLevelSyncWriteData* paramData = (ReturnLevelSyncWriteData*) &params[0];
+
+			// Populate the struct array with the required data
+			size_t count = 0;
+			for(size_t i = 0; i < m_model->numJoints(); i++)
+			{
+				const DXLJoint* joint = dxlJoint(i);
+				if(!joint->enabled()) continue;
+				paramData[count].id = joint->id();
+				paramData[count].return_level = 1; // 1 => Respond to READ and PING only
+				count++;
+			}
+
+			// Perform a sync write of the generated packet to the servos via the CM730
+			syncWriteReturnLevel(count, &params[0]);
+
+			// Set that the torque should be enabled on the next write of joint commands
+			m_enableTorque = true;
+		}
+
 		// Update the relaxed flag
 		m_relaxed = false;
 	}
@@ -2075,7 +2203,7 @@ bool RobotInterface::setStiffness(float torque)
 		const DXLJoint* joint = dxlJoint(i);
 		if(!joint->enabled()) continue;
 		paramData[count].id = joint->id();
-		paramData[count].torque_limit = (uint16_t)(torque * FULL_TORQUE); // 0 => Limit to 0% of maximum available torque, FULL_TORQUE => Limit to 100% of maximum available torque
+		paramData[count].torque_limit = (uint16_t)(torque * m_servos->fullTorque()); // 0 => Limit to 0% of maximum available torque, fullTorque => Limit to 100% of maximum available torque
 		count++;
 	}
 
@@ -2087,13 +2215,25 @@ bool RobotInterface::setStiffness(float torque)
 	return true;
 }
 
+// Sync write a status return level command to the CM730
+bool RobotInterface::syncWriteReturnLevel(size_t numDevices, const uint8_t* data)
+{
+	// Sync write the appropriate packet
+	if(m_board->syncWrite(m_servos->addressReturnLevel(), sizeof(ReturnLevelSyncWriteData)-1, numDevices, data) != CM730::RET_SUCCESS) // Note: Size minus 1 as the id byte doesn't count as a write data byte
+	{
+		ROS_ERROR("SyncWrite of status return level packet failed!");
+		return false;
+	}
+	else return true;
+}
+
 // Sync write a torque enable command to the CM730
 bool RobotInterface::syncWriteTorqueEnable(size_t numDevices, const uint8_t* data)
 {
 	// Sync write the appropriate packet
-	if(m_board->syncWrite(DynamixelMX::P_TORQUE_ENABLE, sizeof(TorqueEnableSyncWriteData)-1, numDevices, data) != CM730::RET_SUCCESS) // Note: Size minus 1 as the id byte doesn't count as a write data byte
+	if(m_board->syncWrite(m_servos->addressTorqueEnable(), sizeof(TorqueEnableSyncWriteData)-1, numDevices, data) != CM730::RET_SUCCESS) // Note: Size minus 1 as the id byte doesn't count as a write data byte
 	{
-		ROS_ERROR("SyncWrite of torque-off packet failed!");
+		ROS_ERROR("SyncWrite of torque enable/disable packet failed!");
 		return false;
 	}
 	else return true;
@@ -2103,7 +2243,7 @@ bool RobotInterface::syncWriteTorqueEnable(size_t numDevices, const uint8_t* dat
 bool RobotInterface::syncWriteTorqueLimit(size_t numDevices, const uint8_t* data)
 {
 	// Sync write the appropriate packet
-	if(m_board->syncWrite(DynamixelMX::P_TORQUE_LIMIT_L, sizeof(TorqueLimitSyncWriteData)-1, numDevices, data) != CM730::RET_SUCCESS) // Note: Size minus 1 as the id byte doesn't count as a write data byte
+	if(m_board->syncWrite(m_servos->addressTorqueLimit(), sizeof(TorqueLimitSyncWriteData)-1, numDevices, data) != CM730::RET_SUCCESS) // Note: Size minus 1 as the id byte doesn't count as a write data byte
 	{
 		ROS_ERROR("SyncWrite of torque limit packet failed");
 		return false;
@@ -2123,7 +2263,7 @@ void RobotInterface::handleStatistics(const ros::TimerEvent&)
 		// Get statistics from the servos
 		if(m_haveHardware && m_model->numJoints() >= 1)
 		{
-// 			// Note: This block has been commented out in an attempt to minimise communications issues!
+// 			// Note: This block has been commented out in an attempt to minimise communications issues, and would need to be adjusted to deal with MX vs. X servos!
 // 
 // 			// Increment (and if required wrap) the statistics servo ID
 // 			if(++m_statIndex >= m_model->numJoints())
@@ -2239,7 +2379,7 @@ bool RobotInterface::handleReadOffsets(std_srvs::EmptyRequest& req, std_srvs::Em
 
 		// Get the present servo position
 		int present_pos;
-		if(m_board->readWord(joint->id(), DynamixelMX::P_PRESENT_POSITION_L, &present_pos) != CM730::RET_SUCCESS) continue;
+		if(m_board->readWord(joint->id(), m_servos->addressPresentPos(), &present_pos) != CM730::RET_SUCCESS) continue;
 
 		// Set the present servo position as the tick offset
 		joint->tickOffset.set(present_pos);                                              
@@ -2277,7 +2417,7 @@ bool RobotInterface::handleReadOffset(ReadOffsetRequest& req, ReadOffsetResponse
 
 	// Get the present servo position
 	int present_pos;
-	if(m_board->readWord(joint->id(), DynamixelMX::P_PRESENT_POSITION_L, &present_pos) != CM730::RET_SUCCESS)
+	if(m_board->readWord(joint->id(), m_servos->addressPresentPos(), &present_pos) != CM730::RET_SUCCESS)
 		return false;
 
 	// Display the measured present position

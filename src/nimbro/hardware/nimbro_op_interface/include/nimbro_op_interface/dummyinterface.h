@@ -22,20 +22,21 @@ namespace nimbro_op_interface
 		virtual ~DummyInterface();
 
 		// Virtual function overrides
-		virtual bool sendJointTargets();
-		virtual bool readJointStates();
+		virtual bool sendJointTargets() override;
+		virtual bool readJointStates() override;
 
 		// Constants
 		static const std::string CONFIG_PARAM_PATH;
 
 	protected:
 		// Virtual functions to override attempts to connect to the CM730
-		virtual bool initCM730() { return true; }
-		virtual int  readFeedbackData(bool onlyTryCM730);
-		virtual bool syncWriteJointTargets(size_t numDevices, const uint8_t* data);
-		virtual bool syncWriteTorqueEnable(size_t numDevices, const uint8_t* data) { return true; }
-		virtual bool syncWriteTorqueLimit(size_t numDevices, const uint8_t* data) { return true; }
-		virtual bool useModel() const { return m_useModel(); }
+		virtual bool initCM730() override { return true; }
+		virtual int  readFeedbackData(bool onlyTryCM730) override;
+		virtual bool syncWriteJointTargets(const std::vector<JointCmdData>& jointCmdData) override;
+		virtual bool syncWriteReturnLevel(size_t numDevices, const uint8_t* data) override { return true; }
+		virtual bool syncWriteTorqueEnable(size_t numDevices, const uint8_t* data) override { return true; }
+		virtual bool syncWriteTorqueLimit(size_t numDevices, const uint8_t* data) override { return true; }
+		virtual bool useModel() const override { return m_useModel(); }
 
 	private:
 		// Config server parameters
@@ -69,7 +70,7 @@ namespace nimbro_op_interface
 		bool m_calledReadFeedback;
 
 		// Joint command data buffer
-		typedef std::map<uint8_t, JointCmdSyncWriteData> JointCmd;
+		typedef std::map<int, JointCmdData> JointCmd;
 		boost::circular_buffer<JointCmd> m_jointCmdBuf;
 	};
 }

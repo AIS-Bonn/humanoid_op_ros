@@ -13,7 +13,7 @@ using namespace cm730;
 int main(int argc, char** argv)
 {
 	int connectError;
-	CM730* board = new CM730("nimbro_op_interface/", "/nimbro_op_interface/");
+	CM730* board = new CM730("nimbro_op_interface/", "/nimbro_op_interface/", boost::make_shared<DynamixelMX>());
 
 	cout << "Testing behaviour of CM730 Module" << endl << endl;
 	cout << "Connect to CM730" << endl;

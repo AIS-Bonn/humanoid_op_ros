@@ -97,7 +97,7 @@ int DummyInterface::readFeedbackData(bool onlyTryCM730)
 	// Populate the header data
 	m_boardData.id = CM730::ID_CM730;
 	m_boardData.length = CM730::READ_CM730_LENGTH;
-	m_boardData.startAddress = CM730::READ_SERVO_ADDRESS;
+	m_boardData.startAddress = CM730::READ_CM730_ADDRESS;
 	
 	// Miscellaneous
 	m_boardData.power = 1; // The servos always have power
@@ -133,19 +133,21 @@ int DummyInterface::readFeedbackData(bool onlyTryCM730)
 	if(!onlyTryCM730)
 	{
 		// Write the required joint feedback into m_servoData
+		const unsigned char servoReadLength = m_servos->readLength();
+		const unsigned char servoReadAddress = m_servos->readAddress();
 		const JointCmd& jointCmd = (m_addDelay() ? m_jointCmdBuf.front() : m_jointCmdBuf.back());
 		for(JointCmd::const_iterator it = jointCmd.begin(); it != jointCmd.end(); ++it)
 		{
 			// Retrieve a reference to the required read data struct
-			uint8_t id = it->first;
+			uint8_t id = (uint8_t) it->first;
 			if(id > m_servoData.size())
 				m_servoData.resize(id);
-			BRData& servoData = m_servoData.at(id - 1); // Minus 1 as id's are stored zero-based, which 1 being the first ID
+			BRData& servoData = m_servoData.at(id - 1); // Minus 1 as id's are stored zero-based, with 1 being the first ID
 			
 			// Populate the header data
 			servoData.id = id;
-			servoData.length = CM730::READ_SERVO_LENGTH;
-			servoData.startAddress = CM730::READ_SERVO_ADDRESS;
+			servoData.length = servoReadLength;
+			servoData.startAddress = servoReadAddress;
 			
 			// Set the servo feedback position
 			int servoPos = it->second.goal_position;
@@ -164,15 +166,12 @@ int DummyInterface::readFeedbackData(bool onlyTryCM730)
 }
 
 // Write the joint targets to the dummy robot
-bool DummyInterface::syncWriteJointTargets(size_t numDevices, const uint8_t* data)
+bool DummyInterface::syncWriteJointTargets(const std::vector<JointCmdData>& jointCmdData)
 {
-	// Re-cast the data pointer to an array of numDevices JointCmdSyncWriteData structs
-	const JointCmdSyncWriteData* jointData = (const JointCmdSyncWriteData*) data;
-	
 	// Insert the commanded targets into the joint command circular buffer
 	JointCmd jointCmd;
-	for(size_t i = 0; i < numDevices; i++)
-		jointCmd[jointData[i].id] = jointData[i];
+	for(size_t i = 0; i < jointCmdData.size(); i++)
+		jointCmd[jointCmdData[i].id] = jointCmdData[i];
 	m_jointCmdBuf.push_back(jointCmd);
 
 	// Return that we have successfully written the joint targets

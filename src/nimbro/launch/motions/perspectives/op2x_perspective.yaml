@@ -1,0 +1,145 @@
+perspective:
+  name:  op2x_perspective
+  model_path: /robots/nimbro_op2x_hull.urdf
+  robot_name: NimbRo-OP2X
+
+  joint_space:    1
+  pid_space:      1
+  abstract_space: 0
+  inverse_space:  0
+  link_length:    0.218
+
+joints:
+
+  - JOINT:
+    name:            head_pitch
+    visual_name:     Head Pitch
+    alignment:       no_pair
+    type:            0
+    mirror_on_shift: 0
+
+  - JOINT:
+    name:            neck_yaw
+    visual_name:     Head Yaw
+    alignment:       no_pair
+    type:            0
+    mirror_on_shift: 0
+
+
+  - SPACER:
+    name: spacer
+
+
+  - JOINT:
+    name:            left_shoulder_pitch
+    visual_name:     Shoulder Pitch
+    alignment:       left
+    type:            0
+    mirror_on_shift: 0
+  - JOINT:
+    name:            right_shoulder_pitch
+    visual_name:     Shoulder Pitch
+    alignment:       right
+    type:            0
+    mirror_on_shift: 0
+
+  - JOINT:
+    name:            left_shoulder_roll
+    visual_name:     Shoulder Roll
+    alignment:       left
+    type:            0
+    mirror_on_shift: 1
+  - JOINT:
+    name:            right_shoulder_roll
+    visual_name:     Shoulder Roll
+    alignment:       right
+    type:            0
+    mirror_on_shift: 1
+
+  - JOINT:
+    name:            left_elbow_pitch
+    visual_name:     Elbow Pitch
+    alignment:       left
+    type:            0
+    mirror_on_shift: 0
+  - JOINT:
+    name:            right_elbow_pitch
+    visual_name:     Elbow Pitch
+    alignment:       right
+    type:            0
+    mirror_on_shift: 0
+
+
+  - SPACER:
+    name: spacer
+
+
+  - JOINT:
+    name:            left_hip_yaw
+    visual_name:     Hip Yaw
+    alignment:       left
+    type:            0
+    mirror_on_shift: 1
+  - JOINT:
+    name:            right_hip_yaw
+    visual_name:     Hip Yaw
+    alignment:       right
+    type:            0
+    mirror_on_shift: 1
+
+  - JOINT:
+    name:            left_hip_roll
+    visual_name:     Hip Roll
+    alignment:       left
+    type:            0
+    mirror_on_shift: 1
+  - JOINT:
+    name:            right_hip_roll
+    visual_name:     Hip Roll
+    alignment:       right
+    type:            0
+    mirror_on_shift: 1
+
+  - JOINT:
+    name:            left_hip_pitch
+    visual_name:     Hip Pitch
+    alignment:       left
+    type:            0
+    mirror_on_shift: 0
+  - JOINT:
+    name:            right_hip_pitch
+    visual_name:     Hip Pitch
+    alignment:       right
+    type:            0
+    mirror_on_shift: 0
+
+
+  - SPACER:
+    name: spacer
+
+
+  - JOINT:
+    name:            left_knee_pitch
+    visual_name:     Knee Pitch
+    alignment:       left
+    type:            0
+    mirror_on_shift: 0
+  - JOINT:
+    name:            right_knee_pitch
+    visual_name:     Knee Pitch
+    alignment:       right
+    type:            0
+    mirror_on_shift: 0
+
+  - JOINT:
+    name:            left_ankle_roll
+    visual_name:     Ankle Roll
+    alignment:       left
+    type:            0
+    mirror_on_shift: 1
+  - JOINT:
+    name:            right_ankle_roll
+    visual_name:     Ankle Roll
+    alignment:       right
+    type:            0
+    mirror_on_shift: 1

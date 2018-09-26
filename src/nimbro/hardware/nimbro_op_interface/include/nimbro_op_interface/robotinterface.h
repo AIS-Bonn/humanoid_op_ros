@@ -95,17 +95,26 @@ public:
 	static const std::string CONFIG_PARAM_PATH;
 
 protected:
+	// Joint command data (not for direct use with sync writes)
+	struct JointCmdData
+	{
+		JointCmdData() = default;
+		JointCmdData(int id, int p_gain, int goal_position) : id(id), p_gain(p_gain), goal_position(goal_position) {}
+		int id;
+		int p_gain;
+		int goal_position;
+	};
+
 	// Virtual functions for hardware abstraction
 	virtual bool initCM730();
 	virtual int  readFeedbackData(bool onlyTryCM730);
-	virtual bool syncWriteJointTargets(size_t numDevices, const uint8_t* data);
+	virtual bool syncWriteJointTargets(const std::vector<JointCmdData>& jointCmdData);
+	virtual bool syncWriteReturnLevel(size_t numDevices, const uint8_t* data);
 	virtual bool syncWriteTorqueEnable(size_t numDevices, const uint8_t* data);
 	virtual bool syncWriteTorqueLimit(size_t numDevices, const uint8_t* data);
 	virtual bool useModel() const { return m_useModel(); }
 
 	// Scaling constants
-	static const double FULL_TORQUE;
-	static const double FULL_EFFORT;
 	static const double INT_TO_VOLTS;
 	static const double GYRO_SCALE;
 	static const double ACC_SCALE;
@@ -116,6 +125,9 @@ protected:
 
 	//! The robot model
 	robotcontrol::RobotModel* m_model;
+
+	//! Our servo hardware type
+	boost::shared_ptr<cm730::DynamixelBase> m_servos;
 
 	//! Bulk read buffer for servo feedback
 	std::vector<cm730::BRData> m_servoData;
@@ -153,16 +165,12 @@ protected:
 	} __attribute__((packed));
 
 	/**
-	* @internal This is a helper struct for the SyncWrite command which transfers all
-	* command values to the servo actuators. The memory layout reflects the actual layout
-	* in the message and in the Dynamixel hardware, hence the `__attribute__((packed))`.
+	* @internal Helper struct that reflects the layout of an individual status return level sync write command.
 	**/
-	struct JointCmdSyncWriteData
+	struct ReturnLevelSyncWriteData
 	{
-		uint8_t id;             //!< Servo ID
-		uint8_t p_gain;         //!< P_P_GAIN
-		uint8_t nothing;        //!< Unused register
-		uint16_t goal_position; //!< P_GOAL_POSITION_L / P_GOAL_POSITION_H
+		uint8_t id;           //!< Servo ID
+		uint8_t return_level; //!< Status return level
 	} __attribute__((packed));
 
 	/**
@@ -173,7 +181,7 @@ protected:
 	struct TorqueEnableSyncWriteData
 	{
 		uint8_t id;            //!< Servo ID
-		uint8_t torque_enable; //!< P_TORQUE_ENABLE_L / P_TORQUE_ENABLE_H
+		uint8_t torque_enable; //!< Torque enable
 	} __attribute__((packed));
 
 	/**
@@ -183,17 +191,17 @@ protected:
 	struct TorqueLimitSyncWriteData
 	{
 		uint8_t id;            //!< Servo ID
-		uint16_t torque_limit; //!< P_TORQUE_LIMIT_L / P_TORQUE_LIMIT_H
+		uint16_t torque_limit; //!< Torque limit (MX) OR Goal PWM (X)
 	} __attribute__((packed));
 
-	/**
-	* @internal Layout of the statistics data requested from the servo.
-	**/
-	struct StatisticsReadData
-	{
-		uint8_t voltage;     //!< P_PRESENT_VOLTAGE
-		uint8_t temperature; //!< P_PRESENT_TEMPERATURE
-	} __attribute__((packed));
+// 	/**
+// 	* @internal Layout of the statistics data requested from the servo.
+// 	**/
+// 	struct StatisticsReadData
+// 	{
+// 		uint8_t voltage;     //!< P_PRESENT_VOLTAGE (Note: Current incompatibility => X servos voltage is 2 bytes!)
+// 		uint8_t temperature; //!< P_PRESENT_TEMPERATURE
+// 	} __attribute__((packed));
 
 	/**
 	 * @brief Joint class with hardware information
@@ -344,6 +352,7 @@ private:
 
 	//! All joints relaxed?
 	bool m_relaxed;
+	bool m_enableTorque;
 
 	//! Timer used for statistics callback
 	ros::Timer m_statisticsTimer;

@@ -2,11 +2,12 @@
 # Modified by zerom for WinARM 08/2010
 # Modified by Philipp Allgeuer for the NimbRo-OP 08/2015
 
-# The target device can be changed by calling 'make DEVICE=CM740' for example
-DEVICE = CM730
+# The target device can be changed by calling 'make DEVICE=CM740 SERVOS=MX' for example
+DEVICE = CM740
+SERVOS = MX
 
 M3_OPTS = -mcpu=cortex-m3 -mthumb
-COMPILE_OPTS = $(M3_OPTS) -Wall -g -Os -fno-common -fno-strict-aliasing -DFORCE_$(DEVICE)
+COMPILE_OPTS = $(M3_OPTS) -Wall -g -Os -fno-common -fno-strict-aliasing -DFORCE_$(DEVICE) -DFORCE_$(SERVOS)_SERVOS
 # Need in the line above: -fno-strict-aliasing OR -Wno-strict-aliasing
 INCLUDE_DIRS = -I. -Istm32f10x_lib/inc -ICM730_HW/inc -ICM730_APP/inc
 LIBRARY_DIRS = -Lstm32f10x_lib
@@ -45,7 +46,7 @@ MAIN_OUT_LSS = $(MAIN_OUT).lss
 
 all: $(MAIN_OUT_ELF) $(MAIN_OUT_HEX) $(MAIN_OUT_BIN) $(MAIN_OUT_LSS)
 	@echo
-	@echo Compiled the firmware for the device $(DEVICE)!
+	@echo Compiled the firmware for the device $(DEVICE) with $(SERVOS) servos!
 
 # main
 

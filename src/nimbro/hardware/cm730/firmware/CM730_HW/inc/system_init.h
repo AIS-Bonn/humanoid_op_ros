@@ -34,6 +34,21 @@
 #error "Invalid hardware specification => Check system_init.h!"
 #endif
 
+// Servo hardware specification
+#if defined(FORCE_MX_SERVOS)
+#define MX_SERVOS 1
+#define X_SERVOS 0
+#elif defined(FORCE_X_SERVOS)
+#define MX_SERVOS 0
+#define X_SERVOS 1
+#else
+#define MX_SERVOS 1
+#define X_SERVOS 0
+#endif
+#if (MX_SERVOS + X_SERVOS) != 1
+#error "Invalid servo specification => Check system_init.h!"
+#endif
+
 // Interrupt macros
 #define DISABLE_USART_INTERRUPTS()     GLOBAL_INTERRUPT_DISABLE()  // Disables   all USART, handler and timer interrupts
 #define REENABLE_USART_INTERRUPTS()    GLOBAL_INTERRUPT_ENABLE()   // Re-enables all USART, handler and timer interrupts

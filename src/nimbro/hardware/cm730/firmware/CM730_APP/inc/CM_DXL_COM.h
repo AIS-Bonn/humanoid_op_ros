@@ -291,6 +291,8 @@ extern vu8 gbAlarmState;
 // Functions
 void Process(void);
 void DXLServoConfig(void);
+void DXLServoConfigMX(void);
+void DXLServoConfigX(void);
 void DXLServoTorqueOff(void);
 void InitControlTable(void);
 void OnControlTableWrite(u8 address);

@@ -12,7 +12,8 @@
 // Includes
 #include <cm730/CM730.h>
 
-using namespace cm730;
+namespace cm740
+{
 
 // megapacket servo data struct
 struct MPData
@@ -86,10 +87,10 @@ struct MPBoard
 //
 // CM740 with megapacket support class
 //
-class CM740mp : public CM730
+class CM740mp : public cm730::CM730
 {
 public:
-	CM740mp(const std::string& resourcePath, const std::string& configParamPath) : CM730(resourcePath, configParamPath), m_inMegapacketMode(false), m_isMegapacketConfigured(false), m_writeMegapacket(false) {}
+	CM740mp(const std::string& resourcePath, const std::string& configParamPath) : CM730(resourcePath, configParamPath, boost::make_shared<cm730::DynamixelMX>()), m_inMegapacketMode(false), m_isMegapacketConfigured(false), m_writeMegapacket(false) {}
 	int  writeMegapacket(std::vector<MPData>& Servos, MPBoard& Board);
 	int  receiveMegapacket(std::vector<MPData>& Servos, MPBoard& Board);
 	int  configureMegapacket(std::vector<MPData>& Servos, MPBoard& Board);
@@ -106,6 +107,7 @@ private:
 	bool m_writeMegapacket;
 };
 
+}
 
 #endif
 // EOF

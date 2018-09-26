@@ -176,7 +176,7 @@ void JointManager::handleFieldChanged(PosVelEffView::Field field, std::string jo
 	}
 	
 	// HACK for adult robot
-	if(m_perspective_name == "adult_perspective")
+	if(m_perspective_name == "adult_perspective" || m_perspective_name == "op2x_perspective")
 	{
 		if(jointName == "right_hip_pitch" || jointName == "right_knee_pitch" ||
 			jointName == "left_hip_pitch" || jointName == "left_knee_pitch")

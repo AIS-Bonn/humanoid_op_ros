@@ -99,7 +99,7 @@ namespace cm730
 		};
 
 		// Constructor/destructor
-		CM730(const std::string& resourcePath, const std::string& configParamPath);
+		CM730(const std::string& resourcePath, const std::string& configParamPath, boost::shared_ptr<const DynamixelBase> servos);
 		virtual ~CM730();
 
 		// Connection functions
@@ -164,6 +164,9 @@ namespace cm730
 		bool parseCM730Data(unsigned char* data, int size, BRBoard* cm730Data);
 		int syncRxPacket(unsigned char* rxp, int* readSize);
 		unsigned char checksum(unsigned char* packet);
+
+		// Servo hardware type
+		boost::shared_ptr<const DynamixelBase> m_servos;
 
 		// Plotting
 		plot_msgs::PlotManagerFS m_PM;
@@ -361,8 +364,6 @@ namespace cm730
 		{
 			READ_CM730_ADDRESS = CM730::P_DYNAMIXEL_POWER, // CM730: Read the address range P_DYNAMIXEL_POWER (24) --> P_TEMPERATURE (50) = 27 bytes
 			READ_CM730_LENGTH = CM730::P_TEMPERATURE - READ_CM730_ADDRESS + 1,                       
-			READ_SERVO_ADDRESS = DynamixelMX::P_PRESENT_POSITION_L, // Read the address range P_PRESENT_POSITION_L (36) --> P_PRESENT_POSITION_H (37) = 2 bytes
-			READ_SERVO_LENGTH = DynamixelMX::P_PRESENT_POSITION_H - READ_SERVO_ADDRESS + 1
 		};
 	};
 }

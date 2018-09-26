@@ -36,11 +36,19 @@
 
 // Default ROM values
 #if IS_CM730
-#define CM730_MODEL_NUMBER     0x7301 // Model number of the NimbRo-OP specific CM730
-#elif IS_CM740
-#define CM730_MODEL_NUMBER     0x7401 // Model number of the NimbRo-OP specific CM740
+#if MX_SERVOS
+#define CM730_MODEL_NUMBER     0x7301 // Model number of the NimbRo-OP specific CM730 (MX servos)
+#elif X_SERVOS
+#define CM730_MODEL_NUMBER     0x7302 // Model number of the NimbRo-OP specific CM730 (X servos)
 #endif
-#define FIRMWARE_VERSION       0x8C   // Version 0x8C as of modifications by Philipp Allgeuer (08/06/16 and later)
+#elif IS_CM740
+#if MX_SERVOS
+#define CM730_MODEL_NUMBER     0x7401 // Model number of the NimbRo-OP specific CM740 (MX servos)
+#elif X_SERVOS
+#define CM730_MODEL_NUMBER     0x7402 // Model number of the NimbRo-OP specific CM740 (X servos)
+#endif
+#endif
+#define FIRMWARE_VERSION       0x8D   // Version 0x8D as of modifications by Philipp Allgeuer (10/06/18 and later)
 #define DEFAULT_ID             200    // Default CM730 device ID on the Dynamixel bus
 #define BROADCASTING_ID        0xFE   // Device ID for broadcasting on the Dynamixel bus (every device listens)
 #define DEF_RETURN_DELAY_TIME  0      // Delay before returning status packet = DEF_RETURN_DELAY_TIME*2us = 0us
@@ -53,7 +61,6 @@
 #define DEFAULT_UP_CALIB       0
 
 // Misc defines
-#define SERVO_MAX_TORQUE       0x03FF // Value to initialise the servo max torque and torque limit registers to on firmware start
 #define BULK_READ_TIMEOUT      25     // Number of ms to wait for the next bulk read status packet before aborting
 
 // Macros
@@ -883,20 +890,30 @@ void DXLServoConfig(void)
 	// Note: This function does not clear the DXL Tx buffer, and so these packets will only
 	//       get sent after whatever else is already in the buffer has already been sent.
 
-	// Constants
-	const u16 torque = SERVO_MAX_TORQUE;
+	// Broadcast the required messages (only one of these functions will actually do something)
+	DXLServoConfigMX();
+	DXLServoConfigX();
 
-	// Construct a packet to configure the return delay time
+	// Wait for all the packets to go through
+	WaitForTxDData(USART_DXL);
+}
+
+// Broadcast message(s) on the dynamixel bus to initialise the configuration of the servos (MX servos)
+void DXLServoConfigMX(void)
+{
+#if MX_SERVOS
+	// Constants
+	const u16 torque = 0x03FF; // Value to initialise the servo max torque and torque limit registers to on firmware start
+
+	// Send a packet to configure the return delay time
 	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
 	DPtmp.Instruction = INST_WRITE;          // Write instruction
 	DPtmp.NumParams   = 2;                   // Number of parameters
 	DPtmp.Param[0]    = 0x05;                // Address of the return delay time register
 	DPtmp.Param[1]    = 0x00;                // RETURN_DELAY_TIME = 0x00 => 0us delay for status packet
-
-	// Send the constructed packet
 	TxDDataDP(USART_DXL, &DPtmp);
 
-	// Construct a packet to configure the status return level and alarm registers
+	// Send a packet to configure the status return level and alarm registers
 	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
 	DPtmp.Instruction = INST_WRITE;          // Write instruction
 	DPtmp.NumParams   = 4;                   // Number of parameters
@@ -904,44 +921,143 @@ void DXLServoConfig(void)
 	DPtmp.Param[1]    = RETURN_READ_PACKET;  // STATUS_RETURN_LEVEL = 0x01 => Return status packet for READ and PING instructions only
 	DPtmp.Param[2]    = DEFAULT_ALARM_STATE; // ALARM_LED = 0x24 => Overheating and overload errors cause the servo LED to turn on
 	DPtmp.Param[3]    = DEFAULT_ALARM_STATE; // ALARM_SHUTDOWN = 0x24 => Overheating and overload errors cause the servo to shut down
-
-	// Send the constructed packet
 	TxDDataDP(USART_DXL, &DPtmp);
 
-	// Construct a packet to configure the max torque
+	// Send a packet to configure the max torque
 	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
 	DPtmp.Instruction = INST_WRITE;          // Write instruction
 	DPtmp.NumParams   = 3;                   // Number of parameters
 	DPtmp.Param[0]    = 0x0E;                // Address of the max torque register
 	DPtmp.Param[1]    = LOW_BYTE(torque);    // MAX_TORQUE = 0x03FF => Use 100% of the maximum available torque if required
 	DPtmp.Param[2]    = HIGH_BYTE(torque);   // MAX_TORQUE = 0x03FF => Use 100% of the maximum available torque if required
-
-	// Send the constructed packet
 	TxDDataDP(USART_DXL, &DPtmp);
 
-	// Construct a packet to configure the torque limit (Note however that torque limit resets to the value of max torque on servo power on)
+	// Send a packet to configure the torque limit (Note however that torque limit resets to the value of max torque on servo power on)
 	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
 	DPtmp.Instruction = INST_WRITE;          // Write instruction
 	DPtmp.NumParams   = 3;                   // Number of parameters
 	DPtmp.Param[0]    = 0x22;                // Address of the torque limit register
 	DPtmp.Param[1]    = LOW_BYTE(torque);    // TORQUE_LIMIT = 0x03FF => Use 100% of the maximum available torque if required
 	DPtmp.Param[2]    = HIGH_BYTE(torque);   // TORQUE_LIMIT = 0x03FF => Use 100% of the maximum available torque if required
-
-	// Send the constructed packet
 	TxDDataDP(USART_DXL, &DPtmp);
 
-	// Construct a packet to configure the P gain (Note however that the P gain loses its value on servo power off)
+	// Send a packet to configure the P gain (Note however that the P gain loses its value on servo power off)
 	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
 	DPtmp.Instruction = INST_WRITE;          // Write instruction
 	DPtmp.NumParams   = 2;                   // Number of parameters
 	DPtmp.Param[0]    = 0x1C;                // Address of the P gain register
 	DPtmp.Param[1]    = 16;                  // P_GAIN = 16 => Set internal servo position tracking P gain to 16
+	TxDDataDP(USART_DXL, &DPtmp);
+#endif
+}
 
-	// Send the constructed packet
+// Broadcast message(s) on the dynamixel bus to initialise the configuration of the servos (X servos)
+void DXLServoConfigX(void)
+{
+#if X_SERVOS
+	// Send a packet to configure the torque enabled and LED registers
+	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
+	DPtmp.Instruction = INST_WRITE;          // Write instruction
+	DPtmp.NumParams   = 3;                   // Number of parameters
+	DPtmp.Param[0]    = 64;                  // Address of the torque enable register
+	DPtmp.Param[1]    = 0;                   // TORQUE_ENABLE = 0 => Torque off and EEPROM write enabled
+	DPtmp.Param[2]    = 1;                   // LED = 1 => Turn on the LED to signal that the servo has been configured
 	TxDDataDP(USART_DXL, &DPtmp);
 
-	// Wait for all the packets to go through
-	WaitForTxDData(USART_DXL);
+	// Send a packet to configure the status return level register
+	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
+	DPtmp.Instruction = INST_WRITE;          // Write instruction
+	DPtmp.NumParams   = 2;                   // Number of parameters
+	DPtmp.Param[0]    = 68;                  // Address of the status return level register
+	DPtmp.Param[1]    = 1;                   // STATUS_RETURN_LEVEL = 1 => Return status packet for READ and PING instructions only
+	TxDDataDP(USART_DXL, &DPtmp);
+
+	// Send a packet to configure the return delay time register
+	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
+	DPtmp.Instruction = INST_WRITE;          // Write instruction
+	DPtmp.NumParams   = 2;                   // Number of parameters
+	DPtmp.Param[0]    = 9;                   // Address of the return delay time register
+	DPtmp.Param[1]    = 0;                   // RETURN_DELAY_TIME = 0 => 0us delay for status packet
+	TxDDataDP(USART_DXL, &DPtmp);
+
+	// Send a packet to configure the operating mode register
+	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
+	DPtmp.Instruction = INST_WRITE;          // Write instruction
+	DPtmp.NumParams   = 2;                   // Number of parameters
+	DPtmp.Param[0]    = 11;                  // Address of the operating mode register
+	DPtmp.Param[1]    = 3;                   // OPERATING_MODE = 3 => Position control mode
+	TxDDataDP(USART_DXL, &DPtmp);
+
+	// Send a packet to configure the servo limit registers
+	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
+	DPtmp.Instruction = INST_WRITE;          // Write instruction
+	DPtmp.NumParams   = 21;                  // Number of parameters
+	DPtmp.Param[0]    = 36;                  // Address of the PWM limit register
+	DPtmp.Param[1]    = 0x75;                // PWM_LIMIT = 885 => Use 100% of PWM available if necessary
+	DPtmp.Param[2]    = 0x03;                // ...
+	DPtmp.Param[3]    = 0xFF;                // CURRENT_LIMIT = 2047 => Use 100% of current available if necessary
+	DPtmp.Param[4]    = 0x07;                // ...
+	DPtmp.Param[5]    = 0xFF;                // ACCELERATION_LIMIT = 32767 => Use 100% of acceleration available if necessary
+	DPtmp.Param[6]    = 0x7F;                // ...
+	DPtmp.Param[7]    = 0x00;                // ...
+	DPtmp.Param[8]    = 0x00;                // ...
+	DPtmp.Param[9]    = 0xFF;                // VELOCITY_LIMIT = 1023 => Use 100% of velocity available if necessary
+	DPtmp.Param[10]   = 0x03;                // ...
+	DPtmp.Param[11]   = 0x00;                // ...
+	DPtmp.Param[12]   = 0x00;                // ...
+	DPtmp.Param[13]   = 0xFF;                // MAX_POSITION_LIMIT = 4095 => Use 100% of available rotation if necessary
+	DPtmp.Param[14]   = 0x0F;                // ...
+	DPtmp.Param[15]   = 0x00;                // ...
+	DPtmp.Param[16]   = 0x00;                // ...
+	DPtmp.Param[17]   = 0x00;                // MIN_POSITION_LIMIT = 0 => Use 100% of available rotation if necessary
+	DPtmp.Param[18]   = 0x00;                // ...
+	DPtmp.Param[19]   = 0x00;                // ...
+	DPtmp.Param[20]   = 0x00;                // ...
+	TxDDataDP(USART_DXL, &DPtmp);
+
+	// Send a packet to configure the shutdown register
+	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
+	DPtmp.Instruction = INST_WRITE;          // Write instruction
+	DPtmp.NumParams   = 2;                   // Number of parameters
+	DPtmp.Param[0]    = 63;                  // Address of the shutdown register
+	DPtmp.Param[1]    = 0x24;                // SHUTDOWN = 0x24 => Shutdown on overload and overheating
+	TxDDataDP(USART_DXL, &DPtmp);
+
+	// Send a packet to configure the position control PID gains
+	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
+	DPtmp.Instruction = INST_WRITE;          // Write instruction
+	DPtmp.NumParams   = 7;                   // Number of parameters
+	DPtmp.Param[0]    = 80;                  // Address of the position D gain register
+	DPtmp.Param[1]    = 0x00;                // POSITION_D_GAIN = 0 => No D control
+	DPtmp.Param[2]    = 0x00;                // ...
+	DPtmp.Param[3]    = 0x00;                // POSITION_I_GAIN = 0 => No I control
+	DPtmp.Param[4]    = 0x00;                // ...
+	DPtmp.Param[5]    = 0x3A;                // POSITION_P_GAIN = 314 => Moderate P control
+	DPtmp.Param[6]    = 0x01;                // ...
+	TxDDataDP(USART_DXL, &DPtmp);
+
+	// Send a packet to configure the position control feedforward gains
+	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
+	DPtmp.Instruction = INST_WRITE;          // Write instruction
+	DPtmp.NumParams   = 5;                   // Number of parameters
+	DPtmp.Param[0]    = 88;                  // Address of the position feedforward 2nd gain register
+	DPtmp.Param[1]    = 0x00;                // FEEDFORWARD_2ND_GAIN = 0 => No feedforward acceleration
+	DPtmp.Param[2]    = 0x00;                // ...
+	DPtmp.Param[3]    = 0x00;                // FEEDFORWARD_1ST_GAIN = 0 => No feedforward velocity
+	DPtmp.Param[4]    = 0x00;                // ...
+	TxDDataDP(USART_DXL, &DPtmp);
+
+	// Send a packet to configure the limiting goal registers
+	DPtmp.ID          = BROADCASTING_ID;     // Broadcast to all devices on the bus
+	DPtmp.Instruction = INST_WRITE;          // Write instruction
+	DPtmp.NumParams   = 5;                   // Number of parameters
+	DPtmp.Param[0]    = 100;                 // Address of the goal PWM register
+	DPtmp.Param[1]    = 0x75;                // GOAL_PWM = 885 => Use 100% of PWM available if necessary
+	DPtmp.Param[2]    = 0x03;                // ...
+	DPtmp.Param[3]    = 0xFF;                // GOAL_CURRENT = 2047 => Use 100% of current available if necessary
+	DPtmp.Param[4]    = 0x07;                // ...
+	TxDDataDP(USART_DXL, &DPtmp);
+#endif
 }
 
 // Broadcast a message on the dynamixel bus to disable the torque of every servo
@@ -953,7 +1069,11 @@ void DXLServoTorqueOff(void)
 	DPtmp.ID          = BROADCASTING_ID; // Broadcast to all devices on the bus
 	DPtmp.Instruction = INST_WRITE;      // Write instruction
 	DPtmp.NumParams   = 2;               // Number of parameters
+#if MX_SERVOS
 	DPtmp.Param[0]    = 0x18;            // Address of the torque enable register
+#elif X_SERVOS
+	DPtmp.Param[0]    = 64;              // Address of the torque enable register
+#endif
 	DPtmp.Param[1]    = 0x00;            // Value to write = 0x00 => OFF (as opposed to 0x01 => ON)
 
 	// Ensure the packet is the very next packet in the Tx packet buffer

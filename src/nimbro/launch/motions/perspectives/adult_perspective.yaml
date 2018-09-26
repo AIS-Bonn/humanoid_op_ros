@@ -1,7 +1,7 @@
 perspective:
   name:  adult_perspective
   model_path: /robots/nimbro_adult.urdf
-  robot_name: Big Robot
+  robot_name: NimbRo-OP2
 
   joint_space:    1
   pid_space:      1

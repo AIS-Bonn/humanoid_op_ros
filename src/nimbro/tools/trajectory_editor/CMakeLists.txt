@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(trajectory_editor)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
 find_package(catkin REQUIRED COMPONENTS roscpp rviz rbdl urdf motion_player nimbro_op_model gait gait_msgs roslib rqt_gui_cpp)
 
 # Decide on a Qt version

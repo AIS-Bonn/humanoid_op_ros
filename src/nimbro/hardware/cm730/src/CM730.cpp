@@ -51,8 +51,9 @@ void dump(const char* prefix, const uint8_t* data, uint8_t len);
 //
 
 // Constructor
-CM730::CM730(const std::string& resourcePath, const std::string& configParamPath)
- : m_PM(0, resourcePath) // Used to plot events only, hence zero size
+CM730::CM730(const std::string& resourcePath, const std::string& configParamPath, boost::shared_ptr<const DynamixelBase> servos)
+ : m_servos(servos)
+ , m_PM(0, resourcePath) // Used to plot events only, hence zero size
  , m_useBulkReadShortcut(configParamPath + "useBulkReadShortcut", true)
  , m_fd(-1)
  , m_lastFailedID(0)
@@ -483,7 +484,7 @@ int CM730::bulkRead(std::vector<BRData>* servoData, BRBoard* cm730Data)
 	ts.push_back(ros::Time::now());
 #endif
 
-	// Give the OS some time (the assumption is that after 3.5ms the servos won't be done responding yet, and the buffer inside the read thread won't be overflowing yet with responses)
+	// Give the OS some time (the assumption is that after 3.7ms the servos won't be done responding yet, and the buffer inside the read thread won't be overflowing yet with responses)
 	usleep(3700); // This is an approximate equal of the time it takes before the CM730/servo responses come streaming in...
 
 	// Calculate the number of requests that were made in the bulk read (i.e. the number of queried devices)
@@ -631,11 +632,13 @@ int CM730::updateTxBRPacket(const std::vector<int>& servos)
 	m_TxBulkRead[DP_PARAMETER + num++] = READ_CM730_ADDRESS; // Start address of the region to read
 
 	// Add the servos to the bulk read packet
+	const unsigned char servoReadLength = m_servos->readLength();
+	const unsigned char servoReadAddress = m_servos->readAddress();
 	for(size_t i = 0; i < servos.size(); i++)
 	{
-		m_TxBulkRead[DP_PARAMETER + num++] = READ_SERVO_LENGTH;  // Number of bytes to read
-		m_TxBulkRead[DP_PARAMETER + num++] = servos[i];          // ID of the i-th servo
-		m_TxBulkRead[DP_PARAMETER + num++] = READ_SERVO_ADDRESS; // Start address of the region to read
+		m_TxBulkRead[DP_PARAMETER + num++] = servoReadLength;  // Number of bytes to read
+		m_TxBulkRead[DP_PARAMETER + num++] = servos[i];        // ID of the i-th servo
+		m_TxBulkRead[DP_PARAMETER + num++] = servoReadAddress; // Start address of the region to read
 	}
 
 	// We have modified the m_TxBulkRead packet, so we need to force the next bulk read to send the full bulk read Tx packet
@@ -833,7 +836,7 @@ int CM730::beep(float duration, int freq)
 	uint8_t data[numBytes] = {(uint8_t) durTick, (uint8_t) freq};
 
 	// Write the beep command to the CM730 and return whether it was successful
-	return writeData(CM730::ID_CM730, CM730::P_BUZZER_PLAY_LENGTH, data, numBytes);
+	return writeData(ID_CM730, P_BUZZER_PLAY_LENGTH, data, numBytes);
 }
 
 // Write to the CM730 that it should play a particular preprogrammed sound
@@ -850,7 +853,7 @@ int CM730::sound(int musicIndex)
 	uint8_t data[numBytes] = {0xFF, (uint8_t) musicIndex};
 
 	// Write the sound command to the CM730 and return whether it was successful
-	return writeData(CM730::ID_CM730, CM730::P_BUZZER_PLAY_LENGTH, data, numBytes);
+	return writeData(ID_CM730, P_BUZZER_PLAY_LENGTH, data, numBytes);
 }
 
 //
@@ -1015,7 +1018,7 @@ bool CM730::parseBRPacket(unsigned char* rxp, int size, std::vector<BRData>* ser
 		int offset = DP_PARAMETER - servoInfo->startAddress;
 
 		// Save the returned data
-		servoInfo->position = makeWord(rxp + offset + DynamixelMX::P_PRESENT_POSITION_L);
+		servoInfo->position = makeWord(rxp + offset + m_servos->addressPresentPos());
 		
 		// Return that we got some data
 		return true;

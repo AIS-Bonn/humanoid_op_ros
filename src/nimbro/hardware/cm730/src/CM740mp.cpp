@@ -25,6 +25,9 @@
 // Defines
 #define COMMS_READ_TIMEOUT  10000000LL  // Read timeout in nanoseconds (it's ok if this is longer than a single robotcontrol time step, but it shouldn't be too long so that the read in the next cycle has a chance without a cycle being missed)
 
+// Namespaces
+using namespace cm740;
+
 // Helper functions
 inline int makeWord(unsigned char* pos);
 inline int makeWordSigned(unsigned char* pos);

@@ -69,15 +69,14 @@ function _gendoc() { # Pass the file path of the generate script as the first pa
 	fi
 }
 
-function _makefirmware() { # Pass the device name as the first parameter
+function _makefirmware() { # Pass the device name as the first parameter, and the servo type as the second parameter (e.g. _makefirmware CM740 MX)
 	echo "$PATH" | grep -q "/opt/gcc-arm/bin" || PATH="$PATH:/opt/gcc-arm/bin"
 	make clean
 	failed="false"
-	if [[ -z "$1" ]]; then
-		make || failed="true"
-	else
-		make "DEVICE=$1" || failed="true"
-	fi
+	local device servo
+	[[ -n "$1" ]] && device="DEVICE=$1" || device=""
+	[[ -n "$2" ]] && servo="SERVOS=$2" || servo=""
+	make $device $servo || failed="true"
 	if [[ "$failed" != "false" ]]; then
 		echo 'Error occurred while trying to build the CM730/CM740 firmware!'
 		echo "If the required arm tool binary is not located in /opt/gcc-arm/bin,"
@@ -280,7 +279,8 @@ function nimbro() {
 			elif [[ "$2" == "compile" ]]; then
 				echo "Remaking the CM730 firmware..."
 				device="$3"
-				_makefirmware "$device" || return 1
+				servo="$4"
+				_makefirmware "$device" "$servo" || return 1
 				echo "Output hex file located at:"
 				echo "$(pwd)/CM730.hex"
 				echo
@@ -296,10 +296,14 @@ function nimbro() {
 				fi
 				localbot="${localbot%% *}"
 				echo "Remaking the CM730 firmware and flashing it onto the robot $localbot..."
-				modelnumber=
-				[[ "$4" == "CM730" ]] && modelnumber="0x7301"
-				[[ "$4" == "CM740" ]] && modelnumber="0x7401"
-				if [[ -z "$modelnumber" ]]; then
+				modelnumberH=
+				[[ "$4" == "CM730" ]] && modelnumberH="0x73"
+				[[ "$4" == "CM740" ]] && modelnumberH="0x74"
+				modelnumberL=
+				[[ "$5" == "MX" ]] && modelnumberL="01"
+				[[ "$5" == "X" ]] && modelnumberL="02"
+				modelnumber="$modelnumberH$modelnumberL"
+				if [[ -z "$modelnumberH" ]] || [[ -z "$modelnumberL" ]]; then
 					echo
 					echo "Getting board model number using dynatool over ssh..."
 					modelnumber="$(ssh nimbro@$localbot 'bash -ic '"'"'dynatool --device=/dev/cm730 "--exec=dev --pure 200;read --pure 0"'"'"'' |& grep -v 'bash:')"
@@ -307,18 +311,22 @@ function nimbro() {
 					echo
 				fi
 				if [[ "$modelnumber" == "0x7300" ]] || [[ "$modelnumber" == "0x7301" ]]; then
-					_makefirmware "CM730" || return 1
+					_makefirmware "CM730" "MX" || return 1
+				elif [[ "$modelnumber" == "0x7302" ]]; then
+					_makefirmware "CM730" "X" || return 1
 				elif [[ "$modelnumber" == "0x7400" ]] || [[ "$modelnumber" == "0x7401" ]]; then
-					_makefirmware "CM740" || return 1
+					_makefirmware "CM740" "MX" || return 1
+				elif [[ "$modelnumber" == "0x7402" ]]; then
+					_makefirmware "CM740" "X" || return 1
 				else
 					echo "Unrecognised model number '$modelnumber'! Don't know how to flash this device."
-					read -p "Flash anyway with CM730 firmware (y/N)? " response 2>&1
+					read -p "Flash anyway with CM740 MX firmware (y/N)? " response 2>&1
 					response="${response:0:1}"
 					if [[ "${response,,}" != "y" ]]; then
 						echo "No => Stopping here then."
 						return 0
 					fi
-					_makefirmware "CM730" || return 1
+					_makefirmware "CM740" "MX" || return 1
 				fi
 				echo "Copying CM730 hex file onto the robot..."
 				echo "Destination file: /home/nimbro/CM730.hex"
@@ -338,10 +346,14 @@ function nimbro() {
 					fi
 				fi
 				echo "Remaking the CM730 firmware and flashing it onto the microcontroller..."
-				modelnumber=
-				[[ "$4" == "CM730" ]] && modelnumber="0x7301"
-				[[ "$4" == "CM740" ]] && modelnumber="0x7401"
-				if [[ -z "$modelnumber" ]]; then
+				modelnumberH=
+				[[ "$4" == "CM730" ]] && modelnumberH="0x73"
+				[[ "$4" == "CM740" ]] && modelnumberH="0x74"
+				modelnumberL=
+				[[ "$5" == "MX" ]] && modelnumberL="01"
+				[[ "$5" == "X" ]] && modelnumberL="02"
+				modelnumber="$modelnumberH$modelnumberL"
+				if [[ -z "$modelnumberH" ]] || [[ -z "$modelnumberL" ]]; then
 					echo
 					echo "Getting board model number using dynatool..."
 					modelnumber="$(dynatool "--device=$CMDEVICE" "--exec=dev --pure 200;read --pure 0")"
@@ -349,18 +361,22 @@ function nimbro() {
 					echo
 				fi
 				if [[ "$modelnumber" == "0x7300" ]] || [[ "$modelnumber" == "0x7301" ]]; then
-					_makefirmware "CM730" || return 1
+					_makefirmware "CM730" "MX" || return 1
+				elif [[ "$modelnumber" == "0x7302" ]]; then
+					_makefirmware "CM730" "X" || return 1
 				elif [[ "$modelnumber" == "0x7400" ]] || [[ "$modelnumber" == "0x7401" ]]; then
-					_makefirmware "CM740" || return 1
+					_makefirmware "CM740" "MX" || return 1
+				elif [[ "$modelnumber" == "0x7402" ]]; then
+					_makefirmware "CM740" "X" || return 1
 				else
 					echo "Unrecognised model number '$modelnumber'! Don't know how to flash this device."
-					read -p "Flash anyway with CM730 firmware (y/N)? " response 2>&1
+					read -p "Flash anyway with CM740 MX firmware (y/N)? " response 2>&1
 					response="${response:0:1}"
 					if [[ "${response,,}" != "y" ]]; then
 						echo "No => Stopping here then."
 						return 0
 					fi
-					_makefirmware "CM730" || return 1
+					_makefirmware "CM740" "MX" || return 1
 				fi
 				FIRM_INST="$NIMBRO_ROOT/misc/tools/firmware_installer/firmware_installer"
 				if [[ -x "$FIRM_INST" ]]; then
@@ -1156,9 +1172,9 @@ function _nimbro()
 	local subcmd="${COMP_WORDS[2]}"
 	local subsubcmd="${COMP_WORDS[3]}"
 	
-	local hostlist="xs0.local"
+	local hostlist="xs0.local xs1.local"
 	local hostlistloc="localhost $hostlist"
-	local robotlist="xs0"
+	local robotlist="xs0 xs1"
 	
 	COMPREPLY=""
 	case "${COMP_CWORD}" in
@@ -1271,7 +1287,7 @@ function _nimbro()
 					;;
 				set)
 					[[ "$subcmd" == "P1" ]] && COMPREPLY=($(compgen -W "$robotlist" -- "$cur"))
-					[[ "$subcmd" == "A1" ]] && COMPREPLY=($(compgen -W "xs2" -- "$cur"))
+					[[ "$subcmd" == "A1" ]] && COMPREPLY=($(compgen -W "xs2 xs4" -- "$cur"))
 					;;
 			esac
 			;;
@@ -1321,12 +1337,13 @@ function _nimbro()
 					[[ "$subcmd" == "head" ]] && [[ "${subsubcmd:0:6}" == "moveto" ]] && COMPREPLY=($(compgen -W "0.0" -- "$cur"))
 					;;
 				flash)
+					[[ "$subcmd" == "compile" ]] && COMPREPLY=($(compgen -W "MX X" -- "$cur"))
 					[[ "$subcmd" == "direct" ]] && COMPREPLY=($(compgen -W "CM730 CM740" -- "$cur"))
 					[[ "$subcmd" == "robot" ]] && COMPREPLY=($(compgen -W "CM730 CM740" -- "$cur"))
 					;;
 				set)
 					[[ "$subcmd" == "P1" ]] && COMPREPLY=($(compgen -W "nimbro_op nimbro_op_hull igus_op igus_op_hull" -- "$cur"))
-					[[ "$subcmd" == "A1" ]] && COMPREPLY=($(compgen -W "nimbro_adult nimbro_adult_hull nimbro_adult_sim" -- "$cur"))
+					[[ "$subcmd" == "A1" ]] && COMPREPLY=($(compgen -W "nimbro_adult nimbro_adult_hull nimbro_adult_sim nimbro_op2x nimbro_op2x_hull nimbro_op2x_sim" -- "$cur"))
 					;;
 			esac
 			;;
@@ -1358,6 +1375,10 @@ function _nimbro()
 				ctrl | control)
 					[[ "$subcmd" == "walk" ]] && COMPREPLY=($(compgen -W "0.0" -- "$cur"))
 					[[ "$subcmd" == "head" ]] && [[ "${subsubcmd:0:6}" == "moveto" ]] && COMPREPLY=($(compgen -W "0.0" -- "$cur"))
+					;;
+				flash)
+					[[ "$subcmd" == "direct" ]] && COMPREPLY=($(compgen -W "MX X" -- "$cur"))
+					[[ "$subcmd" == "robot" ]] && COMPREPLY=($(compgen -W "MX X" -- "$cur"))
 					;;
 			esac
 			;;

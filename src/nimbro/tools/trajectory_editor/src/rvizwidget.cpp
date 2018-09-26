@@ -128,7 +128,7 @@ void RVizWidget::updateRobotDisplay(std::vector<std::string> &joint_list, std::v
 		return;
 	
 	// HACK  for adult robot   TODO: implement nicely
-	if(m_path_to_model == "/robots/nimbro_adult.urdf")
+	if(m_path_to_model == "/robots/nimbro_adult.urdf" || m_path_to_model == "/robots/nimbro_op2x_hull.urdf")
 	{
 		// Parallel joints
 		setAdultParallelJoints(joint_list, joint_positions, "right");

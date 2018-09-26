@@ -10,6 +10,8 @@
 #include "cm730/dynamixel.h"
 
 using namespace std;
+using namespace cm730;
+using namespace cm740;
 
 void runMegapacket(double freq, struct timespec seconds)
 {

@@ -176,7 +176,7 @@ void JointPerspective::nodeToPerspective(const YAML::Node& node)
 	for (std::size_t i = 0; i < joints.size(); i++)
 	{
 		const YAML::Node& parsed_joint = joints[i];
-		//std::cout << "Name: " << parsed_joint["name"].as<std::string>() << std::endl;
+		std::cout << "Name: " << parsed_joint["name"].as<std::string>() << std::endl;
 		
 		Joint joint;
 		joint.joint_name = parsed_joint["name"].as<std::string>();
